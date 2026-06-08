@@ -397,7 +397,7 @@ function closeAccordion(el) {
         if (th) { th.classList.remove('is-revealed'); }
     });
     el.classList.add('is-closing');
-    el.classList.remove('open');
+    el.classList.remove('open', 'is-engaged');
     setTimeout(function () {
         el.classList.remove('is-closing');
     }, 550);
@@ -437,10 +437,10 @@ document.addEventListener('click', function (e) {
         scrollToTrigger(trigger);
         pendingOpen = setTimeout(function () {
             pendingOpen = null;
-            trigger.classList.add('open');
+            trigger.classList.add('open', 'is-engaged');
         }, CLOSE_STAGGER);
     } else {
-        trigger.classList.add('open');
+        trigger.classList.add('open', 'is-engaged');
         scrollToTrigger(trigger);
     }
 });
