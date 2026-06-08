@@ -307,12 +307,17 @@ function closeFullscreen() {
             view.style.transition = 'none';
             view.style.transform = '';
             if (trigger) { closeDetail(trigger); }
-            requestAnimationFrame(function () { view.style.transition = ''; });
+            requestAnimationFrame(function () {
+                view.style.transition = '';
+                view.style.opacity = '';
+            });
         }
         view.addEventListener('transitionend', onEnd);
         requestAnimationFrame(function () {
-            view.style.transition = 'transform ' + TRANSITION + 'ms ' + SETTLE;
+            view.style.transition = 'transform ' + TRANSITION + 'ms ' + SETTLE
+                + ',opacity 200ms ease ' + (TRANSITION - 200) + 'ms';
             view.style.transform = 'none';
+            view.style.opacity = '0';
         });
     } else {
         requestAnimationFrame(function () {
