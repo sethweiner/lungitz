@@ -59,6 +59,7 @@ promoted to the root `lungitz-interactions.js` (production) and these can be pru
 | v2 | Single-image close | **Option A — image becomes resting state.** Shrinks from fullscreen back to the in-flow detail view and stays; no thumbnail handoff, so nothing can flash. Close lands on the big image; header/Esc collapses from there. |
 | v3 | Single-image close | **Option C — snap, no motion.** Leaves fullscreen and restores the preview instantly. Bulletproof, but no shrink feel. |
 | v4 | Single-image close | **Option B — keep thumbnail, match crops.** Forces the thumbnail to `object-fit:contain` so the FLIP lands pixel-identical to it; clean synchronous swap, no visibility pop. |
+| v5 | Engaged state | **v3 (snap close) + persistent engagement.** Open entry holds its rust look via `.open` (not cursor-driven); the thumbnail you were viewing keeps its veil lifted via a new `.is-revealed` hook until you click away. Sandbox-injects the styling for feel — final styling is a Designer handoff (mirror the `:hover` rules onto `.trigger-accordion.open` and `.wrapper-thumbnail.is-revealed .thumb-hover`). |
 
 _Lightbox trigger-zone variants (edge-strip nav / halves / hover chevrons) come
 next, layered onto whichever single-image option wins._
