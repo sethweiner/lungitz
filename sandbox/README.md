@@ -60,6 +60,7 @@ promoted to the root `lungitz-interactions.js` (production) and these can be pru
 | v3 | Single-image close | **Option C — snap, no motion.** Leaves fullscreen and restores the preview instantly. Bulletproof, but no shrink feel. |
 | v4 | Single-image close | **Option B — keep thumbnail, match crops.** Forces the thumbnail to `object-fit:contain` so the FLIP lands pixel-identical to it; clean synchronous swap, no visibility pop. |
 | v5 | Engaged state | **v3 (snap close) + persistent engagement.** Open entry holds its rust look via `.open` (not cursor-driven); the thumbnail you were viewing keeps its veil lifted via a new `.is-revealed` hook until you click away. Sandbox-injects the styling for feel — final styling is a Designer handoff (mirror the `:hover` rules onto `.trigger-accordion.open` and `.wrapper-thumbnail.is-revealed .thumb-hover`). |
+| v6 | Lightbox zones | **v5 + Option 1 trigger zones.** Invisible edge strips page prev/next (hover reveals a chevron); clicking the dark backdrop (off the image) closes; the image centre stays click-to-zoom. Stacking: close zone < image < nav strips < controls. Zones disable while zoomed (click = zoom-out, drag = pan); single-image hides the nav strips. |
 
-_Lightbox trigger-zone variants (edge-strip nav / halves / hover chevrons) come
-next, layered onto whichever single-image option wins._
+_Zone alternatives if Option 1 doesn't feel right: left/right halves nav (button+Esc
+close), or hover-chevron hotspots only. Spin as v7/v8 once v6 is felt._
