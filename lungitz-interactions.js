@@ -120,7 +120,7 @@ function thumbIndex(trigger, thumb) {
 
 function scrollToTrigger(trigger) {
     var col = trigger.closest('.wrapper-content'),
-        pad = 64, frames = 0, maxFrames = 60, smoothed, remainder = 0;
+        pad = 64, frames = 0, maxFrames = 60, smoothed;
     if (!col) {
         return;
     }
@@ -128,7 +128,7 @@ function scrollToTrigger(trigger) {
         var target = Math.max(0, col.scrollTop
                    + trigger.getBoundingClientRect().top
                    - col.getBoundingClientRect().top - pad),
-            diff, px;
+            diff;
         frames += 1;
         if (smoothed === undefined) {
             smoothed = target;
@@ -142,12 +142,7 @@ function scrollToTrigger(trigger) {
         if ((Math.abs(diff) < 1.5 && Math.abs(target - smoothed) < 1.5) || frames > maxFrames) {
             return;
         }
-        remainder += diff * 0.08;
-        px = Math.trunc(remainder);
-        if (px !== 0) {
-            col.scrollTop += px;
-            remainder -= px;
-        }
+        col.scrollTop += diff * 0.08;
         requestAnimationFrame(step);
     }
     requestAnimationFrame(step);
