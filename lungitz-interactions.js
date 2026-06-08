@@ -1,6 +1,10 @@
 (function () {
 'use strict';
 
+// Sandbox pages load their own variant via the ?v= loader (sandbox/vN.js).
+// Bail here so the site-wide production script doesn't double-bind with it.
+if (/\/sandbox\/?$/.test(location.pathname)) { return; }
+
 var TRIGGER    = '.trigger-accordion',
     HEADER     = '.header-accordion',
     CONTENT    = '.content-accordion',
