@@ -14,9 +14,6 @@ var TRIGGER    = '.trigger-accordion',
     DETAIL_IMG = '.detail-image',
     CAPTION    = '.caption-drawer',
     CAP_BODY   = '.caption-content',
-    FS_OVERLAY = '.immersive-overlay',
-    FS_IMAGE   = '.immersive-image',
-    FS_TITLE   = '[data-detail="title"]',
     TRANSITION = 500,
     SETTLE     = 'cubic-bezier(0.16, 1, 0.3, 1)',
     CLOSE_EASE = 'cubic-bezier(0.4, 0, 0.2, 1)',
@@ -55,20 +52,6 @@ var detail      = null,
             '.detail-view.is-active{transform:scale(1);opacity:1}',
             '.is-left .detail-view{transform-origin:left top}',
             '.is-right .detail-view{transform-origin:right top}',
-            '.detail-view.is-fullscreen{',
-            '  position:fixed;inset:0;z-index:999;',
-            '  background:' + INK + ';',
-            '}',
-            '.detail-view.is-fullscreen ' + DETAIL_IMG + '{',
-            '  width:100%;height:100%;object-fit:contain;',
-            '  cursor:zoom-in;',
-            '}',
-            '.detail-view.is-fullscreen ' + DETAIL_IMG + '.is-zoomed{',
-            '  cursor:grab;',
-            '}',
-            '.detail-view.is-fullscreen ' + DETAIL_IMG + '.is-panning{',
-            '  cursor:grabbing;',
-            '}',
             '.content-accordion{',
             '  transition:opacity 120ms ease;',
             '}',
@@ -260,6 +243,18 @@ function closeDetail(trigger) {
 
 // ── State 4 : Fullscreen (FLIP — same element promotes to fixed) ──
 
+// Propagate the .is-fullscreen state to every descendant so children can be
+// styled per-element in the Designer via `.child.is-fullscreen` combos (which
+// revert on close). Webflow can't author `.detail-view.is-fullscreen .child`
+// descendant rules, so the state class cascades instead.
+function propagateFs(view, on) {
+    var els = view.querySelectorAll('*'), i;
+    for (i = 0; i < els.length; i += 1) {
+        if (on) { els[i].classList.add('is-fullscreen'); }
+        else { els[i].classList.remove('is-fullscreen'); }
+    }
+}
+
 function openFullscreen() {
     var view, first, last, dx, dy, sx, sy;
     if (!detail) {
@@ -272,6 +267,7 @@ function openFullscreen() {
 
     first = view.getBoundingClientRect();
     view.classList.add('is-fullscreen');
+    propagateFs(view, true);
     last = view.getBoundingClientRect();
 
     dx = first.left + first.width / 2 - (last.left + last.width / 2);
@@ -313,12 +309,14 @@ function closeFullscreen() {
         view.style.transition = 'none';
         view.style.transform = '';
         view.classList.remove('is-fullscreen');
+        propagateFs(view, false);
         if (trigger) { closeDetail(trigger); }
         return;
     }
 
     first = view.getBoundingClientRect();
     view.classList.remove('is-fullscreen');
+    propagateFs(view, false);
     last = view.getBoundingClientRect();
 
     dx = first.left + first.width / 2 - (last.left + last.width / 2);
