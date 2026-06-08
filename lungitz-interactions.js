@@ -289,18 +289,35 @@ function closeFullscreen() {
     fs = null;
 
     if (wasSingle) {
-        view.style.transition = 'opacity 300ms ease';
-        view.style.opacity = '0';
+        first = view.getBoundingClientRect();
+        var sContent = trigger ? trigger.querySelector(CONTENT) : null;
+        var sImgWrap = sContent ? sContent.querySelector('.wrapper-images') : null;
+        var sThumb = trigger ? trigger.querySelector(W_THUMB) : null;
+        if (sImgWrap) { sImgWrap.style.display = ''; }
+        last = sThumb ? sThumb.getBoundingClientRect() : first;
+        if (sImgWrap) { sImgWrap.style.display = 'none'; }
+
+        dx = (last.left + last.width / 2) - (first.left + first.width / 2);
+        dy = (last.top + last.height / 2) - (first.top + first.height / 2);
+        sx = last.width / first.width;
+        sy = last.height / first.height;
+
+        requestAnimationFrame(function () {
+            view.style.transition = 'transform ' + TRANSITION + 'ms ' + SETTLE
+                + ',opacity 150ms ease ' + (TRANSITION - 150) + 'ms';
+            view.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + sx + ',' + sy + ')';
+            view.style.opacity = '0';
+        });
+
         setTimeout(function () {
             view.style.transition = 'none';
+            view.style.transform = '';
+            view.style.opacity = '';
             view.classList.remove('is-fullscreen');
             if (trigger) { closeDetail(trigger); }
-            requestAnimationFrame(function () {
-                view.style.transition = '';
-                view.style.opacity = '';
-                view.style.transform = '';
-            });
-        }, 300);
+            requestAnimationFrame(function () { view.style.transition = ''; });
+        }, TRANSITION + 50);
+
         return;
     }
 
