@@ -113,7 +113,13 @@ var detail      = null,
             '.detail-view.lb-zoomed .lb-zone{pointer-events:none}',
             // Single-image: no paging, hide the nav strips.
             '.detail-view.lb-single .lb-zone-prev,',
-            '.detail-view.lb-single .lb-zone-next{display:none}'
+            '.detail-view.lb-single .lb-zone-next{display:none}',
+            // Behaviour fix: stop rapid clicks from text-selecting the controls
+            // (prev/next etc.). Archival body text stays selectable.
+            '.header-accordion,.wrapper-thumbnail,',
+            '.detail-view [data-detail],.lb-zone{',
+            '  -webkit-user-select:none;user-select:none;',
+            '}'
         ],
         style = document.createElement('style'),
         ink, meta;
