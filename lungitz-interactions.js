@@ -303,19 +303,20 @@ function closeFullscreen() {
         sy = last.height / first.height;
 
         requestAnimationFrame(function () {
-            view.style.transition = 'transform ' + TRANSITION + 'ms ' + SETTLE
-                + ',opacity 150ms ease ' + (TRANSITION - 150) + 'ms';
+            view.style.transition = 'transform ' + TRANSITION + 'ms ' + SETTLE;
             view.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + sx + ',' + sy + ')';
-            view.style.opacity = '0';
         });
 
         setTimeout(function () {
+            view.style.visibility = 'hidden';
             view.style.transition = 'none';
             view.style.transform = '';
-            view.style.opacity = '';
             view.classList.remove('is-fullscreen');
             if (trigger) { closeDetail(trigger); }
-            requestAnimationFrame(function () { view.style.transition = ''; });
+            requestAnimationFrame(function () {
+                view.style.transition = '';
+                view.style.visibility = '';
+            });
         }, TRANSITION + 50);
 
         return;
