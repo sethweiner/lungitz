@@ -417,10 +417,10 @@ document.addEventListener('click', function (e) {
     });
 
     if (hadOpen) {
+        scrollToTrigger(trigger);
         pendingOpen = setTimeout(function () {
             pendingOpen = null;
             trigger.classList.add('open');
-            scrollToTrigger(trigger);
         }, CLOSE_STAGGER);
     } else {
         trigger.classList.add('open');
