@@ -198,6 +198,12 @@ function openDetail(trigger, idx, images) {
         return;
     }
 
+    // Engaged state: clear any previously-revealed thumbnail veil in this entry.
+    trigger.querySelectorAll(W_THUMB).forEach(function (t) {
+        var th = t.querySelector('.thumb-hover');
+        if (th) { th.classList.remove('is-revealed'); }
+    });
+
     thumb = trigger.querySelectorAll(W_THUMB)[idx];
     if (thumb && content) {
         thumbRect   = thumb.getBoundingClientRect();
@@ -241,6 +247,13 @@ function closeDetail(trigger) {
     }
 
     if (detail && detail.trigger === trigger) {
+        // Engaged state: keep the thumbnail you were viewing revealed (veil
+        // lifted) on return — styled in Designer via .thumb-hover.is-revealed.
+        var thumbs = trigger.querySelectorAll(W_THUMB);
+        if (thumbs[detail.idx]) {
+            var th = thumbs[detail.idx].querySelector('.thumb-hover');
+            if (th) { th.classList.add('is-revealed'); }
+        }
         detail = null;
     }
 }
@@ -292,37 +305,15 @@ function closeFullscreen() {
 
     fs = null;
 
+    // OPTION C (adopted): single-image close snaps instantly, no motion.
+    // The fullscreen-to-thumbnail morph was flash-prone; a clean snap back to
+    // the preview is bulletproof, and the entry stays engaged (rust + revealed
+    // thumbnail) so it doesn't feel abrupt.
     if (wasSingle) {
-        first = view.getBoundingClientRect();
-        var sContent = trigger ? trigger.querySelector(CONTENT) : null;
-        var sImgWrap = sContent ? sContent.querySelector('.wrapper-images') : null;
-        var sThumb = trigger ? trigger.querySelector(W_THUMB) : null;
-        if (sImgWrap) { sImgWrap.style.display = ''; }
-        last = sThumb ? sThumb.getBoundingClientRect() : first;
-        if (sImgWrap) { sImgWrap.style.display = 'none'; }
-
-        dx = (last.left + last.width / 2) - (first.left + first.width / 2);
-        dy = (last.top + last.height / 2) - (first.top + first.height / 2);
-        sx = last.width / first.width;
-        sy = last.height / first.height;
-
-        requestAnimationFrame(function () {
-            view.style.transition = 'transform ' + TRANSITION + 'ms ' + SETTLE;
-            view.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + sx + ',' + sy + ')';
-        });
-
-        setTimeout(function () {
-            view.style.visibility = 'hidden';
-            view.style.transition = 'none';
-            view.style.transform = '';
-            view.classList.remove('is-fullscreen');
-            if (trigger) { closeDetail(trigger); }
-            requestAnimationFrame(function () {
-                view.style.transition = '';
-                view.style.visibility = '';
-            });
-        }, TRANSITION + 50);
-
+        view.style.transition = 'none';
+        view.style.transform = '';
+        view.classList.remove('is-fullscreen');
+        if (trigger) { closeDetail(trigger); }
         return;
     }
 
@@ -401,6 +392,10 @@ function resetZoom() {
 
 function closeAccordion(el) {
     closeDetail(el);
+    el.querySelectorAll(W_THUMB).forEach(function (t) {
+        var th = t.querySelector('.thumb-hover');
+        if (th) { th.classList.remove('is-revealed'); }
+    });
     el.classList.add('is-closing');
     el.classList.remove('open');
     setTimeout(function () {
