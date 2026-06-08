@@ -286,6 +286,24 @@ function closeFullscreen() {
         resetZoom();
     }
 
+    fs = null;
+
+    if (wasSingle) {
+        view.style.transition = 'opacity 300ms ease';
+        view.style.opacity = '0';
+        setTimeout(function () {
+            view.style.transition = 'none';
+            view.classList.remove('is-fullscreen');
+            if (trigger) { closeDetail(trigger); }
+            requestAnimationFrame(function () {
+                view.style.transition = '';
+                view.style.opacity = '';
+                view.style.transform = '';
+            });
+        }, 300);
+        return;
+    }
+
     first = view.getBoundingClientRect();
     view.classList.remove('is-fullscreen');
     last = view.getBoundingClientRect();
@@ -298,37 +316,14 @@ function closeFullscreen() {
     view.style.transition = 'none';
     view.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + sx + ',' + sy + ')';
 
-    fs = null;
-
-    if (wasSingle) {
-        function onEnd(e) {
-            if (e.propertyName !== 'transform') { return; }
-            view.removeEventListener('transitionend', onEnd);
-            view.style.transition = 'none';
+    requestAnimationFrame(function () {
+        view.style.transition = 'transform ' + TRANSITION + 'ms ' + SETTLE;
+        view.style.transform = 'none';
+        setTimeout(function () {
+            view.style.transition = '';
             view.style.transform = '';
-            if (trigger) { closeDetail(trigger); }
-            requestAnimationFrame(function () {
-                view.style.transition = '';
-                view.style.opacity = '';
-            });
-        }
-        view.addEventListener('transitionend', onEnd);
-        requestAnimationFrame(function () {
-            view.style.transition = 'transform ' + TRANSITION + 'ms ' + SETTLE
-                + ',opacity 200ms ease ' + (TRANSITION - 200) + 'ms';
-            view.style.transform = 'none';
-            view.style.opacity = '0';
-        });
-    } else {
-        requestAnimationFrame(function () {
-            view.style.transition = 'transform ' + TRANSITION + 'ms ' + SETTLE;
-            view.style.transform = 'none';
-            setTimeout(function () {
-                view.style.transition = '';
-                view.style.transform = '';
-            }, TRANSITION);
-        });
-    }
+        }, TRANSITION);
+    });
 }
 
 // ── State 4b : Zoom + Pan ──
