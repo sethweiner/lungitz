@@ -829,7 +829,13 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             // Masthead breathes in fullscreen, rises above the backdrop, aligns its
             // outer words to the image edges + opens a corner slot for the ✕.
             '.nav.expand.is-immersive{margin:1.5rem;width:auto;z-index:1000;}',
-            '.nav.expand.is-immersive .nav-content{padding-left:0;padding-right:3rem;}',
+            // LUNGITZ stays dead-centre via a 3-col grid (1fr auto 1fr); the ✕ gets
+            // its room INSIDE the right cell, so the centre column never shifts.
+            '.nav-content{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;}',
+            '.nav-giveaways{justify-self:start;}',
+            '.nav-lungitz{justify-self:center;}',
+            '.nav-hideaways{justify-self:end;}',
+            '.nav.expand.is-immersive .nav-hideaways{padding-right:3rem;}',
             // Active realm word lit in the rust accent (accent-b-500).
             '.h5-nav.is-active{color:' + V('color-accent-b-500') + ';}',
             // Fullscreen ✕ — tucked into the frame corner; animates in (scale + fade).
