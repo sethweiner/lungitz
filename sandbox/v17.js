@@ -285,8 +285,8 @@ function propagateFs(view, on) {
 function lightRealm(side) {
     var g = document.querySelector('.nav-giveaways .h5-nav'),
         h = document.querySelector('.nav-hideaways .h5-nav');
-    if (g) { g.classList.toggle('is-active', side === 'giveaways'); }
-    if (h) { h.classList.toggle('is-active', side === 'hideaways'); }
+    if (g) { g.classList.toggle('is-realm', side === 'giveaways'); }
+    if (h) { h.classList.toggle('is-realm', side === 'hideaways'); }
 }
 
 // Immersive frame (Track B): in fullscreen the masthead persists as the frame
@@ -429,16 +429,12 @@ function zoomSet(img, s, clientX, clientY) {
 }
 
 // Click-step zoom (Seth's mouse model, layered with pinch + drag). Each click
-// cycles 1× → 2× → 4× → (the image's natural cap) → exit, toward the click point.
-// Steps cap at the image's real resolution so it never goes soft; pan persists
-// across steps. Esc → 1× via the keydown handler. Pinch (trackpad/touch) + drag
-// (everywhere) still work alongside this.
+// cycles 1× → 2× → 4× → exit, toward the click point; pan persists across steps;
+// Esc → 1× via the keydown handler. The cap is floored at 4× — these CMS scans are
+// ~screen-res, so a natural-resolution cap collapsed to 2× (Seth, 2026-06-09).
+// Pinch (trackpad/touch) + drag (everywhere) still work alongside this.
 function zoomStepClick(img, clientX, clientY) {
-    var rect = img.getBoundingClientRect(),
-        natS = Math.max(img.naturalWidth / rect.width, img.naturalHeight / rect.height),
-        maxS = Math.max(2, Math.min(natS, 6)),
-        raw = [2, 4, maxS].filter(function (s) { return s <= maxS + 0.05; }),
-        steps = raw.filter(function (s, j) { return j === 0 || s - raw[j - 1] > 0.3; }),
+    var steps = [2, 4],                              // 1×→2×→4×→exit
         cur = zoom ? zoom.scale : 1, next = null, i;
     for (i = 0; i < steps.length; i += 1) {
         if (steps[i] > cur + 0.05) { next = steps[i]; break; }
@@ -897,7 +893,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             '.nav-hideaways{justify-self:end;}',
             '.nav.expand.is-immersive .nav-hideaways{padding-right:3rem;}',
             // Active realm word lit in the rust accent (accent-b-500).
-            '.h5-nav.is-active{color:' + V('color-accent-b-500') + ';}',
+            '.h5-nav.is-realm{color:' + V('color-accent-b-500') + ';}',
             // Fullscreen ✕ — tucked into the frame corner; animates in (scale + fade).
             '.frame-close{',
             '  opacity:0;transform:scale(.85);pointer-events:none;',
