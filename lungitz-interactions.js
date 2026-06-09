@@ -883,31 +883,23 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             '.caption-content.is-fullscreen{justify-content:flex-start;align-items:baseline;grid-column-gap:' + V('space-3') + ';}',
             '.fs-count{display:none;}',
             '.caption-drawer.is-fullscreen .fs-count{display:inline-block;color:' + V('color-accent-a-500') + ';}',
-            // Masthead breathes in fullscreen, rises above the backdrop, aligns its
-            // outer words to the image edges + opens a corner slot for the ✕.
-            '.nav.expand.is-immersive{margin:1.5rem;width:auto;z-index:1000;}',
-            // LUNGITZ stays dead-centre via a 3-col grid (1fr auto 1fr); the ✕ gets
-            // its room INSIDE the right cell, so the centre column never shifts.
+            // Migrated to Designer combos (2026-06-09): masthead breathing
+            // (.nav.expand.is-immersive), the rust realm word (.h5-nav.is-realm), and
+            // the ✕ LOOK (.frame-close + :hover). Kept here: the 3-col centering grid
+            // + descendant rules (Webflow can't author descendants), and the ✕'s
+            // position + reveal motion.
             '.nav-content{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;}',
             '.nav-giveaways{justify-self:start;}',
             '.nav-lungitz{justify-self:center;}',
             '.nav-hideaways{justify-self:end;}',
             '.nav.expand.is-immersive .nav-hideaways{padding-right:3rem;}',
-            // Active realm word lit in the rust accent (accent-b-500).
-            '.h5-nav.is-realm{color:' + V('color-accent-b-500') + ';}',
-            // Fullscreen ✕ — tucked into the frame corner; animates in (scale + fade).
             '.frame-close{',
             '  opacity:0;transform:scale(.85);pointer-events:none;',
             '  position:absolute;top:0;bottom:0;right:' + V('space-1') + ';',
-            '  margin:auto 0;width:2.25rem;height:2.25rem;',
-            '  display:flex;align-items:center;justify-content:center;',
-            '  background:none;border:1px dashed ' + V('color-accent-a-500') + ';',
-            '  border-radius:2rem;color:' + V('color-accent-a-500') + ';',
-            '  cursor:pointer;font-family:inherit;line-height:1;',
+            '  margin:auto 0;font-family:inherit;',
             '  transition:opacity .3s,transform .3s,color .2s,border-color .2s;',
             '}',
             '.nav.expand.is-immersive .frame-close{opacity:1;transform:scale(1);pointer-events:auto;}',
-            '.frame-close:hover{color:' + V('color-ink-100') + ';border-color:' + V('color-ink-300') + ';}',
             '@media (max-width:640px){',
             '  .nav-menu{grid-template-columns:1fr;}',
             '  .nav-panel.is-hideaways{align-items:flex-start;}',
@@ -1056,18 +1048,13 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
 
     var V = function (n) { return 'var(--_lungitz---' + n + ')'; },
         css = [
-            '.arrange-ghost{position:fixed;z-index:1000;pointer-events:none;',
-            '  box-shadow:0 12px 40px rgba(0,0,0,.55);opacity:.94;transition:none!important;}',
+            // Looks migrated to Designer combos (.arrange-ghost, .arrange-placeholder,
+            // .wrapper-content.arrange-over, .arrange-hint). Kept here: the fixed
+            // positioning / z-index / pointer-events / transitions the drag depends on.
+            '.arrange-ghost{position:fixed;z-index:1000;pointer-events:none;transition:none!important;}',
             '.arrange-ghost *{pointer-events:none;}',
-            '.arrange-placeholder{border:1px dashed ' + V('color-accent-b-500') + ';',
-            '  border-radius:.3rem;background:rgba(154,90,74,.06);margin-bottom:' + V('space-3') + ';}',
             '.arrange-dragging,.arrange-dragging *{user-select:none!important;-webkit-user-select:none!important;}',
-            '.wrapper-content.arrange-over{box-shadow:inset 0 0 0 1px ' + V('color-accent-b-500') + ';}',
-            '.arrange-hint{position:fixed;z-index:1001;pointer-events:none;opacity:0;',
-            '  font-size:' + V('font-size-1') + ';text-transform:uppercase;letter-spacing:.14em;',
-            '  color:' + V('color-accent-b-500') + ';background:' + V('color-ink-900') + ';',
-            '  border:1px solid ' + V('color-accent-b-500') + ';border-radius:2rem;',
-            '  padding:' + V('space-1') + ' ' + V('space-3') + ';transition:opacity .15s;}'
+            '.arrange-hint{position:fixed;z-index:1001;pointer-events:none;opacity:0;transition:opacity .15s;}'
         ].join('\n'),
         styleEl = document.createElement('style');
     styleEl.textContent = css;
@@ -1212,8 +1199,8 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             'body.is-fs.is-fs-zoom .fs-nav{display:none;}',
             '.fs-nav.is-prev{left:1.5rem;justify-content:flex-start;padding-left:' + V('space-4') + ';}',
             '.fs-nav.is-next{right:1.5rem;justify-content:flex-end;padding-right:' + V('space-4') + ';}',
-            '.fs-chev{font-size:2.5rem;line-height:1;opacity:0;transition:opacity .2s,color .2s;',
-            '  color:' + V('color-accent-a-500') + ';text-shadow:0 1px 12px rgba(0,0,0,.6);}',
+            // .fs-chev glyph look migrated to the Designer; kept here: the reveal motion.
+            '.fs-chev{opacity:0;transition:opacity .2s,color .2s;}',
             '.fs-nav:hover .fs-chev{opacity:1;color:' + V('color-ink-100') + ';}'
         ].join('\n'),
         styleEl = document.createElement('style');
