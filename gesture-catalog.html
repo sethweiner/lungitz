@@ -111,10 +111,10 @@
   <!-- 01 DEPTH -->
   <section class="station">
     <header>
-      <div><span class="no">01</span> <h2>Depth — scroll to zoom</h2></div>
+      <div><span class="no">01</span> <h2>Depth — zoom + pan</h2></div>
       <div class="readout" id="depthReadout">Fullscreen · 1.0×</div>
     </header>
-    <p class="how">This is the fullscreen image. <b>Scroll to zoom</b> — wheel down zooms in toward the cursor (clamped at 4×), up zooms back to fit, then releases scrolling to the page. It <b>replaces click-to-zoom</b>; the state drawers stay click-driven (scrolling through them felt too fast).</p>
+    <p class="how">This is the fullscreen image. <b>Scroll down to zoom in</b> toward the cursor; once zoomed, <b>two-finger scroll or drag to pan</b>, and <b>pinch to fine-tune</b> the zoom (clamped 4×, stays in frame). At 1× it releases scrolling to the page. Replaces click-to-zoom; state drawers stay click-driven.</p>
     <div id="depthStage">
       <img id="depthImg" alt="" draggable="false"
         src="https://cdn.prod.website-files.com/69e8e51f80a95fd151812dd7/69ecca1d24c0eac6c1c5a199_69eca80229149d9fdd02b772_giveaway-lungitz-bahnhof-exterior-01.jpeg">
@@ -158,51 +158,74 @@
   'use strict';
   var clamp = function (v, lo, hi) { return Math.max(lo, Math.min(hi, v)); };
 
-  /* ════════ 01 · DEPTH — scroll-to-zoom ════════
-     Scroll = zoom ONLY (this is what ports to the real fullscreen, replacing the
-     click-to-zoom toggle). Scale 1→4, cursor-origin; wheel-down zooms in, wheel-up
-     zooms back to fit then releases scrolling to the page (no trap). State drawers
-     stay click-driven — scrolling through them felt too fast. */
+  /* ════════ 01 · DEPTH — zoom + pan ════════
+     Native image-viewer model (ports to the real fullscreen, replacing click-zoom):
+       · scroll-down at 1×  → enter zoom (toward cursor)
+       · pinch (ctrl+wheel) → ramp the zoom in/out (toward cursor)
+       · two-finger scroll while zoomed → PAN
+       · drag while zoomed  → PAN
+       · scroll-up at 1×    → release to the page
+     Pan is clamped to the image bounds so it can never slide out of frame. */
   (function depthStation() {
     var stage = document.getElementById('depthStage'),
         img   = document.getElementById('depthImg'),
         readout = document.getElementById('depthReadout'),
-        MAX = 4, SENS = 0.0045, scale = 1, cursor = null;
+        MAX = 4, scale = 1, ox = 50, oy = 50, panX = 0, panY = 0;
 
-    function render() {
-      if (scale > 1.001 && cursor) {
-        var r = stage.getBoundingClientRect();
-        img.style.transformOrigin =
-          clamp((cursor.x - r.left) / r.width * 100, 0, 100) + '% ' +
-          clamp((cursor.y - r.top) / r.height * 100, 0, 100) + '%';
-      } else {
-        img.style.transformOrigin = '50% 50%';
+    function apply() {
+      var r = stage.getBoundingClientRect(),
+          mx = r.width * (scale - 1) / 2, my = r.height * (scale - 1) / 2;
+      panX = clamp(panX, -mx, mx); panY = clamp(panY, -my, my);   // keep image in frame
+      img.style.transformOrigin = ox + '% ' + oy + '%';
+      img.style.transform = 'translate(' + panX + 'px,' + panY + 'px) scale(' + scale + ')';
+      readout.textContent = scale <= 1.001 ? 'Fullscreen · 1.0×'
+        : 'Zoom ' + scale.toFixed(2) + '× · scroll / drag to pan';
+    }
+    function setScale(s, cx, cy) {
+      var r = stage.getBoundingClientRect();
+      if (scale <= 1.001 && s > 1) {                 // entering zoom — anchor at cursor
+        ox = clamp((cx - r.left) / r.width * 100, 0, 100);
+        oy = clamp((cy - r.top) / r.height * 100, 0, 100);
+        panX = panY = 0;
       }
-      img.style.transform = 'scale(' + scale + ')';
-      readout.textContent = scale <= 1.001 ? 'Fullscreen · 1.0×' : 'Zoom · ' + scale.toFixed(2) + '×';
+      scale = clamp(s, 1, MAX);
+      if (scale <= 1.001) { scale = 1; panX = panY = 0; ox = oy = 50; img.classList.remove('is-zoomed'); }
+      else { img.classList.add('is-zoomed'); }
+      apply();
     }
 
     stage.addEventListener('wheel', function (e) {
-      var inDir = e.deltaY > 0;                          // down = zoom in
-      if ((inDir && scale >= MAX) || (!inDir && scale <= 1)) { return; }  // release at edges
+      if (e.ctrlKey) {                               // pinch → ramp zoom (toward cursor)
+        e.preventDefault();
+        setScale(scale - e.deltaY * 0.02, e.clientX, e.clientY);
+        return;
+      }
+      if (scale > 1.001) {                           // zoomed → two-finger scroll pans
+        e.preventDefault();
+        panX -= e.deltaX; panY -= e.deltaY; apply();
+        return;
+      }
+      if (e.deltaY > 0) {                            // at 1×, scroll-down enters zoom
+        e.preventDefault();
+        setScale(2, e.clientX, e.clientY);
+      }                                              // scroll-up at 1× → release to page
+    }, { passive: false });
+
+    // drag to pan (mouse, or one-finger trackpad press-drag)
+    var p = null;
+    stage.addEventListener('pointerdown', function (e) {
+      if (scale <= 1.001) { return; }
+      p = { x: e.clientX, y: e.clientY }; img.classList.add('is-panning');
+      try { stage.setPointerCapture(e.pointerId); } catch (x) {}
       e.preventDefault();
-      cursor = { x: e.clientX, y: e.clientY };
-      scale = clamp(scale + e.deltaY * SENS, 1, MAX);   // wheel-down (deltaY>0) zooms in
-      render();
-    }, { passive: false });
+    });
+    stage.addEventListener('pointermove', function (e) {
+      if (!p) { return; }
+      panX += e.clientX - p.x; panY += e.clientY - p.y; p.x = e.clientX; p.y = e.clientY; apply();
+    });
+    stage.addEventListener('pointerup', function () { p = null; img.classList.remove('is-panning'); });
 
-    // touch fallback: vertical drag zooms (real touch will use pinch later)
-    var ty = null;
-    stage.addEventListener('touchstart', function (e) { ty = e.touches[0].clientY; cursor = { x: e.touches[0].clientX, y: ty }; }, { passive: true });
-    stage.addEventListener('touchmove', function (e) {
-      if (ty === null) { return; }
-      var y = e.touches[0].clientY, dy = ty - y;
-      if ((dy > 0 && scale < MAX) || (dy < 0 && scale > 1)) { e.preventDefault(); }
-      scale = clamp(scale + dy * 0.01, 1, MAX); ty = y; cursor = { x: e.touches[0].clientX, y: y }; render();
-    }, { passive: false });
-    stage.addEventListener('touchend', function () { ty = null; });
-
-    render();
+    apply();
   }());
 
   /* ════════ 02 · LATERAL — prev / next ════════
