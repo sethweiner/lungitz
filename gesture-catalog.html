@@ -45,11 +45,11 @@
   #depthStage { position:relative; height:62vh; min-height:360px; overflow:hidden;
     background:#0b0b0b; border:1px solid var(--ink-700); border-radius:.4rem;
     display:flex; align-items:center; justify-content:center; cursor:ns-resize; touch-action:none; }
-  #depthImg { width:100%; height:100%; object-fit:contain; transform:scale(.34); transform-origin:50% 50%;
+  #depthImg { width:100%; height:100%; object-fit:contain; transform:scale(1); transform-origin:50% 50%;
     will-change:transform; user-select:none; -webkit-user-drag:none; pointer-events:none; }
   #depthCap { position:absolute; left:0; right:0; bottom:0; padding:var(--s3) var(--s4);
     background:linear-gradient(transparent,rgba(0,0,0,.78)); display:flex; gap:var(--s4);
-    font-size:var(--fz2); color:var(--ink-100); opacity:0; transform:translateY(8px); pointer-events:none; }
+    font-size:var(--fz2); color:var(--ink-100); pointer-events:none; }
   #depthCap .credit { color:var(--acc-b); }
   .stagepips { position:absolute; top:var(--s3); left:var(--s4); display:flex; gap:var(--s2); }
   .stagepips span { font-size:var(--fz1); text-transform:uppercase; letter-spacing:.1em; color:var(--ink-700); transition:color .2s; }
@@ -102,7 +102,7 @@
   </div>
 
   <div class="legend">
-    <div class="axis"><b>01 · Depth</b><p>Drill in ⟷ out. Closed → Preview → Detail → Fullscreen → Zoom. The escalation spine, made analog.</p></div>
+    <div class="axis"><b>01 · Depth</b><p>Scroll to zoom the focused image — replaces click-to-zoom, cursor-tracked, clamped at 4×. States stay click-driven (scrolling them felt too fast).</p></div>
     <div class="axis"><b>02 · Lateral</b><p>Prev ⟷ next within a level. Browse the set sideways without changing depth.</p></div>
     <div class="axis"><b>03 · Arrangement</b><p>Curate. Move an entry across columns — hideaways ⟷ giveaways. The gesture enacts the scaffold.</p></div>
     <div class="rule">Disambiguation — <b>wheel</b> = depth · <b>held-move</b> = arrange / pan · <b>quick-flick</b> = swipe · <b>tap</b> = step</div>
@@ -111,12 +111,11 @@
   <!-- 01 DEPTH -->
   <section class="station">
     <header>
-      <div><span class="no">01</span> <h2>Depth — scroll to drill</h2></div>
-      <div class="readout" id="depthReadout">Closed · depth 0.00</div>
+      <div><span class="no">01</span> <h2>Depth — scroll to zoom</h2></div>
+      <div class="readout" id="depthReadout">Fullscreen · 1.0×</div>
     </header>
-    <p class="how">Hover the image and <b>scroll down to drill in</b> (open → focus → fullscreen → keep zooming, clamped at 4×); scroll up to pull back out. At the top it hands scrolling back to the page — it never traps you. Zoom tracks the cursor.</p>
+    <p class="how">This is the fullscreen image. <b>Scroll to zoom</b> — wheel down zooms in toward the cursor (clamped at 4×), up zooms back to fit, then releases scrolling to the page. It <b>replaces click-to-zoom</b>; the state drawers stay click-driven (scrolling through them felt too fast).</p>
     <div id="depthStage">
-      <div class="stagepips" id="depthPips"></div>
       <img id="depthImg" alt="" draggable="false"
         src="https://cdn.prod.website-files.com/69e8e51f80a95fd151812dd7/69ecca1d24c0eac6c1c5a199_69eca80229149d9fdd02b772_giveaway-lungitz-bahnhof-exterior-01.jpeg">
       <div id="depthCap"><span>Lungitz Bahnhof — Exterior</span><span class="credit">Photo — Antoine Turillon</span></div>
@@ -159,31 +158,19 @@
   'use strict';
   var clamp = function (v, lo, hi) { return Math.max(lo, Math.min(hi, v)); };
 
-  /* ════════ 01 · DEPTH — scroll-to-drill ════════
-     One continuous depth value 0→6 maps the whole escalation:
-       0–1 Closed→Preview · 1–2 Preview→Detail · 2–3 Detail→Fullscreen · 3–6 Zoom 1×→4×.
-     Visual = a single scale (0.34 → 1.0 at fullscreen → 4.0 zoomed), cursor-origin past
-     fullscreen; the caption drawer fades in across Detail. Wheel is consumed only while
-     drilling — at either boundary, scrolling outward releases to the page (no trap). */
+  /* ════════ 01 · DEPTH — scroll-to-zoom ════════
+     Scroll = zoom ONLY (this is what ports to the real fullscreen, replacing the
+     click-to-zoom toggle). Scale 1→4, cursor-origin; wheel-down zooms in, wheel-up
+     zooms back to fit then releases scrolling to the page (no trap). State drawers
+     stay click-driven — scrolling through them felt too fast. */
   (function depthStation() {
     var stage = document.getElementById('depthStage'),
         img   = document.getElementById('depthImg'),
-        cap   = document.getElementById('depthCap'),
-        pipsEl = document.getElementById('depthPips'),
         readout = document.getElementById('depthReadout'),
-        MAX = 6, SENS = 0.006, depth = 0, cursor = null,
-        STAGES = ['Closed', 'Preview', 'Detail', 'Fullscreen'];
+        MAX = 4, SENS = 0.0045, scale = 1, cursor = null;
 
-    STAGES.forEach(function (s) {
-      var el = document.createElement('span'); el.textContent = s; pipsEl.appendChild(el);
-    });
-
-    function scaleAt(d) {
-      return d <= 3 ? 0.34 + (d / 3) * (1 - 0.34) : 1 + (d - 3);   // 0.34→1 then 1→4
-    }
     function render() {
-      var s = scaleAt(depth);
-      if (depth > 3 && cursor) {
+      if (scale > 1.001 && cursor) {
         var r = stage.getBoundingClientRect();
         img.style.transformOrigin =
           clamp((cursor.x - r.left) / r.width * 100, 0, 100) + '% ' +
@@ -191,35 +178,27 @@
       } else {
         img.style.transformOrigin = '50% 50%';
       }
-      img.style.transform = 'scale(' + s + ')';
-      // caption drawer reveals across Detail (depth ~1.6–2.6)
-      var capO = clamp((depth - 1.6) / 1, 0, 1);
-      cap.style.opacity = capO;
-      cap.style.transform = 'translateY(' + (8 - capO * 8) + 'px)';
-      // pips
-      var stage_i = depth >= 3 ? 3 : Math.floor(depth);
-      pipsEl.childNodes.forEach(function (n, i) { n.classList.toggle('on', i === stage_i); });
-      readout.textContent = (depth >= 3 ? 'Fullscreen' : STAGES[stage_i] + (depth > stage_i ? '→' + STAGES[stage_i + 1] : ''))
-        + ' · depth ' + depth.toFixed(2) + (depth > 3 ? ' · zoom ' + s.toFixed(1) + '×' : '');
+      img.style.transform = 'scale(' + scale + ')';
+      readout.textContent = scale <= 1.001 ? 'Fullscreen · 1.0×' : 'Zoom · ' + scale.toFixed(2) + '×';
     }
 
     stage.addEventListener('wheel', function (e) {
-      var inDir = e.deltaY > 0;                       // down = drill in
-      if ((inDir && depth >= MAX) || (!inDir && depth <= 0)) { return; } // release at edges
+      var inDir = e.deltaY > 0;                          // down = zoom in
+      if ((inDir && scale >= MAX) || (!inDir && scale <= 1)) { return; }  // release at edges
       e.preventDefault();
       cursor = { x: e.clientX, y: e.clientY };
-      depth = clamp(depth + e.deltaY * SENS, 0, MAX);
+      scale = clamp(scale + e.deltaY * SENS, 1, MAX);   // wheel-down (deltaY>0) zooms in
       render();
     }, { passive: false });
 
-    // touch fallback: vertical drag drills (so the bench works on mobile too)
+    // touch fallback: vertical drag zooms (real touch will use pinch later)
     var ty = null;
     stage.addEventListener('touchstart', function (e) { ty = e.touches[0].clientY; cursor = { x: e.touches[0].clientX, y: ty }; }, { passive: true });
     stage.addEventListener('touchmove', function (e) {
       if (ty === null) { return; }
       var y = e.touches[0].clientY, dy = ty - y;
-      if ((dy > 0 && depth < MAX) || (dy < 0 && depth > 0)) { e.preventDefault(); }
-      depth = clamp(depth + dy * 0.012, 0, MAX); ty = y; cursor = { x: e.touches[0].clientX, y: y }; render();
+      if ((dy > 0 && scale < MAX) || (dy < 0 && scale > 1)) { e.preventDefault(); }
+      scale = clamp(scale + dy * 0.01, 1, MAX); ty = y; cursor = { x: e.touches[0].clientX, y: y }; render();
     }, { passive: false });
     stage.addEventListener('touchend', function () { ty = null; });
 
