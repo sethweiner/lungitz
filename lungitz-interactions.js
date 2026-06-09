@@ -60,6 +60,15 @@ var detail      = null,
             '}',
             '.trigger-accordion.is-closing .content-accordion{',
             '  opacity:0;',
+            '}',
+            // Caption-drawer collapse motion lives here in code, not the Designer:
+            // Webflow's "invalid styles" audit rejects a transition on
+            // grid-template-rows and blocks publishing. The Designer keeps only the
+            // static grid (display:grid; rows auto 1fr → auto 0fr on .is-collapsed);
+            // the smooth collapse is injected (our motion-in-code split). Remove the
+            // grid-template-rows transition from .caption-drawer in the Designer.
+            '.caption-drawer{',
+            '  transition:grid-template-rows .45s ' + SETTLE + ';',
             '}'
         ],
         style = document.createElement('style'),
