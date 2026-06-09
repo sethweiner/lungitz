@@ -61,6 +61,11 @@ promoted to the root `lungitz-interactions.js` (production) and these can be pru
 | v4 | Single-image close | **Option B — keep thumbnail, match crops.** Forces the thumbnail to `object-fit:contain` so the FLIP lands pixel-identical to it; clean synchronous swap, no visibility pop. |
 | v5 | Engaged state | **v3 (snap close) + persistent engagement.** Open entry holds its rust look via `.open` (not cursor-driven); the thumbnail you were viewing keeps its veil lifted via a new `.is-revealed` hook until you click away. Sandbox-injects the styling for feel — final styling is a Designer handoff (mirror the `:hover` rules onto `.trigger-accordion.open` and `.wrapper-thumbnail.is-revealed .thumb-hover`). |
 | v6 | Lightbox zones | **v5 + Option 1 trigger zones.** Invisible edge strips page prev/next (hover reveals a chevron); clicking the dark backdrop (off the image) closes; the image centre stays click-to-zoom. Stacking: close zone < image < nav strips < controls. Zones disable while zoomed (click = zoom-out, drag = pan); single-image hides the nav strips. |
+| v7 | **Masthead menu (Track A)** | **First variant on current production `c745464`** (Designer-owned fullscreen CSS + propagateFs), NOT forked from v1–v6. Adds the click-to-toggle masthead menu: GIVEAWAYS (left, people) · LUNGITZ (center/home) · HIDEAWAYS (right, places). A side word expands the `.nav` into a 2-column menu (giveaways left-aligned / hideaways right-aligned) constrained to the nav's 96vw — fixes the ~1900px right-panel overflow. Click an item → content loads in a panel below; menu stays open. Close: LUNGITZ / Esc / outside. Mobile stacks. Content is placeholder copy from the mockups (real CMS-vs-static sourcing TBD). New hooks: `.nav.is-open`, `.nav-menu`, `.nav-panel.is-giveaways/.is-hideaways`, `.nav-item.is-current`, `.nav-detail.is-shown`. |
+
+> ⚠️ **Base new variants (v7+) on current production `c745464`, not v1–v6** —
+> those predate the 2026-06-09 fullscreen→Designer migration and still inject
+> the old fullscreen CSS (now conflicts with the Designer combos).
 
 _Zone alternatives if Option 1 doesn't feel right: left/right halves nav (button+Esc
-close), or hover-chevron hotspots only. Spin as v7/v8 once v6 is felt._
+close), or hover-chevron hotspots only. Spin as v8 once v6/v7 are felt._
