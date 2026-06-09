@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Lungitz — Gesture Catalog</title>
+<style>
+  :root {
+    /* Real Lungitz tokens (lungitz.shared.css) */
+    --ink-900:#111; --ink-700:#3a3a3a; --ink-500:#6a6a6a; --ink-300:#a8a8a8; --ink-100:#e5e5e5;
+    --acc-a:#4a5d7e; --acc-a-700:#2f3f5a;   /* slate — the masthead words */
+    --acc-b:#9a5a4a; --acc-b-700:#6e3d2f;   /* rust — the active / reveal accent */
+    --paper:#f6f5f2;
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:24px; --s8:32px; --s10:40px; --s12:48px; --s16:64px;
+    --fz1:12px; --fz2:14px; --fz3:16px; --fz5:20px; --fz6:24px; --fz8:32px;
+    --settle:cubic-bezier(.16,1,.3,1);
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; background:var(--ink-900); color:var(--acc-a);
+    font-family:'Helvetica Neue',Arial,sans-serif; -webkit-font-smoothing:antialiased; }
+  body { padding:var(--s4); }
+  a { color:inherit; }
+
+  .head { display:flex; justify-content:space-between; align-items:baseline; gap:var(--s4);
+    border:1px dashed var(--acc-a); border-radius:.6rem; padding:var(--s3) var(--s4); margin-bottom:var(--s4); }
+  .head h1 { margin:0; font-size:var(--fz8); letter-spacing:-.04em; text-transform:uppercase; color:var(--ink-100); }
+  .head .sub { font-size:var(--fz1); text-transform:uppercase; letter-spacing:.12em; color:var(--ink-500); }
+
+  .legend { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--s3); margin-bottom:var(--s4); }
+  .legend .axis { border:1px dashed var(--ink-700); border-radius:.6rem; padding:var(--s3); }
+  .legend .axis b { color:var(--acc-b); text-transform:uppercase; letter-spacing:.06em; font-size:var(--fz2); }
+  .legend .axis p { margin:var(--s2) 0 0; font-size:var(--fz2); color:var(--ink-300); line-height:1.45; }
+  .legend .rule { grid-column:1/-1; font-size:var(--fz1); color:var(--ink-500); text-transform:uppercase; letter-spacing:.1em; }
+  .legend .rule b { color:var(--ink-300); }
+
+  .station { border:1px dashed var(--acc-a); border-radius:.6rem; padding:var(--s4); margin-bottom:var(--s4); }
+  .station > header { display:flex; justify-content:space-between; align-items:baseline; gap:var(--s4); margin-bottom:var(--s3); }
+  .station .no { font-size:var(--fz1); color:var(--ink-500); letter-spacing:.2em; }
+  .station h2 { margin:0; font-size:var(--fz6); text-transform:uppercase; letter-spacing:-.02em; color:var(--ink-100); }
+  .station .how { font-size:var(--fz2); color:var(--ink-300); max-width:48ch; }
+  .station .readout { font-size:var(--fz1); color:var(--acc-b); text-transform:uppercase; letter-spacing:.12em;
+    border:1px solid var(--ink-700); border-radius:2rem; padding:var(--s1) var(--s3); white-space:nowrap; }
+
+  /* ── 01 DEPTH ── */
+  #depthStage { position:relative; height:62vh; min-height:360px; overflow:hidden;
+    background:#0b0b0b; border:1px solid var(--ink-700); border-radius:.4rem;
+    display:flex; align-items:center; justify-content:center; cursor:ns-resize; touch-action:none; }
+  #depthImg { width:100%; height:100%; object-fit:contain; transform:scale(.34); transform-origin:50% 50%;
+    will-change:transform; user-select:none; -webkit-user-drag:none; pointer-events:none; }
+  #depthCap { position:absolute; left:0; right:0; bottom:0; padding:var(--s3) var(--s4);
+    background:linear-gradient(transparent,rgba(0,0,0,.78)); display:flex; gap:var(--s4);
+    font-size:var(--fz2); color:var(--ink-100); opacity:0; transform:translateY(8px); pointer-events:none; }
+  #depthCap .credit { color:var(--acc-b); }
+  .stagepips { position:absolute; top:var(--s3); left:var(--s4); display:flex; gap:var(--s2); }
+  .stagepips span { font-size:var(--fz1); text-transform:uppercase; letter-spacing:.1em; color:var(--ink-700); transition:color .2s; }
+  .stagepips span.on { color:var(--acc-b); }
+
+  /* ── 02 LATERAL ── */
+  #latStage { position:relative; height:42vh; min-height:280px; overflow:hidden;
+    background:#0b0b0b; border:1px solid var(--ink-700); border-radius:.4rem; touch-action:pan-y; }
+  #latTrack { display:flex; height:100%; transition:transform .5s var(--settle); }
+  #latTrack .slide { flex:0 0 100%; height:100%; display:flex; align-items:center; justify-content:center; }
+  #latTrack img { max-width:100%; max-height:100%; object-fit:contain; user-select:none; -webkit-user-drag:none; }
+  .latnav { position:absolute; top:0; bottom:0; width:18%; display:flex; align-items:center; cursor:pointer; opacity:0; transition:opacity .2s; }
+  .latnav.prev { left:0; justify-content:flex-start; padding-left:var(--s4); }
+  .latnav.next { right:0; justify-content:flex-end; padding-right:var(--s4); }
+  #latStage:hover .latnav { opacity:1; }
+  .latnav .chev { font-size:var(--fz8); color:var(--ink-100); text-shadow:0 1px 8px #000; }
+  .latdots { position:absolute; bottom:var(--s3); left:0; right:0; display:flex; gap:var(--s2); justify-content:center; }
+  .latdots b { width:7px; height:7px; border-radius:50%; background:var(--ink-700); transition:background .2s; }
+  .latdots b.on { background:var(--acc-b); }
+
+  /* ── 03 ARRANGEMENT ── */
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:var(--s4); }
+  .col { border:1px dashed var(--ink-700); border-radius:.4rem; padding:var(--s3); min-height:260px; transition:border-color .2s,background .2s; }
+  .col.over { border-color:var(--acc-b); background:rgba(154,90,74,.06); }
+  .col > h3 { margin:0 0 var(--s3); font-size:var(--fz2); text-transform:uppercase; letter-spacing:.12em; color:var(--acc-a); display:flex; justify-content:space-between; }
+  .col > h3 .tag { color:var(--ink-500); font-size:var(--fz1); }
+  .card { border:1px solid var(--ink-700); border-radius:.3rem; background:#161616; padding:var(--s3);
+    margin-bottom:var(--s2); cursor:grab; user-select:none; touch-action:none;
+    transition:transform .42s var(--settle),box-shadow .2s,border-color .2s,opacity .2s; }
+  .card:hover { border-color:var(--acc-a); }
+  .card .t { font-size:var(--fz3); color:var(--ink-100); }
+  .card .m { font-size:var(--fz1); color:var(--ink-500); text-transform:uppercase; letter-spacing:.08em; margin-top:var(--s1); }
+  .card.dragging { cursor:grabbing; opacity:.25; }
+  .card.ghost { position:fixed; z-index:50; pointer-events:none; width:auto; box-shadow:0 12px 40px rgba(0,0,0,.6);
+    border-color:var(--acc-b); transition:none; transform:rotate(-1.2deg) scale(1.02); }
+  .placeholder { border:1px dashed var(--acc-b); border-radius:.3rem; background:rgba(154,90,74,.05); margin-bottom:var(--s2); }
+  #dragHint { position:fixed; z-index:60; pointer-events:none; font-size:var(--fz1); text-transform:uppercase;
+    letter-spacing:.14em; color:var(--acc-b); background:var(--ink-900); border:1px solid var(--acc-b);
+    border-radius:2rem; padding:var(--s1) var(--s3); opacity:0; transition:opacity .15s; }
+
+  .foot { font-size:var(--fz1); color:var(--ink-500); text-transform:uppercase; letter-spacing:.1em; padding:var(--s2) var(--s3); }
+  @media (max-width:720px){ .legend{grid-template-columns:1fr;} .head h1{font-size:var(--fz6);} }
+</style>
+</head>
+<body>
+
+  <div class="head">
+    <h1>Lungitz · Gesture Catalog</h1>
+    <span class="sub">haptics bench — v1 · ephemeral</span>
+  </div>
+
+  <div class="legend">
+    <div class="axis"><b>01 · Depth</b><p>Drill in ⟷ out. Closed → Preview → Detail → Fullscreen → Zoom. The escalation spine, made analog.</p></div>
+    <div class="axis"><b>02 · Lateral</b><p>Prev ⟷ next within a level. Browse the set sideways without changing depth.</p></div>
+    <div class="axis"><b>03 · Arrangement</b><p>Curate. Move an entry across columns — hideaways ⟷ giveaways. The gesture enacts the scaffold.</p></div>
+    <div class="rule">Disambiguation — <b>wheel</b> = depth · <b>held-move</b> = arrange / pan · <b>quick-flick</b> = swipe · <b>tap</b> = step</div>
+  </div>
+
+  <!-- 01 DEPTH -->
+  <section class="station">
+    <header>
+      <div><span class="no">01</span> <h2>Depth — scroll to drill</h2></div>
+      <div class="readout" id="depthReadout">Closed · depth 0.00</div>
+    </header>
+    <p class="how">Hover the image and <b>scroll down to drill in</b> (open → focus → fullscreen → keep zooming, clamped at 4×); scroll up to pull back out. At the top it hands scrolling back to the page — it never traps you. Zoom tracks the cursor.</p>
+    <div id="depthStage">
+      <div class="stagepips" id="depthPips"></div>
+      <img id="depthImg" alt="" draggable="false"
+        src="https://cdn.prod.website-files.com/69e8e51f80a95fd151812dd7/69ecca1d24c0eac6c1c5a199_69eca80229149d9fdd02b772_giveaway-lungitz-bahnhof-exterior-01.jpeg">
+      <div id="depthCap"><span>Lungitz Bahnhof — Exterior</span><span class="credit">Photo — Antoine Turillon</span></div>
+    </div>
+  </section>
+
+  <!-- 02 LATERAL -->
+  <section class="station">
+    <header>
+      <div><span class="no">02</span> <h2>Lateral — prev / next</h2></div>
+      <div class="readout" id="latReadout">1 / 5</div>
+    </header>
+    <p class="how">Browse sideways without changing depth: <b>← →</b> arrow keys, the hover chevrons, or <b>flick / drag</b> horizontally to swipe. One quick gesture = one step.</p>
+    <div id="latStage" tabindex="0">
+      <div id="latTrack"></div>
+      <div class="latnav prev" data-dir="-1"><span class="chev">‹</span></div>
+      <div class="latnav next" data-dir="1"><span class="chev">›</span></div>
+      <div class="latdots" id="latDots"></div>
+    </div>
+  </section>
+
+  <!-- 03 ARRANGEMENT -->
+  <section class="station">
+    <header>
+      <div><span class="no">03</span> <h2>Arrangement — drag to curate</h2></div>
+      <div class="readout">ephemeral · resets on reload</div>
+    </header>
+    <p class="how"><b>Drag an entry</b> to reorder it, or carry it across to the other column. Dragging toward <b>giveaways</b> gives it away (reveals); toward <b>hideaways</b> hides it. Drops settle with the drawer easing. Nothing is saved — this is a personal re-reading of the archive.</p>
+    <div class="cols">
+      <div class="col" data-col="hideaways"><h3>Hideaways <span class="tag">where · found</span></h3></div>
+      <div class="col" data-col="giveaways"><h3>Giveaways <span class="tag">whom · given</span></h3></div>
+    </div>
+  </section>
+
+  <div class="foot">A bench, not the site — gestures proven here get wired into the sandbox variants one at a time.</div>
+  <div id="dragHint"></div>
+
+<script>
+(function () {
+  'use strict';
+  var clamp = function (v, lo, hi) { return Math.max(lo, Math.min(hi, v)); };
+
+  /* ════════ 01 · DEPTH — scroll-to-drill ════════
+     One continuous depth value 0→6 maps the whole escalation:
+       0–1 Closed→Preview · 1–2 Preview→Detail · 2–3 Detail→Fullscreen · 3–6 Zoom 1×→4×.
+     Visual = a single scale (0.34 → 1.0 at fullscreen → 4.0 zoomed), cursor-origin past
+     fullscreen; the caption drawer fades in across Detail. Wheel is consumed only while
+     drilling — at either boundary, scrolling outward releases to the page (no trap). */
+  (function depthStation() {
+    var stage = document.getElementById('depthStage'),
+        img   = document.getElementById('depthImg'),
+        cap   = document.getElementById('depthCap'),
+        pipsEl = document.getElementById('depthPips'),
+        readout = document.getElementById('depthReadout'),
+        MAX = 6, SENS = 0.006, depth = 0, cursor = null,
+        STAGES = ['Closed', 'Preview', 'Detail', 'Fullscreen'];
+
+    STAGES.forEach(function (s) {
+      var el = document.createElement('span'); el.textContent = s; pipsEl.appendChild(el);
+    });
+
+    function scaleAt(d) {
+      return d <= 3 ? 0.34 + (d / 3) * (1 - 0.34) : 1 + (d - 3);   // 0.34→1 then 1→4
+    }
+    function render() {
+      var s = scaleAt(depth);
+      if (depth > 3 && cursor) {
+        var r = stage.getBoundingClientRect();
+        img.style.transformOrigin =
+          clamp((cursor.x - r.left) / r.width * 100, 0, 100) + '% ' +
+          clamp((cursor.y - r.top) / r.height * 100, 0, 100) + '%';
+      } else {
+        img.style.transformOrigin = '50% 50%';
+      }
+      img.style.transform = 'scale(' + s + ')';
+      // caption drawer reveals across Detail (depth ~1.6–2.6)
+      var capO = clamp((depth - 1.6) / 1, 0, 1);
+      cap.style.opacity = capO;
+      cap.style.transform = 'translateY(' + (8 - capO * 8) + 'px)';
+      // pips
+      var stage_i = depth >= 3 ? 3 : Math.floor(depth);
+      pipsEl.childNodes.forEach(function (n, i) { n.classList.toggle('on', i === stage_i); });
+      readout.textContent = (depth >= 3 ? 'Fullscreen' : STAGES[stage_i] + (depth > stage_i ? '→' + STAGES[stage_i + 1] : ''))
+        + ' · depth ' + depth.toFixed(2) + (depth > 3 ? ' · zoom ' + s.toFixed(1) + '×' : '');
+    }
+
+    stage.addEventListener('wheel', function (e) {
+      var inDir = e.deltaY > 0;                       // down = drill in
+      if ((inDir && depth >= MAX) || (!inDir && depth <= 0)) { return; } // release at edges
+      e.preventDefault();
+      cursor = { x: e.clientX, y: e.clientY };
+      depth = clamp(depth + e.deltaY * SENS, 0, MAX);
+      render();
+    }, { passive: false });
+
+    // touch fallback: vertical drag drills (so the bench works on mobile too)
+    var ty = null;
+    stage.addEventListener('touchstart', function (e) { ty = e.touches[0].clientY; cursor = { x: e.touches[0].clientX, y: ty }; }, { passive: true });
+    stage.addEventListener('touchmove', function (e) {
+      if (ty === null) { return; }
+      var y = e.touches[0].clientY, dy = ty - y;
+      if ((dy > 0 && depth < MAX) || (dy < 0 && depth > 0)) { e.preventDefault(); }
+      depth = clamp(depth + dy * 0.012, 0, MAX); ty = y; cursor = { x: e.touches[0].clientX, y: y }; render();
+    }, { passive: false });
+    stage.addEventListener('touchend', function () { ty = null; });
+
+    render();
+  }());
+
+  /* ════════ 02 · LATERAL — prev / next ════════
+     Sideways through the set without changing depth: arrows, hover chevrons, flick/drag. */
+  (function lateralStation() {
+    var IMAGES = [
+      ['Nordfassade (North Façade)', 'giveaway-nordfassade-01'],
+      ['Walking Tour Map (FdR 2023)', 'giveaway-walking-tour-map-2023-01'],
+      ['Views to and from Lungitz', 'giveaway-views-to-and-from-lungitz-01'],
+      ['Lungitz Bahnhof — Exterior', 'giveaway-lungitz-bahnhof-exterior-01'],
+      ['Lungitz Bahnhof — Interior', 'giveaway-lungitz-bahnhof-interior-01']
+    ];
+    var SRC = {
+      'giveaway-nordfassade-01': '69ecc9ab5d5753663d7c905b_69eca7f56a3ed8d599d368e2',
+      'giveaway-walking-tour-map-2023-01': '69ecca170a2b2e121dc5a25f_69eca7f8a1b7ae5f2b6895b4',
+      'giveaway-views-to-and-from-lungitz-01': '69ecca1c26d04864b4d685b7_69eca7ff48b53ac2d2294b2f',
+      'giveaway-lungitz-bahnhof-exterior-01': '69ecca1d24c0eac6c1c5a199_69eca80229149d9fdd02b772',
+      'giveaway-lungitz-bahnhof-interior-01': '69ecca2088bafdc68314ee4b_69eca807b1b90523ba56256c'
+    };
+    var base = 'https://cdn.prod.website-files.com/69e8e51f80a95fd151812dd7/';
+    var track = document.getElementById('latTrack'),
+        dotsEl = document.getElementById('latDots'),
+        readout = document.getElementById('latReadout'),
+        stage = document.getElementById('latStage'),
+        idx = 0;
+
+    IMAGES.forEach(function (im, i) {
+      var sl = document.createElement('div'); sl.className = 'slide';
+      var el = document.createElement('img'); el.alt = im[0]; el.draggable = false;
+      el.src = base + SRC[im[1]] + '_' + im[1] + '.jpeg';
+      sl.appendChild(el); track.appendChild(sl);
+      var d = document.createElement('b'); dotsEl.appendChild(d);
+    });
+
+    function go(dir) { idx = (idx + dir + IMAGES.length) % IMAGES.length; render(); }
+    function render() {
+      track.style.transform = 'translateX(' + (-idx * 100) + '%)';
+      readout.textContent = (idx + 1) + ' / ' + IMAGES.length + '  ·  ' + IMAGES[idx][0];
+      dotsEl.childNodes.forEach(function (n, i) { n.classList.toggle('on', i === idx); });
+    }
+
+    [].forEach.call(document.querySelectorAll('.latnav'), function (z) {
+      z.addEventListener('click', function () { go(+z.dataset.dir); });
+    });
+    stage.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowLeft') { go(-1); } else if (e.key === 'ArrowRight') { go(1); }
+    });
+    // flick / drag to swipe
+    var sx = null;
+    stage.addEventListener('pointerdown', function (e) { sx = e.clientX; });
+    window.addEventListener('pointerup', function (e) {
+      if (sx === null) { return; }
+      var dx = e.clientX - sx; sx = null;
+      if (Math.abs(dx) > 45) { go(dx < 0 ? 1 : -1); }
+    });
+    render();
+  }());
+
+  /* ════════ 03 · ARRANGEMENT — drag to curate (ephemeral) ════════
+     Pointer-drag a card: a fixed ghost follows the pointer, a placeholder marks the drop
+     slot (reorder within a column or move across), and the drop settles with the drawer
+     easing (FLIP). Moving toward a column flashes the conceptual label. Resets on reload. */
+  (function arrangeStation() {
+    var ENTRIES = {
+      hideaways: [
+        ['Bahnhof Lungitz', 'Archiv · 1968'],
+        ['Bahnhofschronik Vol. 1', 'Gedenkstätte · 1935–63'],
+        ['Ziegelwerk', 'lungitz.com · ca. 1970'],
+        ['Das KZ-Lager Gusen III', 'Heimatverein · 1997']
+      ],
+      giveaways: [
+        ['Nordfassade (North Façade)', 'Intervention · Turillon, Weiner'],
+        ['Walking Tour Map (FdR 2023)', 'Printed matter · Pirklbauer'],
+        ['Views to and from Lungitz', 'Photography · Turillon'],
+        ['Lungitz Bahnhof — Exterior', 'Documentation · Grünwald']
+      ]
+    };
+    var cols = {}, hint = document.getElementById('dragHint');
+    [].forEach.call(document.querySelectorAll('.col'), function (c) { cols[c.dataset.col] = c; });
+
+    function makeCard(title, meta) {
+      var c = document.createElement('div'); c.className = 'card';
+      c.innerHTML = '<div class="t"></div><div class="m"></div>';
+      c.querySelector('.t').textContent = title;
+      c.querySelector('.m').textContent = meta;
+      c.addEventListener('pointerdown', startDrag);
+      return c;
+    }
+    Object.keys(ENTRIES).forEach(function (k) {
+      ENTRIES[k].forEach(function (e) { cols[k].appendChild(makeCard(e[0], e[1])); });
+    });
+
+    var drag = null, placeholder = null;
+
+    function startDrag(e) {
+      if (e.button) { return; }
+      var card = e.currentTarget, r = card.getBoundingClientRect();
+      drag = { card: card, dx: e.clientX - r.left, dy: e.clientY - r.top, w: r.width, h: r.height, moved: false };
+      card.setPointerCapture(e.pointerId);
+      card.addEventListener('pointermove', onMove);
+      card.addEventListener('pointerup', endDrag);
+      card.addEventListener('pointercancel', endDrag);
+      e.preventDefault();
+    }
+
+    function onMove(e) {
+      if (!drag) { return; }
+      if (!drag.moved) {
+        if (Math.abs(e.clientX - (drag.card.getBoundingClientRect().left + drag.dx)) < 4 &&
+            Math.abs(e.clientY - (drag.card.getBoundingClientRect().top + drag.dy)) < 4) { return; }
+        beginGhost();
+      }
+      drag.card.style.left = (e.clientX - drag.dx) + 'px';
+      drag.card.style.top = (e.clientY - drag.dy) + 'px';
+      placeAt(e.clientX, e.clientY);
+    }
+
+    function beginGhost() {
+      drag.moved = true;
+      var card = drag.card;
+      placeholder = document.createElement('div');
+      placeholder.className = 'placeholder';
+      placeholder.style.height = drag.h + 'px';
+      card.parentNode.insertBefore(placeholder, card);
+      card.classList.add('ghost');
+      card.style.width = drag.w + 'px';
+      card.style.left = (card.getBoundingClientRect().left) + 'px';
+      card.style.top = (card.getBoundingClientRect().top) + 'px';
+    }
+
+    function placeAt(x, y) {
+      var col = null;
+      Object.keys(cols).forEach(function (k) {
+        var r = cols[k].getBoundingClientRect();
+        cols[k].classList.toggle('over', x >= r.left && x <= r.right);
+        if (x >= r.left && x <= r.right) { col = cols[k]; }
+      });
+      if (!col) { hint.style.opacity = 0; return; }
+      // conceptual label
+      var into = col.dataset.col, from = placeholder.closest('.col');
+      if (from && from !== col) {
+        hint.textContent = into === 'giveaways' ? 'giving away ↗' : 'hiding away ↘';
+        hint.style.left = (x + 16) + 'px'; hint.style.top = (y + 16) + 'px'; hint.style.opacity = 1;
+      } else { hint.style.opacity = 0; }
+      // find insert position among real cards in this column
+      var after = null, cards = [].filter.call(col.children, function (n) { return n.classList.contains('card') && !n.classList.contains('ghost'); });
+      for (var i = 0; i < cards.length; i++) {
+        var cr = cards[i].getBoundingClientRect();
+        if (y < cr.top + cr.height / 2) { after = cards[i]; break; }
+      }
+      if (after) { col.insertBefore(placeholder, after); }
+      else { col.appendChild(placeholder); }
+    }
+
+    function endDrag(e) {
+      var card = drag.card;
+      card.removeEventListener('pointermove', onMove);
+      card.removeEventListener('pointerup', endDrag);
+      card.removeEventListener('pointercancel', endDrag);
+      hint.style.opacity = 0;
+      Object.keys(cols).forEach(function (k) { cols[k].classList.remove('over'); });
+      if (!drag.moved) { drag = null; return; }
+      // FLIP: from ghost rect → final slot
+      var firstR = card.getBoundingClientRect();
+      placeholder.parentNode.insertBefore(card, placeholder);
+      placeholder.remove();
+      card.classList.remove('ghost');
+      card.style.left = card.style.top = card.style.width = '';
+      var lastR = card.getBoundingClientRect();
+      var dx = firstR.left - lastR.left, dy = firstR.top - lastR.top;
+      card.style.transition = 'none';
+      card.style.transform = 'translate(' + dx + 'px,' + dy + 'px) rotate(-1.2deg) scale(1.02)';
+      requestAnimationFrame(function () {
+        card.style.transition = '';
+        card.style.transform = '';
+      });
+      drag = null;
+    }
+  }());
+}());
+</script>
+</body>
+</html>
