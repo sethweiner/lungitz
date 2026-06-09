@@ -1,8 +1,11 @@
 (function () {
 'use strict';
 
-// Sandbox pages load their own variant via the ?v= loader (sandbox/vN.js).
-// Bail here so the site-wide production script doesn't double-bind with it.
+// Lungitz production interaction script. Promoted from sandbox/v17 (the cumulative
+// winner: masthead menu drawer, immersive fullscreen frame, slideshow nav, layered
+// zoom/pan, arrangement). Loaded by the Home page — bail on /sandbox so it doesn't
+// double-bind with the loader's sandbox/vN.js. The injected CSS scaffold below is
+// being migrated to Designer combos; motion + grid-rows transitions stay here.
 if (/\/sandbox\/?$/.test(location.pathname)) { return; }
 
 var TRIGGER    = '.trigger-accordion',
@@ -164,6 +167,20 @@ function paintDetail(view) {
         count.textContent = (detail.idx + 1) + ' / ' + n;
     }
 
+    // Fullscreen slide counter — sits first in the caption row (bottom-left,
+    // before the caption). Shown only in fullscreen; the state-3 bar carries
+    // the other one. Created lazily per detail-view.
+    var capRow = view.querySelector(CAP_BODY);
+    if (capRow) {
+        var fsCount = capRow.querySelector('.fs-count');
+        if (!fsCount) {
+            fsCount = document.createElement('span');
+            fsCount.className = 'fs-count';
+            capRow.insertBefore(fsCount, capRow.firstChild);
+        }
+        fsCount.textContent = (detail.idx + 1) + ' / ' + n;
+    }
+
     caps = view.querySelectorAll(CAP_BODY + ' p');
     if (caps[0]) {
         caps[0].textContent = img.caption;
@@ -264,6 +281,35 @@ function propagateFs(view, on) {
     }
 }
 
+// Realm highlight: light a masthead word in the rust accent. Shared by the
+// hover cue (states 1–3) and the fullscreen lock (state 4).
+function lightRealm(side) {
+    var g = document.querySelector('.nav-giveaways .h5-nav'),
+        h = document.querySelector('.nav-hideaways .h5-nav');
+    if (g) { g.classList.toggle('is-realm', side === 'giveaways'); }
+    if (h) { h.classList.toggle('is-realm', side === 'hideaways'); }
+}
+
+// Immersive frame (Track B): in fullscreen the masthead persists as the frame
+// instead of being covered. Toggle .is-immersive on .nav (it breathes + animates
+// the ✕ into place) and lock the active realm word lit (is-left → giveaways,
+// is-right → hideaways). The ✕ + styling live in navMenu.
+function setImmersive(on, trigger) {
+    var nav = document.querySelector('.nav.expand'), side;
+    if (!nav) { return; }
+    nav.classList.toggle('is-immersive', on);
+    // Toggle the body flag the slideshow chevrons key off (multi-image only).
+    document.body.classList.toggle('is-fs', on && !!detail && detail.images.length > 1);
+    if (!on) { document.body.classList.remove('is-fs-zoom'); }
+    if (on && trigger) {
+        side = trigger.closest('.wrapper-content.is-right') ? 'hideaways'
+             : (trigger.closest('.wrapper-content.is-left') ? 'giveaways' : null);
+        lightRealm(side);
+    } else {
+        lightRealm(null);
+    }
+}
+
 function openFullscreen() {
     var view, first, last, dx, dy, sx, sy;
     if (!detail) {
@@ -288,6 +334,7 @@ function openFullscreen() {
     view.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + sx + ',' + sy + ')';
 
     fs = { view: view };
+    setImmersive(true, detail.trigger);
 
     requestAnimationFrame(function () {
         view.style.transition = 'transform ' + TRANSITION + 'ms ' + SETTLE;
@@ -309,6 +356,7 @@ function closeFullscreen() {
     }
 
     fs = null;
+    setImmersive(false);
 
     // OPTION C (adopted): single-image close snaps instantly, no motion.
     // The fullscreen-to-thumbnail morph was flash-prone; a clean snap back to
@@ -348,19 +396,52 @@ function closeFullscreen() {
 
 // ── State 4b : Zoom + Pan ──
 
-function zoomIn(img, clientX, clientY) {
-    var rect = img.getBoundingClientRect(),
-        ox = clientX - rect.left,
-        oy = clientY - rect.top,
-        natS = Math.max(img.naturalWidth / rect.width, img.naturalHeight / rect.height),
-        s = Math.max(2, Math.min(natS, 4));
+// Apply the zoom state to the image, clamping pan so it can't slide out of frame
+// (bounds = the image's own layout box at the live scale).
+function zoomApply(img, animate) {
+    if (!zoom) { return; }
+    var mx = img.clientWidth * (zoom.scale - 1) / 2,
+        my = img.clientHeight * (zoom.scale - 1) / 2;
+    zoom.panX = Math.max(-mx, Math.min(mx, zoom.panX));
+    zoom.panY = Math.max(-my, Math.min(my, zoom.panY));
+    img.style.transition = animate ? 'transform 90ms linear' : 'none';
+    img.style.transformOrigin = zoom.ox + '% ' + zoom.oy + '%';
+    img.style.transform = 'translate(' + zoom.panX + 'px,' + zoom.panY + 'px) scale(' + zoom.scale + ')';
+}
 
-    zoom = { scale: s, panX: 0, panY: 0 };
-
-    img.style.transformOrigin = ox + 'px ' + oy + 'px';
-    img.style.transition = 'transform 300ms ' + SETTLE;
-    img.style.transform = 'scale(' + s + ')';
+// Set the zoom scale (native model). Entering from 1× anchors the origin at the
+// cursor; dropping back to 1× exits zoom. Used by pinch + scroll-enter.
+function zoomSet(img, s, clientX, clientY) {
+    var rect = img.getBoundingClientRect(), natS;
+    if (!zoom) {
+        natS = Math.max(img.naturalWidth / rect.width, img.naturalHeight / rect.height);
+        zoom = { scale: 1, ox: 50, oy: 50, panX: 0, panY: 0, max: Math.max(1.5, Math.min(natS, 4)) };
+    }
+    if (zoom.scale <= 1.001 && s > 1) {
+        zoom.ox = Math.max(0, Math.min(100, (clientX - rect.left) / rect.width * 100));
+        zoom.oy = Math.max(0, Math.min(100, (clientY - rect.top) / rect.height * 100));
+        zoom.panX = zoom.panY = 0;
+    }
+    zoom.scale = Math.max(1, Math.min(zoom.max, s));
+    if (zoom.scale <= 1.001) { zoomOut(img); return; }
     img.classList.add('is-zoomed');
+    document.body.classList.add('is-fs-zoom');   // hide the slideshow chevrons while zoomed
+    zoomApply(img, true);
+}
+
+// Click-step zoom (Seth's mouse model, layered with pinch + drag). Each click
+// cycles 1× → 2× → 4× → exit, toward the click point; pan persists across steps;
+// Esc → 1× via the keydown handler. The cap is floored at 4× — these CMS scans are
+// ~screen-res, so a natural-resolution cap collapsed to 2× (Seth, 2026-06-09).
+// Pinch (trackpad/touch) + drag (everywhere) still work alongside this.
+function zoomStepClick(img, clientX, clientY) {
+    var steps = [2, 4],                              // 1×→2×→4×→exit
+        cur = zoom ? zoom.scale : 1, next = null, i;
+    for (i = 0; i < steps.length; i += 1) {
+        if (steps[i] > cur + 0.05) { next = steps[i]; break; }
+    }
+    if (next === null) { zoomOut(img); return; }   // past the last step → exit to 1×
+    zoomSet(img, next, clientX, clientY);
 }
 
 function zoomOut(img) {
@@ -368,6 +449,7 @@ function zoomOut(img) {
     img.style.transform = 'none';
     img.classList.remove('is-zoomed');
     img.classList.remove('is-panning');
+    document.body.classList.remove('is-fs-zoom');
     zoom = null;
     panState = null;
     setTimeout(function () {
@@ -391,6 +473,7 @@ function resetZoom() {
         img.classList.remove('is-zoomed');
         img.classList.remove('is-panning');
     }
+    document.body.classList.remove('is-fs-zoom');
     zoom = null;
     panState = null;
 }
@@ -490,15 +573,11 @@ document.addEventListener('click', function (e) {
     e.preventDefault();
 
     if (fs) {
-        if (dragMoved) {
-            dragMoved = false;
-            return;
-        }
-        if (zoom) {
-            zoomOut(img);
-        } else {
-            zoomIn(img, e.clientX, e.clientY);
-        }
+        // Click-step zoom (Seth's mouse model). A click that ended a pan or swipe
+        // drag is swallowed (dragMoved); a clean click steps the zoom toward the
+        // click point. Pinch + drag layer in for trackpad/touch.
+        if (dragMoved) { dragMoved = false; return; }
+        zoomStepClick(img, e.clientX, e.clientY);
         return;
     }
 
@@ -577,10 +656,10 @@ document.addEventListener('click', function (e) {
     }
 });
 
-// Pan handlers for zoomed image
-document.addEventListener('mousedown', function (e) {
+// Pan handlers — pointer-based so trackpad press-drag, mouse, and touch all pan.
+document.addEventListener('pointerdown', function (e) {
     var img;
-    if (!zoom) {
+    if (!fs || !zoom || zoom.scale <= 1.001) {
         return;
     }
     img = e.target.closest(DETAIL_IMG);
@@ -589,39 +668,61 @@ document.addEventListener('mousedown', function (e) {
     }
     e.preventDefault();
     dragMoved = false;
-    panState = {
-        img: img,
-        startX: e.clientX,
-        startY: e.clientY,
-        basePanX: zoom.panX,
-        basePanY: zoom.panY
-    };
+    panState = { img: img, x: e.clientX, y: e.clientY };
     img.style.transition = 'none';
     img.classList.add('is-panning');
 });
 
-document.addEventListener('mousemove', function (e) {
+document.addEventListener('pointermove', function (e) {
     var dx, dy;
     if (!panState) {
         return;
     }
-    dx = e.clientX - panState.startX;
-    dy = e.clientY - panState.startY;
+    dx = e.clientX - panState.x;
+    dy = e.clientY - panState.y;
     if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
         dragMoved = true;
     }
-    zoom.panX = panState.basePanX + dx;
-    zoom.panY = panState.basePanY + dy;
-    panState.img.style.transform = 'translate(' + zoom.panX + 'px,' + zoom.panY + 'px) scale(' + zoom.scale + ')';
+    zoom.panX += dx;
+    zoom.panY += dy;
+    panState.x = e.clientX;
+    panState.y = e.clientY;
+    zoomApply(panState.img, false);
 });
 
-document.addEventListener('mouseup', function () {
+document.addEventListener('pointerup', function () {
     if (!panState) {
         return;
     }
     panState.img.classList.remove('is-panning');
     panState = null;
 });
+
+// ── §State 4b : Zoom + pan (v13 — native model, proven on the gesture catalog) ──
+// Layered zoom (v17): click-step is the mouse path (see the click handler +
+// zoomStepClick). Here, pinch (ctrl+wheel) ramps zoom toward the cursor for
+// trackpad/touch, and once zoomed two-finger scroll also pans. Plain wheel no
+// longer enters zoom. Drag pans on every device; Esc → 1×.
+document.addEventListener('wheel', function (e) {
+    var img;
+    if (!fs || !detail) { return; }
+    img = fs.view.querySelector(DETAIL_IMG);
+    if (!img || !fs.view.contains(e.target)) { return; }
+    if (e.ctrlKey) {                                   // pinch → ramp zoom toward cursor
+        e.preventDefault();
+        zoomSet(img, (zoom ? zoom.scale : 1) - e.deltaY * 0.02, e.clientX, e.clientY);
+        return;
+    }
+    if (zoom && zoom.scale > 1.001) {                  // zoomed → two-finger scroll pans
+        e.preventDefault();
+        zoom.panX -= e.deltaX;
+        zoom.panY -= e.deltaY;
+        zoomApply(img, false);
+        return;
+    }
+    // Plain wheel at 1× does nothing now — entering zoom is click-step or pinch
+    // (scroll-down no longer auto-enters; scroll-up just releases to the page).
+}, { passive: false });
 
 // Keyboard: Escape steps back, arrows navigate
 document.addEventListener('keydown', function (e) {
@@ -673,5 +774,507 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         e.preventDefault();
     });
 });
+
+// ════════════════════════════════════════════════════════════════════════
+//  §Masthead menu  (v8 — Track A; built as a DRAWER, promote → Designer)
+//
+//  Masthead order: GIVEAWAYS (left) · LUNGITZ (center/home) · HIDEAWAYS (right).
+//  The masthead IS a grid-rows drawer, same mechanic/easing as .caption-drawer:
+//    row 1 (auto) = .nav-content (the words) — the persistent handle
+//    row 2 (1fr↔0fr) = .nav-body — the collapsing menu (mirror of .caption-body)
+//  Click a side word → .nav gets .is-open, row 2 animates open (grid-template-rows
+//  .45s, injected in code — motion-in-code, so Webflow's audit never sees it).
+//  Two columns held inside the nav's 96vw (giveaways left, hideaways right) so
+//  the right column can't overflow at ~1900px (the v6-era bug).
+//
+//  Menu items reuse the masthead's own .h5-nav type (+ a .nav-item combo for
+//  item-specific tweaks) so they line up with the words above and stay fully
+//  editable in the Designer. .nav-menu shares .nav-content's horizontal padding
+//  (var space-1) so items align under their trigger word.
+//
+//  The TWIST: clicking an item reveals its content in .nav-detail — itself a
+//  nested grid-rows drawer (the reveal echoes the hide/reveal scaffold).
+//  Close: click LUNGITZ, Esc, or click outside. Mobile stacks the columns.
+//  Placeholder copy from the mockups — real sourcing (CMS vs static) is next.
+// ════════════════════════════════════════════════════════════════════════
+(function navMenu() {
+    var nav = document.querySelector('.nav.expand');
+    if (!nav) { return; }
+
+    var GIVEAWAYS = [
+        { label: 'Participants', html: '<p>Brishty Alam · Abdul Sharif Oluwafemi Baruwa · Flo Karl Berger · Marc-Alexandre Dumoulin · Baptiste El Baz · Julia S. Goodman · Edgar Lessig · Morusiewicz / Maggessi · Stephanie Misa · Johanna Tinzl · Antoine Turillon · Rosabel Rosalind · Anna Weberberger · Seth Weiner</p>' },
+        { label: 'Friends',      html: '<p>Friends of the project — placeholder.</p>' },
+        { label: 'Supporters',   html: '<p>Supporters — placeholder.</p>' },
+        { label: 'Impressum',    html: '<p>Concept — Antoine Turillon, Seth Weiner.</p><p>Thanks to Andrea Wahl, Andreas Haider, Annalise Podor, Felix Vierlinger, Fina Esslinger, Judith Pirkelbauer, Laura Rumpl, Otto Tremetzberger, Tomiris Dmitrievskikh, Wolgang Schmutz, FdR-Team.</p>' }
+    ];
+    var HIDEAWAYS = [
+        { label: 'Lungitz',    html: '<p>Lungitz is a village in the community of Katsdorf, Perg district of Upper Austria. During WWII it was the site of slave labour and the “Gusen III” sub-camp of the Mauthausen-Gusen concentration camp complex.</p>' },
+        { label: 'Gusen III',  html: '<p>Gusen III — placeholder.</p>' },
+        { label: 'Mauthausen', html: '<p>Mauthausen — placeholder.</p>' },
+        { label: 'Resources',  html: '<p>Resources — placeholder.</p>' }
+    ];
+
+    // Inject feelable styling (sandbox-only; reuses the live design tokens +
+    // the SETTLE easing from the outer scope). On promote this translates to
+    // Designer combos on the same class names; the grid-rows transition stays
+    // in code (motion-in-code — Webflow's audit rejects grid-template-rows).
+    var V = function (n) { return 'var(--_lungitz---' + n + ')'; },
+        css = [
+            // .nav becomes a 2-row drawer: words (auto) + collapsing body (0fr↔1fr)
+            '.nav.expand{',
+            '  grid-auto-flow:row;grid-template-columns:1fr;',
+            '  grid-template-rows:auto 0fr;height:auto;align-items:stretch;',
+            '  transition:grid-template-rows .45s ' + SETTLE + ',',
+            '    padding .2s,border-radius .175s,color 75ms,margin .3s,width .3s;',
+            '}',
+            '.nav.expand.is-open{',
+            '  grid-template-rows:auto 1fr;',
+            '  padding-bottom:' + V('space-5') + ';',
+            '  border:1px dashed ' + V('color-accent-b-500') + ';',
+            '  border-radius:' + V('space-2') + ';',
+            '}',
+            // the collapsing row clips its content (mirror of .caption-body)
+            '.nav-body{min-height:0;overflow:hidden;}',
+            // two columns, sharing .nav-content's horizontal padding (space-1) so
+            // items line up under their trigger word
+            '.nav-menu{',
+            '  display:grid;grid-template-columns:1fr 1fr;',
+            '  grid-column-gap:' + V('space-3') + ';grid-row-gap:' + V('space-4') + ';',
+            '  padding:' + V('space-2') + ' ' + V('space-1') + ' 0;',
+            '}',
+            '.nav-panel{display:flex;flex-direction:column;grid-row-gap:' + V('space-1') + ';}',
+            '.nav-panel.is-giveaways{align-items:flex-start;}',
+            '.nav-panel.is-hideaways{align-items:flex-end;}',
+            // items reuse the masthead .h5-nav type; neutralise its flex:1 and add
+            // the click affordance via the .nav-item combo (Seth styles this)
+            '.nav-panel .h5-nav{flex:0 0 auto;}',
+            '.nav-item{cursor:pointer;text-decoration:none;display:block;}',
+            '.nav-item.is-current{color:' + V('color-ink-100') + ';}',
+            // the TWIST: selected item content reveals via a nested grid-rows drawer
+            '.nav-detail{',
+            '  grid-column:1 / -1;display:grid;grid-template-rows:0fr;',
+            '  transition:grid-template-rows .45s ' + SETTLE + ';',
+            '}',
+            '.nav-detail.is-shown{grid-template-rows:1fr;}',
+            '.nav-detail-body{',
+            '  min-height:0;overflow:hidden;color:' + V('color-ink-100') + ';',
+            '  padding-top:' + V('space-2') + ';',
+            '}',
+            '.nav-detail.is-hideaways .nav-detail-body{text-align:right;}',
+            '.nav-detail-body p{margin:0 0 ' + V('space-2') + ';max-width:60ch;}',
+            '.nav-detail.is-hideaways .nav-detail-body p{margin-left:auto;}',
+            // ── Immersive frame (Track B — fullscreen) ──
+            // The modal FILLS the viewport (opaque ink, inset:0) so the archive
+            // columns are fully covered — no bleed-through (the v10 bug). The image
+            // is held below the masthead by padding-top; side/bottom padding lets the
+            // frame breathe. The nav floats ON TOP via z-index (set below), rather
+            // than insetting the modal beneath it (which left gaps showing columns).
+            '.detail-view.is-fullscreen{',
+            '  inset:0;display:flex;flex-direction:column;',
+            '  padding:calc(4vh + 3rem) 1.5rem 1.5rem;',
+            '}',
+            // State-3 control bar is stripped in fullscreen (the frame ✕ is the close).
+            '.detail-bar.is-fullscreen{display:none;}',
+            // Image fits to the available height; the caption drawer sits below, shown
+            // (override .is-collapsed so caption + credit are visible in fullscreen).
+            '.detail-image.is-fullscreen{flex:1 1 auto;min-height:0;height:auto;}',
+            '.caption-drawer.is-fullscreen{flex:0 0 auto;grid-template-rows:auto 1fr;}',
+            // Caption footer: slide counter first (bottom-left), then caption · credit.
+            '.caption-content.is-fullscreen{justify-content:flex-start;align-items:baseline;grid-column-gap:' + V('space-3') + ';}',
+            '.fs-count{display:none;}',
+            '.caption-drawer.is-fullscreen .fs-count{display:inline-block;color:' + V('color-accent-a-500') + ';}',
+            // Masthead breathes in fullscreen, rises above the backdrop, aligns its
+            // outer words to the image edges + opens a corner slot for the ✕.
+            '.nav.expand.is-immersive{margin:1.5rem;width:auto;z-index:1000;}',
+            // LUNGITZ stays dead-centre via a 3-col grid (1fr auto 1fr); the ✕ gets
+            // its room INSIDE the right cell, so the centre column never shifts.
+            '.nav-content{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;}',
+            '.nav-giveaways{justify-self:start;}',
+            '.nav-lungitz{justify-self:center;}',
+            '.nav-hideaways{justify-self:end;}',
+            '.nav.expand.is-immersive .nav-hideaways{padding-right:3rem;}',
+            // Active realm word lit in the rust accent (accent-b-500).
+            '.h5-nav.is-realm{color:' + V('color-accent-b-500') + ';}',
+            // Fullscreen ✕ — tucked into the frame corner; animates in (scale + fade).
+            '.frame-close{',
+            '  opacity:0;transform:scale(.85);pointer-events:none;',
+            '  position:absolute;top:0;bottom:0;right:' + V('space-1') + ';',
+            '  margin:auto 0;width:2.25rem;height:2.25rem;',
+            '  display:flex;align-items:center;justify-content:center;',
+            '  background:none;border:1px dashed ' + V('color-accent-a-500') + ';',
+            '  border-radius:2rem;color:' + V('color-accent-a-500') + ';',
+            '  cursor:pointer;font-family:inherit;line-height:1;',
+            '  transition:opacity .3s,transform .3s,color .2s,border-color .2s;',
+            '}',
+            '.nav.expand.is-immersive .frame-close{opacity:1;transform:scale(1);pointer-events:auto;}',
+            '.frame-close:hover{color:' + V('color-ink-100') + ';border-color:' + V('color-ink-300') + ';}',
+            '@media (max-width:640px){',
+            '  .nav-menu{grid-template-columns:1fr;}',
+            '  .nav-panel.is-hideaways{align-items:flex-start;}',
+            '  .nav-panel.is-hideaways .nav-item.is-right{text-align:left;}',
+            '  .nav-detail.is-hideaways .nav-detail-body{text-align:left;}',
+            '  .nav-detail.is-hideaways .nav-detail-body p{margin-left:0;}',
+            '}'
+        ].join('\n'),
+        styleEl = document.createElement('style');
+    styleEl.textContent = css;
+    document.head.appendChild(styleEl);
+
+    // Hide Seth's early scaffold panel (we render a clean one in its place).
+    var scaffold = nav.querySelector('.nav-menu-content');
+    if (scaffold) { scaffold.style.display = 'none'; }
+
+    // Nested drawer for the selected item's content (mirror of .caption-drawer).
+    var detail = document.createElement('div'),
+        detailBody = document.createElement('div');
+    detail.className = 'nav-detail';
+    detailBody.className = 'nav-detail-body';
+    detail.appendChild(detailBody);
+
+    function selectItem(side, item, el) {
+        nav.querySelectorAll('.nav-item.is-current').forEach(function (b) {
+            b.classList.remove('is-current');
+        });
+        el.classList.add('is-current');
+        detailBody.innerHTML = item.html;
+        detail.className = 'nav-detail is-shown is-' + side;
+    }
+
+    function buildPanel(side, items) {
+        var align = side === 'hideaways' ? 'is-right' : 'is-left',
+            panel = document.createElement('div');
+        panel.className = 'nav-panel is-' + side;
+        items.forEach(function (item) {
+            // <a.h5-nav.nav-item> — reuses the masthead word type
+            var el = document.createElement('a');
+            el.href = '#';
+            el.className = 'h5-nav nav-item ' + align;
+            el.textContent = item.label;
+            el.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                selectItem(side, item, el);
+            });
+            panel.appendChild(el);
+        });
+        return panel;
+    }
+
+    var body = document.createElement('div'),
+        menu = document.createElement('div');
+    body.className = 'nav-body';
+    menu.className = 'nav-menu';
+    menu.appendChild(buildPanel('giveaways', GIVEAWAYS));
+    menu.appendChild(buildPanel('hideaways', HIDEAWAYS));
+    menu.appendChild(detail);
+    body.appendChild(menu);
+    nav.appendChild(body);
+
+    // Fullscreen ✕ (frame-breathes) — lives in the masthead frame, hidden until
+    // .nav.is-immersive (set by openFullscreen). Closes the immersive view.
+    var closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'frame-close';
+    closeBtn.setAttribute('aria-label', 'Close fullscreen');
+    closeBtn.textContent = '✕';
+    closeBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        closeFullscreen();
+    });
+    nav.appendChild(closeBtn);
+
+    function closeMenu() {
+        nav.classList.remove('is-open');
+        nav.querySelectorAll('.nav-item.is-current').forEach(function (b) {
+            b.classList.remove('is-current');
+        });
+        detail.className = 'nav-detail';
+        detailBody.innerHTML = '';
+    }
+    function toggleMenu() {
+        if (nav.classList.contains('is-open')) { closeMenu(); }
+        else { nav.classList.add('is-open'); }
+    }
+
+    var gWord = nav.querySelector('.nav-giveaways'),
+        hWord = nav.querySelector('.nav-hideaways'),
+        lWord = nav.querySelector('.nav-lungitz');
+    if (gWord) { gWord.addEventListener('click', function (e) { e.preventDefault(); toggleMenu(); }); }
+    if (hWord) { hWord.addEventListener('click', function (e) { e.preventDefault(); toggleMenu(); }); }
+    if (lWord) {
+        lWord.addEventListener('click', function (e) {
+            if (nav.classList.contains('is-open')) { e.preventDefault(); closeMenu(); }
+        });
+    }
+
+    document.addEventListener('click', function (e) {
+        if (nav.classList.contains('is-open') && !nav.contains(e.target)) { closeMenu(); }
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && nav.classList.contains('is-open')) { closeMenu(); }
+    });
+}());
+
+// Realm hover cue (Track B, cross-state): hovering a column lights its masthead
+// word in the rust accent — the same signal the fullscreen lock uses. Skipped
+// while immersive so the locked realm stays put.
+(function realmHover() {
+    function immersive() {
+        var nav = document.querySelector('.nav.expand');
+        return !!(nav && nav.classList.contains('is-immersive'));
+    }
+    [['.wrapper-content.is-left', 'giveaways'],
+     ['.wrapper-content.is-right', 'hideaways']].forEach(function (pair) {
+        var col = document.querySelector(pair[0]);
+        if (!col) { return; }
+        col.addEventListener('mouseenter', function () {
+            if (!immersive()) { lightRealm(pair[1]); }
+        });
+        col.addEventListener('mouseleave', function () {
+            if (!immersive()) { lightRealm(null); }
+        });
+    });
+}());
+
+// ════════════════════════════════════════════════════════════════════════
+//  §Arrangement — drag entries to re-curate  (v14; ephemeral, bench-proven)
+//
+//  Drag a CLOSED entry to reorder it, or carry it across to the other column.
+//  Toward giveaways it "gives away" (reveals); toward hideaways it "hides away".
+//  Drops settle with the drawer easing. DOM-only — resets on reload; the
+//  canonical CMS order is untouched. A move-threshold keeps drag from fighting
+//  tap-to-open, and the click that follows a drag is swallowed.
+//
+//  Hooks for the Designer: .arrange-ghost (lifted entry), .arrange-placeholder
+//  (drop slot), .wrapper-content.arrange-over (hovered column), .arrange-hint
+//  (the give/hide label). Styling here is feelable scaffold — tune in Designer.
+// ════════════════════════════════════════════════════════════════════════
+(function arrange() {
+    var cols = [].slice.call(document.querySelectorAll('.wrapper-content.is-left, .wrapper-content.is-right'));
+    if (cols.length < 2) { return; }
+
+    var V = function (n) { return 'var(--_lungitz---' + n + ')'; },
+        css = [
+            '.arrange-ghost{position:fixed;z-index:1000;pointer-events:none;',
+            '  box-shadow:0 12px 40px rgba(0,0,0,.55);opacity:.94;transition:none!important;}',
+            '.arrange-ghost *{pointer-events:none;}',
+            '.arrange-placeholder{border:1px dashed ' + V('color-accent-b-500') + ';',
+            '  border-radius:.3rem;background:rgba(154,90,74,.06);margin-bottom:' + V('space-3') + ';}',
+            '.arrange-dragging,.arrange-dragging *{user-select:none!important;-webkit-user-select:none!important;}',
+            '.wrapper-content.arrange-over{box-shadow:inset 0 0 0 1px ' + V('color-accent-b-500') + ';}',
+            '.arrange-hint{position:fixed;z-index:1001;pointer-events:none;opacity:0;',
+            '  font-size:' + V('font-size-1') + ';text-transform:uppercase;letter-spacing:.14em;',
+            '  color:' + V('color-accent-b-500') + ';background:' + V('color-ink-900') + ';',
+            '  border:1px solid ' + V('color-accent-b-500') + ';border-radius:2rem;',
+            '  padding:' + V('space-1') + ' ' + V('space-3') + ';transition:opacity .15s;}'
+        ].join('\n'),
+        styleEl = document.createElement('style');
+    styleEl.textContent = css;
+    document.head.appendChild(styleEl);
+
+    var hint = document.createElement('div');
+    hint.className = 'arrange-hint';
+    document.body.appendChild(hint);
+
+    var drag = null, placeholder = null, THRESH = 6;
+
+    function itemsBox(col) { return col.querySelector('.w-dyn-items') || col; }
+
+    document.addEventListener('pointerdown', function (e) {
+        var trigger;
+        if (e.button) { return; }
+        trigger = e.target.closest(TRIGGER);
+        if (!trigger || trigger.classList.contains('open')) { return; }   // closed entries only
+        if (!trigger.closest('.wrapper-content.is-left, .wrapper-content.is-right')) { return; }
+        drag = {
+            node: trigger.closest('.w-dyn-item') || trigger,
+            x0: e.clientX, y0: e.clientY, moved: false
+        };
+    });
+
+    document.addEventListener('pointermove', function (e) {
+        if (!drag) { return; }
+        if (!drag.moved) {
+            if (Math.abs(e.clientX - drag.x0) < THRESH && Math.abs(e.clientY - drag.y0) < THRESH) { return; }
+            begin();
+        }
+        e.preventDefault();
+        drag.node.style.left = (e.clientX - drag.dx) + 'px';
+        drag.node.style.top = (e.clientY - drag.dy) + 'px';
+        place(e.clientX, e.clientY);
+    });
+
+    document.addEventListener('pointerup', function () {
+        if (!drag) { return; }
+        if (drag.moved) { drop(); swallowClick(); }
+        drag = null;
+    });
+
+    function begin() {
+        drag.moved = true;
+        var node = drag.node, r = node.getBoundingClientRect();
+        drag.dx = drag.x0 - r.left;
+        drag.dy = drag.y0 - r.top;
+        placeholder = document.createElement('div');
+        placeholder.className = 'arrange-placeholder';
+        placeholder.style.height = r.height + 'px';
+        node.parentNode.insertBefore(placeholder, node);
+        node.classList.add('arrange-ghost');
+        node.style.width = r.width + 'px';
+        node.style.left = r.left + 'px';
+        node.style.top = r.top + 'px';
+        document.body.classList.add('arrange-dragging');
+    }
+
+    function place(x, y) {
+        var col = null;
+        cols.forEach(function (c) {
+            var r = c.getBoundingClientRect(),
+                over = x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+            c.classList.toggle('arrange-over', over);
+            if (over) { col = c; }
+        });
+        if (!col) { hint.style.opacity = 0; return; }
+        // conceptual label when crossing into the other column
+        var fromCol = placeholder.closest('.wrapper-content');
+        if (fromCol && fromCol !== col) {
+            hint.textContent = col.classList.contains('is-right') ? 'hiding away ↘' : 'giving away ↗';
+            hint.style.left = (x + 16) + 'px';
+            hint.style.top = (y + 16) + 'px';
+            hint.style.opacity = 1;
+        } else {
+            hint.style.opacity = 0;
+        }
+        // drop slot: first entry whose midpoint is below the pointer
+        var box = itemsBox(col),
+            kids = [].filter.call(box.children, function (n) {
+                return n !== drag.node && n !== placeholder && n.getBoundingClientRect().height > 0;
+            }),
+            after = null, i, ir;
+        for (i = 0; i < kids.length; i += 1) {
+            ir = kids[i].getBoundingClientRect();
+            if (y < ir.top + ir.height / 2) { after = kids[i]; break; }
+        }
+        if (after) { box.insertBefore(placeholder, after); }
+        else { box.appendChild(placeholder); }
+    }
+
+    function drop() {
+        var node = drag.node, first = node.getBoundingClientRect(), last, dx, dy;
+        placeholder.parentNode.insertBefore(node, placeholder);
+        placeholder.remove();
+        placeholder = null;
+        node.classList.remove('arrange-ghost');
+        node.style.left = node.style.top = node.style.width = '';
+        document.body.classList.remove('arrange-dragging');
+        cols.forEach(function (c) { c.classList.remove('arrange-over'); });
+        hint.style.opacity = 0;
+        last = node.getBoundingClientRect();
+        dx = first.left - last.left;
+        dy = first.top - last.top;
+        node.style.transition = 'none';
+        node.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+        requestAnimationFrame(function () {
+            node.style.transition = 'transform 450ms ' + SETTLE;
+            node.style.transform = '';
+            setTimeout(function () { node.style.transition = ''; node.style.transform = ''; }, 470);
+        });
+    }
+
+    // Swallow the click that fires right after a drag so it doesn't open the
+    // accordion; self-removes after the click or a short timeout (tap still opens).
+    function swallowClick() {
+        function once(ev) { ev.stopPropagation(); ev.preventDefault(); done(); }
+        function done() { document.removeEventListener('click', once, true); clearTimeout(t); }
+        document.addEventListener('click', once, true);
+        var t = setTimeout(done, 350);
+    }
+}());
+
+// ════════════════════════════════════════════════════════════════════════
+//  §Slideshow navigation (v15) — prev/next in fullscreen
+//
+//  Hover-reveal chevrons at the edges (desktop) + a haptic swipe (drag the
+//  image; it follows your finger, then slides to the neighbour and settles —
+//  feel proven on the gesture catalog). Single image, so the slide swaps
+//  off-screen: current eases out one side, the new one eases in from the other.
+//  Only fullscreen + multi-image + not zoomed (the body.is-fs / is-fs-zoom flags
+//  set by setImmersive + the zoom fns drive chevron visibility). Designer hooks:
+//  .fs-nav (edge zone) and .fs-chev (the revealed glyph).
+// ════════════════════════════════════════════════════════════════════════
+(function slideshowNav() {
+    var V = function (n) { return 'var(--_lungitz---' + n + ')'; },
+        css = [
+            '.fs-nav{position:fixed;top:calc(4vh + 3rem);bottom:1.5rem;width:14%;',
+            '  z-index:999;display:none;align-items:center;cursor:pointer;}',
+            'body.is-fs .fs-nav{display:flex;}',
+            'body.is-fs.is-fs-zoom .fs-nav{display:none;}',
+            '.fs-nav.is-prev{left:1.5rem;justify-content:flex-start;padding-left:' + V('space-4') + ';}',
+            '.fs-nav.is-next{right:1.5rem;justify-content:flex-end;padding-right:' + V('space-4') + ';}',
+            '.fs-chev{font-size:2.5rem;line-height:1;opacity:0;transition:opacity .2s,color .2s;',
+            '  color:' + V('color-accent-a-500') + ';text-shadow:0 1px 12px rgba(0,0,0,.6);}',
+            '.fs-nav:hover .fs-chev{opacity:1;color:' + V('color-ink-100') + ';}'
+        ].join('\n'),
+        styleEl = document.createElement('style');
+    styleEl.textContent = css;
+    document.head.appendChild(styleEl);
+
+    // Direct swap — no slide transition between images (Seth: the clear, direct
+    // swap "felt right"). The swipe still tracks the finger; the commit snaps.
+    function slideTo(dir) {
+        if (!fs || !detail || detail.images.length < 2 || zoom) { return; }
+        var img = fs.view.querySelector(DETAIL_IMG);
+        if (!img) { return; }
+        detail.idx = (detail.idx + dir + detail.images.length) % detail.images.length;
+        paintDetail(fs.view);
+        img.style.transition = 'none';
+        img.style.transform = 'none';
+    }
+
+    function chevron(dir, cls, glyph) {
+        var z = document.createElement('div');
+        z.className = 'fs-nav ' + cls;
+        z.innerHTML = '<span class="fs-chev">' + glyph + '</span>';
+        z.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            slideTo(dir);
+        });
+        return z;
+    }
+    document.body.appendChild(chevron(-1, 'is-prev', '‹'));
+    document.body.appendChild(chevron(1, 'is-next', '›'));
+
+    // Haptic swipe — drag the fullscreen image; past a threshold it slides to the
+    // neighbour, otherwise it eases back. Fullscreen + multi-image + unzoomed only.
+    var swipe = null;
+    document.addEventListener('pointerdown', function (e) {
+        var img;
+        if (!fs || !detail || detail.images.length < 2 || zoom) { return; }
+        img = fs.view.querySelector(DETAIL_IMG);
+        if (!img || img._sliding || !fs.view.contains(e.target) || e.target.closest('.fs-nav')) { return; }
+        swipe = { x0: e.clientX, img: img, dx: 0 };
+        img.style.transition = 'none';
+    });
+
+    document.addEventListener('pointermove', function (e) {
+        if (!swipe) { return; }
+        swipe.dx = e.clientX - swipe.x0;
+        if (Math.abs(swipe.dx) > 3) { dragMoved = true; }   // so the click after a swipe won't zoom-step
+        swipe.img.style.transform = 'translateX(' + swipe.dx + 'px)';
+    });
+
+    document.addEventListener('pointerup', function () {
+        if (!swipe) { return; }
+        var dx = swipe.dx, img = swipe.img, W = img.clientWidth || 1;
+        swipe = null;
+        img.style.transition = 'none';
+        img.style.transform = 'none';                                  // direct: clear the drag offset
+        if (Math.abs(dx) > Math.min(90, W * 0.18)) {
+            slideTo(dx < 0 ? 1 : -1);                                   // swiped left → next (direct swap)
+        }
+    });
+}());
 
 }());
