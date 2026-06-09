@@ -294,17 +294,8 @@ function lightRealm(side) {
 // the ✕ into place) and lock the active realm word lit (is-left → giveaways,
 // is-right → hideaways). The ✕ + styling live in navMenu.
 function setImmersive(on, trigger) {
-    var nav = document.querySelector('.nav.expand'), side, bd;
+    var nav = document.querySelector('.nav.expand'), side;
     if (!nav) { return; }
-    // Lazy full-viewport backdrop: fills behind the inset modal so the archive
-    // columns never show through its margins or the top strip (the v10 bug).
-    bd = document.querySelector('.fs-backdrop');
-    if (!bd) {
-        bd = document.createElement('div');
-        bd.className = 'fs-backdrop';
-        document.body.appendChild(bd);
-    }
-    bd.classList.toggle('is-shown', on);
     nav.classList.toggle('is-immersive', on);
     if (on && trigger) {
         side = trigger.closest('.wrapper-content.is-right') ? 'hideaways'
@@ -816,20 +807,14 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             '.nav-detail-body p{margin:0 0 ' + V('space-2') + ';max-width:60ch;}',
             '.nav-detail.is-hideaways .nav-detail-body p{margin-left:auto;}',
             // ── Immersive frame (Track B — fullscreen) ──
-            // Full-viewport backdrop fills BEHIND the inset modal so the archive
-            // columns never show through its margins / the top strip (the v10 bug).
-            '.fs-backdrop{',
-            '  position:fixed;inset:0;z-index:998;',
-            '  background:' + V('color-ink-900') + ';',
-            '  opacity:0;pointer-events:none;transition:opacity .3s;',
-            '}',
-            '.fs-backdrop.is-shown{opacity:1;}',
-            // Fullscreen sits BELOW the persistent masthead instead of covering it
-            // (override of the Designer .detail-view.is-fullscreen inset:0 combo),
-            // and becomes a column: image fills the height, caption/credit below.
+            // The modal FILLS the viewport (opaque ink, inset:0) so the archive
+            // columns are fully covered — no bleed-through (the v10 bug). The image
+            // is held below the masthead by padding-top; side/bottom padding lets the
+            // frame breathe. The nav floats ON TOP via z-index (set below), rather
+            // than insetting the modal beneath it (which left gaps showing columns).
             '.detail-view.is-fullscreen{',
-            '  inset:calc(4vh + 3rem) 1.5rem 1.5rem;',
-            '  display:flex;flex-direction:column;',
+            '  inset:0;display:flex;flex-direction:column;',
+            '  padding:calc(4vh + 3rem) 1.5rem 1.5rem;',
             '}',
             // State-3 control bar is stripped in fullscreen (the frame ✕ is the close).
             '.detail-bar.is-fullscreen{display:none;}',
