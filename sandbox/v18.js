@@ -860,6 +860,11 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             '.nav-panel .h5-nav{flex:0 0 auto;}',
             '.nav-item{cursor:pointer;text-decoration:none;display:block;}',
             '.nav-item.is-current{color:' + V('color-ink-100') + ';}',
+            // Rest state: bodies stay hidden INSIDE the panels (descendant rule —
+            // code's domain; Designer can't author it). The .nav-item-body class
+            // itself is Seth's to style; a body moved into the detail drawer no
+            // longer matches this rule, so it shows there with his styling.
+            '.nav-panel .nav-item-body{display:none;}',
             // the TWIST: selected item content reveals via a nested grid-rows drawer
             '.nav-detail{',
             '  grid-column:1 / -1;display:grid;grid-template-rows:0fr;',
@@ -954,12 +959,41 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         }
     }
 
-    function showDetail(side, html, el) {
+    // Reveal bookkeeping: the CMS path MOVES the item's real .nav-item-body node
+    // into the detail drawer (so the Designer styling on it is exactly what
+    // renders) and moves it home on close/switch. At rest the bodies hide via
+    // the injected '.nav-panel .nav-item-body' descendant rule — once moved out
+    // of the panel the rule stops matching and the body shows, styled.
+    var placedBody = null, placedHome = null;
+
+    function restoreBody() {
+        if (placedBody && placedHome) { placedHome.appendChild(placedBody); }
+        placedBody = placedHome = null;
+    }
+
+    function setCurrent(el) {
         nav.querySelectorAll('.nav-item.is-current').forEach(function (b) {
             b.classList.remove('is-current');
         });
         if (el) { el.classList.add('is-current'); }
+    }
+
+    function showDetail(side, html, el) {            // fallback path (arrays)
+        setCurrent(el);
+        restoreBody();
         detailBody.innerHTML = html || '';
+        detail.className = 'nav-detail is-shown is-' + side;
+    }
+
+    function showDetailNode(side, bodyEl, el) {      // CMS path (real elements)
+        setCurrent(el);
+        restoreBody();
+        detailBody.innerHTML = '';
+        if (bodyEl) {
+            placedBody = bodyEl;
+            placedHome = bodyEl.parentNode;
+            detailBody.appendChild(bodyEl);
+        }
         detail.className = 'nav-detail is-shown is-' + side;
     }
 
@@ -984,7 +1018,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
                 var side = el.closest('.nav-panel.is-hideaways') ? 'hideaways' : 'giveaways',
                     item = el.closest('.w-dyn-item') || el.parentNode,
                     bodyEl = item ? item.querySelector('.nav-item-body') : null;
-                showDetail(side, bodyEl ? bodyEl.innerHTML : '', el);
+                showDetailNode(side, bodyEl, el);
             });
         });
     } else {
@@ -1038,6 +1072,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             b.classList.remove('is-current');
         });
         detail.className = 'nav-detail';
+        restoreBody();                      // send the moved body home first
         detailBody.innerHTML = '';
     }
     function toggleMenu() {
