@@ -58,13 +58,17 @@ the combo** (e.g. `is-open`) → style it → **remove the combo from the elemen
 (the style definition persists and still compiles). **Never run "Clean Up /
 Remove Unused Styles"** — it purges these.
 
-| state combo | on | meaning |
+**Tidy by default:** menu items' bodies (`.nav-item-body`) are `display:none` at rest,
+so the canvas shows only labels. Add `is-shown` to a body to pop it open and style it.
+
+| state combo | on | meaning / "pop open to edit" |
 |---|---|---|
 | `.is-open` | `.nav.wide` | menu drawer open |
 | `.is-current` | `.nav-item` | selected menu item |
+| `.is-shown` | `.nav-detail` | the reveal drawer open |
+| `.is-shown` | `.nav-item-body` | a menu item's body shown (the script adds this on reveal) |
 | `.is-immersive` | `.nav.wide` | fullscreen frame active |
 | `.is-fullscreen` | the modal + every descendant (via `propagateFs`) | fullscreen |
-| `.is-shown` / `.is-hideaways` | `.nav-detail` | reveal open / which side |
 
 ---
 

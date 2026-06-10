@@ -960,6 +960,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     var placedBody = null, placedHome = null;
 
     function restoreBody() {
+        if (placedBody) { placedBody.classList.remove('is-shown'); }
         if (placedBody && placedHome) { placedHome.appendChild(placedBody); }
         placedBody = placedHome = null;
     }
@@ -986,6 +987,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             placedBody = bodyEl;
             placedHome = bodyEl.parentNode;
             detailBody.appendChild(bodyEl);
+            bodyEl.classList.add('is-shown');   // beat the Designer .nav-item-body{display:none}
         }
         detail.className = 'nav-detail is-shown is-' + side;
     }
