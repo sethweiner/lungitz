@@ -26,6 +26,7 @@ var TRIGGER    = '.trigger-accordion',
 
 var detail      = null,
     fs          = null,
+    fsHome      = null,
     zoom        = null,
     panState    = null,
     dragMoved   = false,
@@ -283,6 +284,14 @@ function propagateFs(view, on) {
     }
 }
 
+// Return the portal'd modal to its home slot in the entry (see openFullscreen).
+function fsRestore(view) {
+    if (fsHome && fsHome.parent) {
+        fsHome.parent.insertBefore(view, fsHome.next);
+    }
+    fsHome = null;
+}
+
 // Realm highlight: light a masthead word in the rust accent. Shared by the
 // hover cue (states 1–3) and the fullscreen lock (state 4).
 function lightRealm(side) {
@@ -325,6 +334,12 @@ function openFullscreen() {
     first = view.getBoundingClientRect();
     view.classList.add('is-fullscreen');
     propagateFs(view, true);
+    // PORTAL: re-home the modal to <body> for the fullscreen run. Inside the
+    // columns, any styled ancestor (position+z-index, transform, filter) traps
+    // its stacking context — entry text bled through the frame exactly that
+    // way. At body level the D5 stack is law: columns < modal 999 < nav 1000.
+    fsHome = { parent: view.parentNode, next: view.nextSibling };
+    document.body.appendChild(view);
     last = view.getBoundingClientRect();
 
     dx = first.left + first.width / 2 - (last.left + last.width / 2);
@@ -369,6 +384,7 @@ function closeFullscreen() {
         view.style.transform = '';
         view.classList.remove('is-fullscreen');
         propagateFs(view, false);
+        fsRestore(view);
         if (trigger) { closeDetail(trigger); }
         return;
     }
@@ -376,6 +392,7 @@ function closeFullscreen() {
     first = view.getBoundingClientRect();
     view.classList.remove('is-fullscreen');
     propagateFs(view, false);
+    fsRestore(view);
     last = view.getBoundingClientRect();
 
     dx = first.left + first.width / 2 - (last.left + last.width / 2);
@@ -887,8 +904,10 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             // is held below the masthead by padding-top; side/bottom padding lets the
             // frame breathe. The nav floats ON TOP via z-index (set below), rather
             // than insetting the modal beneath it (which left gaps showing columns).
+            // z-index 999 re-asserts the D5 stack (the Designer combo drifted
+            // back to 100000, which buries the masthead frame at 1000).
             '.detail-view.is-fullscreen{',
-            '  inset:0;display:flex;flex-direction:column;',
+            '  inset:0;display:flex;flex-direction:column;z-index:999;',
             '  padding:calc(4vh + 3rem) 1.5rem 1.5rem;',
             '}',
             // State-3 control bar is stripped in fullscreen (the frame ✕ is the close).
@@ -898,7 +917,13 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             '.detail-image.is-fullscreen{flex:1 1 auto;min-height:0;height:auto;}',
             '.caption-drawer.is-fullscreen{flex:0 0 auto;grid-template-rows:auto 1fr;}',
             // Caption footer: slide counter first (bottom-left), then caption · credit.
-            '.caption-content.is-fullscreen{justify-content:flex-start;align-items:baseline;grid-column-gap:' + V('space-3') + ';}',
+            // One steady caption row: counter + credit never break internally;
+            // the caption text wraps naturally and takes the slack. Text LOOK
+            // (size/color/family) = Seth's base .caption-content in Designer.
+            '.caption-content.is-fullscreen{display:flex;flex-wrap:wrap;justify-content:flex-start;align-items:baseline;column-gap:' + V('space-3') + ';row-gap:.25rem;}',
+            '.caption-content.is-fullscreen .fs-count{flex:0 0 auto;white-space:nowrap;}',
+            '.caption-content.is-fullscreen p{flex:0 1 auto;min-width:0;margin:0;}',
+            '.caption-content.is-fullscreen p + p{flex:0 0 auto;white-space:nowrap;}',
             '.fs-count{display:none;}',
             '.caption-drawer.is-fullscreen .fs-count{display:inline-block;color:' + V('color-accent-a-500') + ';}',
             // Migrated to Designer combos (2026-06-09): masthead breathing
@@ -915,10 +940,12 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             // the shared is-immersive modifier on a new chain — gotcha).
             NAVC + '.is-immersive{margin:1.5rem;width:auto;z-index:1000;}',
             NAVC + '.is-immersive .nav-hideaways{padding-right:3rem;}',
+            // Reveal MOTION only — position/size/look live on the Designer's
+            // .frame-close class now (injected position was stomping Seth's
+            // Designer tuning, e.g. his right: space-2).
             '.frame-close{',
             '  opacity:0;transform:scale(.85);pointer-events:none;',
-            '  position:absolute;top:0;bottom:0;right:' + V('space-1') + ';',
-            '  margin:auto 0;font-family:inherit;',
+            '  font-family:inherit;',
             '  transition:opacity .3s,transform .3s,color .2s,border-color .2s;',
             '}',
             NAVC + '.is-immersive .frame-close{opacity:1;transform:scale(1);pointer-events:auto;}',
