@@ -812,7 +812,9 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
 //  The TWIST: clicking an item reveals its content in .nav-detail — itself a
 //  nested grid-rows drawer (the reveal echoes the hide/reveal scaffold).
 //  Close: click LUNGITZ, Esc, or click outside. Mobile stacks the columns.
-//  Placeholder copy from the mockups — real sourcing (CMS vs static) is next.
+//  Sourcing (2026-06-10): find-or-reuse a Designer .nav-menu — the Masthead
+//  component's two CMS Collection Lists — and wire the reveal; fall back to the
+//  in-code arrays on any page without the component. Injected static CSS retained.
 // ════════════════════════════════════════════════════════════════════════
 (function navMenu() {
     // The masthead combo was renamed expand→wide in the Designer (2026-06-10).
@@ -877,6 +879,11 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             // items reuse the masthead .h5-nav type; neutralise its flex:1 and add
             // the click affordance via the .nav-item combo (Seth styles this)
             '.nav-panel .h5-nav{flex:0 0 auto;}',
+            // CMS path (find-or-reuse): hide each item's body at rest. Descendant
+            // selector — Webflow can't author it. The script MOVES the chosen body
+            // into .nav-detail-body (out of .nav-panel) where this stops matching
+            // and the body shows, styled.
+            '.nav-panel .nav-item-body{display:none;}',
             '.nav-item{cursor:pointer;text-decoration:none;display:block;}',
             '.nav-item.is-current{color:' + V('color-ink-100') + ';}',
             // the TWIST: selected item content reveals via a nested grid-rows drawer
@@ -971,65 +978,143 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     var scaffold = nav.querySelector('.nav-menu-content');
     if (scaffold) { scaffold.style.display = 'none'; }
 
-    // Nested drawer for the selected item's content (mirror of .caption-drawer).
-    var detail = document.createElement('div'),
-        detailBody = document.createElement('div');
-    detail.className = 'nav-detail';
-    detailBody.className = 'nav-detail-body';
-    detail.appendChild(detailBody);
+    // ── Find-or-reuse the menu body (ported from sandbox/v18, 2026-06-10) ────
+    // Live world: a Designer-authored .nav-menu (the Masthead component's two CMS
+    // Collection Lists — .nav-panel.is-giveaways / .is-hideaways) whose items each
+    // carry a visible .nav-item label (→ Name) + a hidden .nav-item-body (→ Body).
+    // Find that and wire the reveal — build nothing. Fallback (no CMS menu, e.g. a
+    // page without the component): build the panels from the in-code arrays so the
+    // menu still works everywhere. detail/detailBody are shared with closeMenu
+    // below; ensureDetail sets them in both paths.
+    var detail = null, detailBody = null;
 
-    function selectItem(side, item, el) {
+    function ensureDetail(host) {
+        detail = host.querySelector('.nav-detail');
+        if (detail) { detailBody = detail.querySelector('.nav-detail-body'); }
+        if (!detail) {
+            detail = document.createElement('div');
+            detail.className = 'nav-detail';
+            host.appendChild(detail);
+        }
+        if (!detailBody) {
+            detailBody = document.createElement('div');
+            detailBody.className = 'nav-detail-body';
+            detail.appendChild(detailBody);
+        }
+    }
+
+    // Reveal bookkeeping: the CMS path MOVES the item's real .nav-item-body node
+    // into the detail drawer (so its Designer styling is exactly what renders) and
+    // moves it home on close/switch. At rest the bodies hide via the injected
+    // '.nav-panel .nav-item-body' descendant rule; moved out of the panel that rule
+    // stops matching and the body shows.
+    var placedBody = null, placedHome = null;
+
+    function restoreBody() {
+        if (placedBody) { placedBody.classList.remove('is-shown'); }
+        if (placedBody && placedHome) { placedHome.appendChild(placedBody); }
+        placedBody = placedHome = null;
+    }
+
+    function setCurrent(el) {
         nav.querySelectorAll('.nav-item.is-current').forEach(function (b) {
             b.classList.remove('is-current');
         });
-        el.classList.add('is-current');
-        detailBody.innerHTML = item.html;
+        if (el) { el.classList.add('is-current'); }
+    }
+
+    function showDetail(side, html, el) {            // fallback path (arrays)
+        setCurrent(el);
+        restoreBody();
+        detailBody.innerHTML = html || '';
         detail.className = 'nav-detail is-shown is-' + side;
     }
 
-    function buildPanel(side, items) {
-        var align = side === 'hideaways' ? 'is-right' : 'is-left',
-            panel = document.createElement('div');
-        panel.className = 'nav-panel is-' + side;
-        items.forEach(function (item) {
-            // <a.h5-nav.nav-item> — reuses the masthead word type
-            var el = document.createElement('a');
-            el.href = '#';
-            el.className = 'h5-nav nav-item ' + align;
-            el.textContent = item.label;
+    function showDetailNode(side, bodyEl, el) {      // CMS path (real elements)
+        setCurrent(el);
+        restoreBody();
+        detailBody.innerHTML = '';
+        if (bodyEl) {
+            placedBody = bodyEl;
+            placedHome = bodyEl.parentNode;
+            detailBody.appendChild(bodyEl);
+            bodyEl.classList.add('is-shown');   // beat the .nav-item-body{display:none}
+        }
+        detail.className = 'nav-detail is-shown is-' + side;
+    }
+
+    // The component may ship .nav-body eye-hidden for a tidy canvas; its drawer
+    // layout only exists at runtime. Lift the design-time hide however Webflow
+    // encoded it. (No-op when the script builds the menu itself.)
+    var bodyHost = nav.querySelector('.nav-body');
+    if (bodyHost) {
+        bodyHost.classList.remove('w-condition-invisible');
+        bodyHost.style.display = '';
+    }
+
+    var cmsMenu = nav.querySelector('.nav-menu');
+    if (cmsMenu && cmsMenu.querySelector('.nav-item')) {
+        // Reuse the CMS-rendered menu (the Masthead component): wire each item's
+        // click to the reveal; the body is the .nav-item-body sibling in the item.
+        ensureDetail(cmsMenu);
+        nav.querySelectorAll('.nav-item').forEach(function (el) {
             el.addEventListener('click', function (e) {
                 e.preventDefault();
                 e.stopPropagation();
-                selectItem(side, item, el);
+                var side = el.closest('.nav-panel.is-hideaways') ? 'hideaways' : 'giveaways',
+                    item = el.closest('.w-dyn-item') || el.parentNode,
+                    bodyEl = item ? item.querySelector('.nav-item-body') : null;
+                showDetailNode(side, bodyEl, el);
             });
-            panel.appendChild(el);
         });
-        return panel;
+    } else {
+        // Fallback: build the panels from the in-code arrays (legacy runtime menu).
+        var buildPanel = function (side, items) {
+            var align = side === 'hideaways' ? 'is-right' : 'is-left',
+                panel = document.createElement('div');
+            panel.className = 'nav-panel is-' + side;
+            items.forEach(function (item) {
+                var el = document.createElement('a');
+                el.href = '#';
+                el.className = 'h5-nav nav-item ' + align;
+                el.textContent = item.label;
+                el.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showDetail(side, item.html, el);
+                });
+                panel.appendChild(el);
+            });
+            return panel;
+        };
+        var body = document.createElement('div'),
+            menu = document.createElement('div');
+        body.className = 'nav-body';
+        menu.className = 'nav-menu';
+        menu.appendChild(buildPanel('giveaways', GIVEAWAYS));
+        menu.appendChild(buildPanel('hideaways', HIDEAWAYS));
+        body.appendChild(menu);
+        nav.appendChild(body);
+        ensureDetail(menu);
     }
 
-    var body = document.createElement('div'),
-        menu = document.createElement('div');
-    body.className = 'nav-body';
-    menu.className = 'nav-menu';
-    menu.appendChild(buildPanel('giveaways', GIVEAWAYS));
-    menu.appendChild(buildPanel('hideaways', HIDEAWAYS));
-    menu.appendChild(detail);
-    body.appendChild(menu);
-    nav.appendChild(body);
-
-    // Fullscreen ✕ (frame-breathes) — lives in the masthead frame, hidden until
-    // .nav.is-immersive (set by openFullscreen). Closes the immersive view.
-    var closeBtn = document.createElement('button');
-    closeBtn.type = 'button';
-    closeBtn.className = 'frame-close';
-    closeBtn.setAttribute('aria-label', 'Close fullscreen');
-    closeBtn.textContent = '✕';
+    // Fullscreen ✕ (frame-breathes) — find-or-reuse: the Masthead component carries
+    // a real Designer .frame-close (position + look + :hover on its class); create
+    // one only where it's absent (a page without the component). Closes immersive.
+    var closeBtn = nav.querySelector('.frame-close');
+    if (!closeBtn) {
+        closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.className = 'frame-close';
+        closeBtn.setAttribute('aria-label', 'Close fullscreen');
+        closeBtn.textContent = '✕';
+        nav.appendChild(closeBtn);
+    }
     closeBtn.addEventListener('click', function (e) {
         e.preventDefault();
         e.stopPropagation();
         closeFullscreen();
     });
-    nav.appendChild(closeBtn);
 
     function closeMenu() {
         nav.classList.remove('is-open');
@@ -1037,6 +1122,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             b.classList.remove('is-current');
         });
         detail.className = 'nav-detail';
+        restoreBody();                      // send the moved body home first
         detailBody.innerHTML = '';
     }
     function toggleMenu() {
