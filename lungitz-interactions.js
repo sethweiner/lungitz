@@ -940,14 +940,19 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             // combo was orphaned by the expand→wide rename (the MCP can't author
             // the shared is-immersive modifier on a new chain — gotcha).
             NAVC + '.is-immersive{margin:1.5rem;width:auto;z-index:1000;}',
-            NAVC + '.is-immersive .nav-hideaways{padding-right:3rem;}',
+            // Equal margins around the ✕ (Seth, 2026-06-10): measured live, the
+            // word→✕ gap was 23px vs ✕→edge 11px; 2.25rem lands both at 11px.
+            // Knob: grows/shrinks the HIDEAWAYS↔✕ gap in immersive.
+            NAVC + '.is-immersive .nav-hideaways{padding-right:2.25rem;}',
             // Reveal MOTION only — position/size/look live on the Designer's
             // .frame-close class now (injected position was stomping Seth's
-            // Designer tuning, e.g. his right: space-2).
+            // Designer tuning, e.g. his right: space-2). The .12s delay lets the
+            // FLIP land first, so the ✕ breathes in instead of popping; the
+            // drawer easing matches the rest of the frame.
             '.frame-close{',
             '  opacity:0;transform:scale(.85);pointer-events:none;',
             '  font-family:inherit;',
-            '  transition:opacity .3s,transform .3s,color .2s,border-color .2s;',
+            '  transition:opacity .4s ease .12s,transform .4s ' + SETTLE + ' .12s,color .2s,border-color .2s;',
             '}',
             NAVC + '.is-immersive .frame-close{opacity:1;transform:scale(1);pointer-events:auto;}',
             '@media (max-width:640px){',
