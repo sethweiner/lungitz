@@ -843,58 +843,20 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     // in code (motion-in-code — Webflow's audit rejects grid-template-rows).
     var V = function (n) { return 'var(--_lungitz---' + n + ')'; },
         css = [
-            // .nav is a 2-row drawer: words (auto) + collapsing body (0fr↔1fr).
-            // The static rest grid (auto 0fr, row-gap 0) now ALSO lives on the
-            // Designer's .nav.wide combo (caption-drawer precedent); this keeps
-            // the values for the expand fallback + carries the motion, which the
-            // Designer can't (Webflow's audit blocks grid-template-rows there).
-            NAVC + '{',
-            '  grid-auto-flow:row;grid-template-columns:1fr;grid-row-gap:0;',
-            '  grid-template-rows:auto 0fr;height:auto;align-items:stretch;',
-            '  transition:grid-template-rows .45s ' + SETTLE + ',',
-            '    padding .2s,border-radius .175s,color 75ms,margin .3s,width .3s;',
-            '}',
-            NAVC + '.is-open{',
-            '  grid-template-rows:auto 1fr;',
-            '  padding-bottom:' + V('space-5') + ';',
-            '  border:1px dashed ' + V('color-accent-b-500') + ';',
-            '  border-radius:' + V('space-2') + ';',
-            '}',
-            // The collapsing row clips its content (mirror of .caption-body).
-            // display:block at .nav.wide .nav-body specificity overrides the
-            // Designer's .nav-body{display:none} — Seth's canvas-tidiness knob —
-            // so the published class can never kill the runtime drawer.
-            NAVC + ' .nav-body{display:block;min-height:0;overflow:hidden;}',
-            // two columns, sharing .nav-content's horizontal padding (space-1) so
-            // items line up under their trigger word
-            '.nav-menu{',
-            '  display:grid;grid-template-columns:1fr 1fr;',
-            '  grid-column-gap:' + V('space-3') + ';grid-row-gap:' + V('space-4') + ';',
-            '  padding:' + V('space-2') + ' ' + V('space-1') + ' 0;',
-            '}',
-            '.nav-panel{display:flex;flex-direction:column;grid-row-gap:' + V('space-1') + ';}',
-            '.nav-panel.is-giveaways{align-items:flex-start;}',
-            '.nav-panel.is-hideaways{align-items:flex-end;}',
-            // items reuse the masthead .h5-nav type; neutralise its flex:1 and add
-            // the click affordance via the .nav-item combo (Seth styles this)
+            // ════ CODE-ONLY — what the Designer physically can't express ════
+            // The masthead's STATIC look (grid, sizes, colors, is-open / is-current
+            // / panel / nav-detail / nav-content) now lives on the real Designer
+            // classes (mirror pass 2026-06-10 — see MASTHEAD-CONTRACT.md). Only the
+            // irreducible remains here, each labeled.
+            //
+            // (1) MOTION — Webflow's audit blocks grid-template-rows transitions.
+            NAVC + '{transition:grid-template-rows .45s ' + SETTLE + ',',
+            '  padding .2s,border-radius .175s,color 75ms,margin .3s,width .3s;}',
+            '.nav-detail{transition:grid-template-rows .45s ' + SETTLE + ';}',
+            //
+            // (2) DESCENDANT selectors — Webflow can't author `.a .b`.
             '.nav-panel .h5-nav{flex:0 0 auto;}',
-            '.nav-item{cursor:pointer;text-decoration:none;display:block;}',
-            '.nav-item.is-current{color:' + V('color-ink-100') + ';}',
-            // Rest state: bodies stay hidden INSIDE the panels (descendant rule —
-            // code's domain; Designer can't author it). The .nav-item-body class
-            // itself is Seth's to style; a body moved into the detail drawer no
-            // longer matches this rule, so it shows there with his styling.
-            '.nav-panel .nav-item-body{display:none;}',
-            // the TWIST: selected item content reveals via a nested grid-rows drawer
-            '.nav-detail{',
-            '  grid-column:1 / -1;display:grid;grid-template-rows:0fr;',
-            '  transition:grid-template-rows .45s ' + SETTLE + ';',
-            '}',
-            '.nav-detail.is-shown{grid-template-rows:1fr;}',
-            '.nav-detail-body{',
-            '  min-height:0;overflow:hidden;color:' + V('color-ink-100') + ';',
-            '  padding-top:' + V('space-2') + ';',
-            '}',
+            '.nav-panel .nav-item-body{display:none;}',   // bodies hide at rest; shown when MOVED into the reveal
             '.nav-detail.is-hideaways .nav-detail-body{text-align:right;}',
             '.nav-detail-body p{margin:0 0 ' + V('space-2') + ';max-width:60ch;}',
             '.nav-detail.is-hideaways .nav-detail-body p{margin-left:auto;}',
@@ -933,19 +895,8 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             '.caption-content.is-fullscreen p + p{flex:0 0 auto;white-space:nowrap;}',
             '.fs-count{display:none;}',
             '.caption-drawer.is-fullscreen .fs-count{display:inline-block;color:' + V('color-accent-a-500') + ';}',
-            // Migrated to Designer combos (2026-06-09): masthead breathing
-            // (.nav.expand.is-immersive), the rust realm word (.h5-nav.is-realm), and
-            // the ✕ LOOK (.frame-close + :hover). Kept here: the 3-col centering grid
-            // + descendant rules (Webflow can't author descendants), and the ✕'s
-            // position + reveal motion.
-            '.nav-content{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;}',
-            '.nav-giveaways{justify-self:start;}',
-            '.nav-lungitz{justify-self:center;}',
-            '.nav-hideaways{justify-self:end;}',
-            // Re-homed in code: the migrated .nav.expand.is-immersive Designer
-            // combo was orphaned by the expand→wide rename (the MCP can't author
-            // the shared is-immersive modifier on a new chain — gotcha).
-            NAVC + '.is-immersive{margin:1.5rem;width:auto;z-index:1000;}',
+            // (3) DESCENDANT + JS-state — immersive tweaks (the .nav.wide.is-immersive
+            // base look is the Designer's own combo now; only the descendants remain).
             // Equal margins around the ✕ (Seth, 2026-06-10): measured settled
             // (post nav-width transition), 2.75rem lands word→✕ and ✕→edge both
             // at 13px. Knob: grows/shrinks the HIDEAWAYS↔✕ gap in immersive.
