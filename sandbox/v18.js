@@ -297,7 +297,7 @@ function lightRealm(side) {
 // the ✕ into place) and lock the active realm word lit (is-left → giveaways,
 // is-right → hideaways). The ✕ + styling live in navMenu.
 function setImmersive(on, trigger) {
-    var nav = document.querySelector('.nav.expand'), side;
+    var nav = document.querySelector('.nav.wide, .nav.expand'), side;
     if (!nav) { return; }
     nav.classList.toggle('is-immersive', on);
     // Toggle the body flag the slideshow chevrons key off (multi-image only).
@@ -800,8 +800,12 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
 //  Placeholder copy from the mockups — real sourcing (CMS vs static) is next.
 // ════════════════════════════════════════════════════════════════════════
 (function navMenu() {
-    var nav = document.querySelector('.nav.expand');
+    // The masthead combo was renamed expand→wide in the Designer (2026-06-10).
+    // Accept either chain and emit the injected CSS against the one the element
+    // actually carries, so a Designer rename can't silently kill the menu again.
+    var nav = document.querySelector('.nav.wide, .nav.expand');
     if (!nav) { return; }
+    var NAVC = nav.classList.contains('wide') ? '.nav.wide' : '.nav.expand';
 
     var GIVEAWAYS = [
         { label: 'Participants', html: '<p>Brishty Alam · Abdul Sharif Oluwafemi Baruwa · Flo Karl Berger · Marc-Alexandre Dumoulin · Baptiste El Baz · Julia S. Goodman · Edgar Lessig · Morusiewicz / Maggessi · Stephanie Misa · Johanna Tinzl · Antoine Turillon · Rosabel Rosalind · Anna Weberberger · Seth Weiner</p>' },
@@ -822,14 +826,18 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     // in code (motion-in-code — Webflow's audit rejects grid-template-rows).
     var V = function (n) { return 'var(--_lungitz---' + n + ')'; },
         css = [
-            // .nav becomes a 2-row drawer: words (auto) + collapsing body (0fr↔1fr)
-            '.nav.expand{',
-            '  grid-auto-flow:row;grid-template-columns:1fr;',
+            // .nav is a 2-row drawer: words (auto) + collapsing body (0fr↔1fr).
+            // The static rest grid (auto 0fr, row-gap 0) now ALSO lives on the
+            // Designer's .nav.wide combo (caption-drawer precedent); this keeps
+            // the values for the expand fallback + carries the motion, which the
+            // Designer can't (Webflow's audit blocks grid-template-rows there).
+            NAVC + '{',
+            '  grid-auto-flow:row;grid-template-columns:1fr;grid-row-gap:0;',
             '  grid-template-rows:auto 0fr;height:auto;align-items:stretch;',
             '  transition:grid-template-rows .45s ' + SETTLE + ',',
             '    padding .2s,border-radius .175s,color 75ms,margin .3s,width .3s;',
             '}',
-            '.nav.expand.is-open{',
+            NAVC + '.is-open{',
             '  grid-template-rows:auto 1fr;',
             '  padding-bottom:' + V('space-5') + ';',
             '  border:1px dashed ' + V('color-accent-b-500') + ';',
@@ -894,14 +902,18 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             '.nav-giveaways{justify-self:start;}',
             '.nav-lungitz{justify-self:center;}',
             '.nav-hideaways{justify-self:end;}',
-            '.nav.expand.is-immersive .nav-hideaways{padding-right:3rem;}',
+            // Re-homed in code: the migrated .nav.expand.is-immersive Designer
+            // combo was orphaned by the expand→wide rename (the MCP can't author
+            // the shared is-immersive modifier on a new chain — gotcha).
+            NAVC + '.is-immersive{margin:1.5rem;width:auto;z-index:1000;}',
+            NAVC + '.is-immersive .nav-hideaways{padding-right:3rem;}',
             '.frame-close{',
             '  opacity:0;transform:scale(.85);pointer-events:none;',
             '  position:absolute;top:0;bottom:0;right:' + V('space-1') + ';',
             '  margin:auto 0;font-family:inherit;',
             '  transition:opacity .3s,transform .3s,color .2s,border-color .2s;',
             '}',
-            '.nav.expand.is-immersive .frame-close{opacity:1;transform:scale(1);pointer-events:auto;}',
+            NAVC + '.is-immersive .frame-close{opacity:1;transform:scale(1);pointer-events:auto;}',
             '@media (max-width:640px){',
             '  .nav-menu{grid-template-columns:1fr;}',
             '  .nav-panel.is-hideaways{align-items:flex-start;}',
@@ -1057,7 +1069,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
 // while immersive so the locked realm stays put.
 (function realmHover() {
     function immersive() {
-        var nav = document.querySelector('.nav.expand');
+        var nav = document.querySelector('.nav.wide, .nav.expand');
         return !!(nav && nav.classList.contains('is-immersive'));
     }
     [['.wrapper-content.is-left', 'giveaways'],
