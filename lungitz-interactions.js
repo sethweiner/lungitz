@@ -899,9 +899,12 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             // frame breathe. The nav floats ON TOP via z-index (set below), rather
             // than insetting the modal beneath it (which left gaps showing columns).
             // z-index 999 re-asserts the D5 stack (the Designer combo drifted
-            // back to 100000, which buries the masthead frame at 1000).
+            // back to 100000, which buries the masthead frame at 1000). margin:0
+            // kills the base .detail-view margin — a fixed element honors margin,
+            // so it was shoving the modal off the viewport top (the bleed strip,
+            // measured live: margin-top 12px ⇒ rect.top 12).
             '.detail-view.is-fullscreen{',
-            '  inset:0;display:flex;flex-direction:column;z-index:999;',
+            '  inset:0;margin:0;display:flex;flex-direction:column;z-index:999;',
             '  padding:calc(4vh + 3rem) 1.5rem 1.5rem;',
             '}',
             // State-3 control bar is stripped in fullscreen (the frame ✕ is the close).
@@ -909,7 +912,11 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             // Image fits to the available height; the caption drawer sits below, shown
             // (override .is-collapsed so caption + credit are visible in fullscreen).
             '.detail-image.is-fullscreen{flex:1 1 auto;min-height:0;height:auto;}',
-            '.caption-drawer.is-fullscreen{flex:0 0 auto;grid-template-rows:auto 1fr;}',
+            '.caption-drawer.is-fullscreen{flex:0 0 auto;grid-template-rows:auto 1fr;transition:opacity .25s;}',
+            // Zoomed = uncluttered: the caption row fades out while the magnifier
+            // is active (body.is-fs-zoom — the same flag that hides the chevrons)
+            // and returns on zoom-out. Opacity, not display — no layout jump.
+            'body.is-fs-zoom .caption-drawer.is-fullscreen{opacity:0;pointer-events:none;}',
             // Caption footer: slide counter first (bottom-left), then caption · credit.
             // One steady caption row: counter + credit never break internally;
             // the caption text wraps naturally and takes the slack. Text LOOK
@@ -1236,8 +1243,10 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
 (function slideshowNav() {
     var V = function (n) { return 'var(--_lungitz---' + n + ')'; },
         css = [
+            // z 1000: above the portal'd modal (999, last body child) so the
+            // chevron zones stay clickable.
             '.fs-nav{position:fixed;top:calc(4vh + 3rem);bottom:1.5rem;width:14%;',
-            '  z-index:999;display:none;align-items:center;cursor:pointer;}',
+            '  z-index:1000;display:none;align-items:center;cursor:pointer;}',
             'body.is-fs .fs-nav{display:flex;}',
             'body.is-fs.is-fs-zoom .fs-nav{display:none;}',
             '.fs-nav.is-prev{left:1.5rem;justify-content:flex-start;padding-left:' + V('space-4') + ';}',
