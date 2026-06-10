@@ -843,8 +843,11 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             '  border:1px dashed ' + V('color-accent-b-500') + ';',
             '  border-radius:' + V('space-2') + ';',
             '}',
-            // the collapsing row clips its content (mirror of .caption-body)
-            '.nav-body{min-height:0;overflow:hidden;}',
+            // The collapsing row clips its content (mirror of .caption-body).
+            // display:block at .nav.wide .nav-body specificity overrides the
+            // Designer's .nav-body{display:none} — Seth's canvas-tidiness knob —
+            // so the published class can never kill the runtime drawer.
+            NAVC + ' .nav-body{display:block;min-height:0;overflow:hidden;}',
             // two columns, sharing .nav-content's horizontal padding (space-1) so
             // items line up under their trigger word
             '.nav-menu{',
@@ -1054,17 +1057,23 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
 
     // Fullscreen ✕ (frame-breathes) — lives in the masthead frame, hidden until
     // .nav.is-immersive (set by openFullscreen). Closes the immersive view.
-    var closeBtn = document.createElement('button');
-    closeBtn.type = 'button';
-    closeBtn.className = 'frame-close';
-    closeBtn.setAttribute('aria-label', 'Close fullscreen');
-    closeBtn.textContent = '✕';
+    // Find-or-reuse: the sandbox masthead now carries a real Designer element
+    // (.frame-close link block, position + look + :hover all on its class);
+    // create one only where the Designer hasn't authored it (Home, pre-promotion).
+    var closeBtn = nav.querySelector('.frame-close');
+    if (!closeBtn) {
+        closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.className = 'frame-close';
+        closeBtn.setAttribute('aria-label', 'Close fullscreen');
+        closeBtn.textContent = '✕';
+        nav.appendChild(closeBtn);
+    }
     closeBtn.addEventListener('click', function (e) {
         e.preventDefault();
         e.stopPropagation();
         closeFullscreen();
     });
-    nav.appendChild(closeBtn);
 
     function closeMenu() {
         nav.classList.remove('is-open');

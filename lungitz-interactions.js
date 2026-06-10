@@ -841,8 +841,12 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             '  border:1px dashed ' + V('color-accent-b-500') + ';',
             '  border-radius:' + V('space-2') + ';',
             '}',
-            // the collapsing row clips its content (mirror of .caption-body)
-            '.nav-body{min-height:0;overflow:hidden;}',
+            // The collapsing row clips its content (mirror of .caption-body).
+            // display:block at .nav.wide .nav-body specificity overrides the
+            // Designer's .nav-body{display:none} — Seth's canvas-tidiness knob —
+            // so the published class can never kill the runtime drawer (Home's
+            // fallback-built menu uses the same class).
+            NAVC + ' .nav-body{display:block;min-height:0;overflow:hidden;}',
             // two columns, sharing .nav-content's horizontal padding (space-1) so
             // items line up under their trigger word
             '.nav-menu{',
