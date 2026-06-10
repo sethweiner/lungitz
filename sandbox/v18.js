@@ -849,12 +849,11 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             // classes (mirror pass 2026-06-10 — see MASTHEAD-CONTRACT.md). Only the
             // irreducible remains here, each labeled.
             //
-            // (1) MOTION — Webflow's audit blocks grid-template-rows transitions.
-            // align-items:stretch is a STOPGAP — it was missed in the mirror pass,
-            // so the Designer's .nav.wide kept align-items:center, which floats the
-            // open drawer up over the words. Now also set on .nav.wide in the
-            // Designer; strip this once that's published.
-            NAVC + '{align-items:stretch;transition:grid-template-rows .45s ' + SETTLE + ',',
+            // (1) MOTION — Webflow's audit blocks grid-template-rows transitions, so
+            // the drawer's open/close animation stays in code. (The align-items:stretch
+            // stopgap was removed 2026-06-10 — confirmed published on Designer .nav.wide,
+            // which carries align-items:stretch + grid-template-rows:auto 0fr at rest.)
+            NAVC + '{transition:grid-template-rows .45s ' + SETTLE + ',',
             '  padding .2s,border-radius .175s,color 75ms,margin .3s,width .3s;}',
             '.nav-detail{transition:grid-template-rows .45s ' + SETTLE + ';}',
             //

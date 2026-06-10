@@ -850,7 +850,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             // Designer can't (Webflow's audit blocks grid-template-rows there).
             NAVC + '{',
             '  grid-auto-flow:row;grid-template-columns:1fr;grid-row-gap:0;',
-            '  grid-template-rows:auto 0fr;height:auto;align-items:stretch;',
+            '  grid-template-rows:auto 0fr;height:auto;',  /* align-items:stretch stopgap removed 2026-06-10 — published on Designer .nav.wide */
             '  transition:grid-template-rows .45s ' + SETTLE + ',',
             '    padding .2s,border-radius .175s,color 75ms,margin .3s,width .3s;',
             '}',
