@@ -850,7 +850,11 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             // irreducible remains here, each labeled.
             //
             // (1) MOTION — Webflow's audit blocks grid-template-rows transitions.
-            NAVC + '{transition:grid-template-rows .45s ' + SETTLE + ',',
+            // align-items:stretch is a STOPGAP — it was missed in the mirror pass,
+            // so the Designer's .nav.wide kept align-items:center, which floats the
+            // open drawer up over the words. Now also set on .nav.wide in the
+            // Designer; strip this once that's published.
+            NAVC + '{align-items:stretch;transition:grid-template-rows .45s ' + SETTLE + ',',
             '  padding .2s,border-radius .175s,color 75ms,margin .3s,width .3s;}',
             '.nav-detail{transition:grid-template-rows .45s ' + SETTLE + ';}',
             //
