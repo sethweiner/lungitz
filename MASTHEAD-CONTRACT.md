@@ -15,7 +15,7 @@ Status legend: ✅ already in the Designer · ⬜ to migrate (currently injected
 
 | class | role | key properties | status |
 |---|---|---|---|
-| `.nav.wide` | masthead frame, rest | `grid-template-rows: auto 0fr`, `grid-row-gap:0`, `width:97vw`, padding/radius | ✅ |
+| `.nav.wide` | masthead frame, rest | `grid-template-rows: auto 0fr`, `grid-row-gap:0`, `align-items:stretch`, `width:97vw`, padding/radius | ✅ (align-items:stretch confirmed published 2026-06-10 → code stopgap removed) |
 | `.nav.wide.is-open` | menu-open state | `grid-template-rows: auto 1fr`, `padding-bottom: space-5`, dashed `accent-b-500` border, `border-radius: space-2` | ⬜ |
 | `.nav-content` | 3-up centering row | `display:grid`, `grid-template-columns: 1fr auto 1fr`, `align-items:center` | 🔧 (flex now) |
 | `.nav-giveaways` / `.nav-lungitz` / `.nav-hideaways` | the three words | `justify-self: start / center / end` | 🔧 |
@@ -28,7 +28,7 @@ Status legend: ✅ already in the Designer · ⬜ to migrate (currently injected
 | `.nav-detail` | reveal drawer (static) | `grid-column: 1 / -1`, `display:grid`, `grid-template-rows: 0fr` | ⬜ + make real element |
 | `.nav-detail-body` | reveal content | `overflow:hidden`, `min-height:0`, `color: ink-100`, `padding-top: space-2` | ⬜ |
 | `.nav-item-body` | per-item body (the reveal source) | your call — type/size/spacing | ✅ (yours) |
-| `.frame-close` (+ `:hover`) | the ✕ — look **and** position | size, dashed border, color, `position:absolute`, `right: space-2` | ✅ |
+| `.frame-close` (+ `:hover`) | the ✕ — look, position **and** resting hide | size, dashed border, color, `position:absolute`, `right: space-2`, **`opacity:0` at rest** | ✅ (opacity:0 added 2026-06-10 so the canvas matches the live resting look; reveal → opacity:1 stays in code) |
 | `.nav.wide.is-immersive` | fullscreen frame breathe | `margin:1.5rem`, `width:auto`, `z-index:1000` | ✅ (drop redundant injected copy) |
 | `.nav-menu` @ ≤ small | stack to 1 column | `grid-template-columns: 1fr` | ⬜ → breakpoint |
 
@@ -74,10 +74,14 @@ so the canvas shows only labels. Add `is-shown` to a body to pop it open and sty
 
 ## 4. Structure
 
-The masthead is currently **page-level elements, duplicated per page** (Home +
-sandbox) — which is why Home needs a hand-copy. Target: make it a **Component**
-(build once → propagates everywhere). *Pending a feasibility check on CMS
-Collection Lists inside a component.*
+The masthead is a **Webflow Component** — "Masthead", id
+`186c9bae-930f-3099-2354-95368857e131` — built 2026-06-10 from the sandbox masthead
+via `transform_element_to_component`, which **preserved the CMS Collection List
+bindings**. ✅ Feasibility confirmed: a CMS Collection List *can* live inside a
+Webflow component. Instanced on **Home + sandbox** (build once → propagates); the
+old hand-copied Home masthead was removed. Both scripts (`lungitz-interactions.js`
+and `sandbox/v18.js`) **find-or-reuse** the component's `.nav-menu` and wire the
+reveal — they build nothing when the component is present.
 
 ---
 
