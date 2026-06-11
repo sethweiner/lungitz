@@ -1539,4 +1539,77 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     });
 }());
 
+// ════════════════════════════════════════════════════════════════════════
+//  §Durability promotion (Thread B) — folded from sandbox v18→v25.
+//  Mobile masthead (≤767: scrollbar-safe nav width, size cap, symmetric column
+//  padding, custom page scrollbar), immersive HIDEAWAYS hard-right, fullscreen
+//  close = LUNGITZ + backdrop + Esc (✕ hidden → becomes a cursor over exit
+//  targets), and the bulky fullscreen/entry chevrons reborn as the state-3
+//  .button arrows (+ directional ←/→ cursors over the nav zones). Phase 2 fluid
+//  SPACE lives in the Webflow Variables (space-5..24 clamps), not here.
+//  ⚠ FLAGGED (not fixed): .author / .rich-text-block / .button bind line-height
+//  to a SPACE token, so fluid space makes those leadings bump on state 2→1.
+//  Separate fix pass — rebind to fixed-px, preserving the exact look.
+// ════════════════════════════════════════════════════════════════════════
+(function durabilityPolish() {
+    var INK   = 'var(--_lungitz---color-ink-900)',
+        TRACK = 'color-mix(in srgb,' + INK + ',#000 20%)',
+        ACC   = 'var(--_lungitz---color-accent-a-500)',
+        RUST  = 'var(--_lungitz---color-accent-b-500)',
+        F4    = 'var(--_lungitz---font-size-4)',
+        SP3   = 'var(--_lungitz---space-3)';
+    var CUR = function (svg) { return "url(\"data:image/svg+xml," + svg + "\") 13 13, pointer"; };
+    // ✕ (exit), ← (prev), → (next) cursors — off-white, for the dark frame.
+    var XCUR = CUR("%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='26'%20height='26'%3E%3Cg%20stroke='%23e8e2da'%20stroke-width='2'%20stroke-linecap='round'%3E%3Cline%20x1='8'%20y1='8'%20x2='18'%20y2='18'/%3E%3Cline%20x1='18'%20y1='8'%20x2='8'%20y2='18'/%3E%3C/g%3E%3C/svg%3E"),
+        LCUR = CUR("%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='26'%20height='26'%3E%3Cg%20fill='none'%20stroke='%23e8e2da'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cline%20x1='19'%20y1='13'%20x2='7'%20y2='13'/%3E%3Cpolyline%20points='12,8%207,13%2012,18'/%3E%3C/g%3E%3C/svg%3E"),
+        RCUR = CUR("%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='26'%20height='26'%3E%3Cg%20fill='none'%20stroke='%23e8e2da'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cline%20x1='7'%20y1='13'%20x2='19'%20y2='13'/%3E%3Cpolyline%20points='14,8%2019,13%2014,18'/%3E%3C/g%3E%3C/svg%3E");
+    var css = [
+        '.nav.wide.is-immersive .nav-hideaways{padding-right:0!important;}',
+        '.nav.wide.is-immersive .nav-giveaways{padding-left:0!important;}',
+        '@media (max-width:767px){',
+        '  .nav.wide{width:auto;left:0;right:0;margin:0.75rem;}',
+        '  .h5-nav{font-size:clamp(0.875rem, 4.4vw, 1.375rem)!important;letter-spacing:-0.05rem;}',
+        '  .wrapper-content.is-left{padding-right:1rem!important;}',
+        '  .wrapper-content.is-right{padding-left:1rem!important;}',
+        '  html{scrollbar-width:thin;scrollbar-color:#000 ' + TRACK + ';}',
+        '  html::-webkit-scrollbar{width:8px;height:8px;}',
+        '  html::-webkit-scrollbar-track{background:' + TRACK + ';}',
+        '  html::-webkit-scrollbar-thumb{background:#000;border-radius:4px;}',
+        '  html::-webkit-scrollbar-thumb:hover{background:#1a1a1a;}',
+        '}',
+        '.frame-close{display:none!important;}',
+        '.nav.wide.is-immersive .nav-lungitz{cursor:' + XCUR + ';}',
+        '.detail-view.is-fullscreen{cursor:' + XCUR + ';}',
+        '.caption-drawer.is-fullscreen{cursor:auto;}',
+        '.fs-nav.is-prev{cursor:' + LCUR + ';}',
+        '.fs-nav.is-next{cursor:' + RCUR + ';}',
+        '.fs-chev{font-size:0!important;text-shadow:none!important;font-family:inherit!important;padding:' + SP3 + '!important;color:' + ACC + '!important;line-height:1!important;}',
+        '.fs-chev::before{font-size:' + F4 + ';line-height:1;}',
+        '.fs-nav.is-prev .fs-chev::before,[data-entry-nav="prev"] .fs-chev::before,[data-entry-nav="prev"].fs-chev::before{content:"\\2190";}',
+        '.fs-nav.is-next .fs-chev::before,[data-entry-nav="next"] .fs-chev::before,[data-entry-nav="next"].fs-chev::before{content:"\\2192";}',
+        '.fs-nav:hover .fs-chev,[data-entry-nav]:hover .fs-chev{color:' + RUST + '!important;}'
+    ].join('\n');
+    var st = document.createElement('style');
+    st.textContent = css;
+    document.head.appendChild(st);
+
+    // Fullscreen close = LUNGITZ + backdrop + Esc (Esc already wired in keydown).
+    // closeFullscreen / fs / zoom are in scope (this runs inside the main IIFE).
+    document.addEventListener('click', function (e) {
+        if (!fs) { return; }
+        if (e.target.closest('.nav-lungitz')) {
+            e.preventDefault();
+            e.stopPropagation();
+            closeFullscreen();
+        }
+    }, true);
+    document.addEventListener('click', function (e) {
+        if (!fs || zoom) { return; }
+        var view = fs.view;
+        if (!view || !view.contains(e.target)) { return; }
+        if (e.target.closest('.detail-image, .caption-drawer, .fs-nav, .nav, [data-detail]')) { return; }
+        closeFullscreen();
+    }, false);
+}());
+
 }());
