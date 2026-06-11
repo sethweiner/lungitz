@@ -71,6 +71,15 @@ var detail      = null,
             '.content-accordion{',
             '  transition:opacity 120ms ease;',
             '}',
+            // Arm `padding` on the base trigger transition (the Designer one omits it)
+            // so the open-padding (space-6) ↔ base (space-3) change ANIMATES. A
+            // transition present only on .is-closing is SKIPPED (not armed before the
+            // change) — which is why the close still snapped ~10px while the grid-rows
+            // collapse (armed on the base) was smooth. Replicates the Designer base
+            // transition verbatim + adds padding; existing easings unchanged.
+            '.trigger-accordion{',
+            '  transition:grid-template-rows .45s ' + SETTLE + ',color .175s,border-color .25s ' + SETTLE + ',border-radius 75ms,padding .45s ' + SETTLE + ';',
+            '}',
             '.trigger-accordion.is-closing{',
             // Also ease `padding`: the open entry has padding-top/bottom space-6
             // (~22px) vs the base space-3 (12px); without this it SNAPS on close
