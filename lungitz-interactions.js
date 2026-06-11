@@ -1149,6 +1149,60 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     });
 }());
 
+// ── Standalone-entry wayfinding (Track C — findability) ──
+// A per-entry page (/giveaways/<slug>, /hideaways/<slug>) reached cold from search
+// needs a way back into the index. The masthead LUNGITZ word returns to Home
+// flagged (?entry=coll/slug); on Home that flag scrolls to + highlights the entry,
+// and (OPEN_ON_ARRIVAL) opens it into its detail state. Param-gated — a normal Home
+// visit (no ?entry=) is completely untouched. Entry-to-entry prev/next: TODO.
+(function wayfinding() {
+    var OPEN_ON_ARRIVAL = true;   // B: open the entry on arrival.  false → A: highlight only.
+    var entry = /^\/(giveaways|hideaways)\/([^\/]+)\/?$/.exec(location.pathname);
+
+    if (entry) {                              // ── on a standalone entry page ──
+        var lWord = document.querySelector('.nav-lungitz');
+        if (lWord) {
+            lWord.style.cursor = 'pointer';
+            lWord.addEventListener('click', function (e) {
+                e.preventDefault();
+                location.href = '/?entry=' + entry[1] + '/' + encodeURIComponent(entry[2]);
+            });
+        }
+        return;
+    }
+
+    var flag = /[?&]entry=([^&]+)/.exec(location.search);   // ── on the index (Home) ──
+    if (!flag) { return; }                    // inert for a normal visit
+    var ref  = decodeURIComponent(flag[1]).split('/'),
+        coll = ref[0], slug = ref[1];
+    if (!slug) { return; }
+
+    var column  = coll === 'hideaways' ? '.wrapper-content.is-right'
+                : coll === 'giveaways' ? '.wrapper-content.is-left' : null,
+        scope   = (column && document.querySelector(column)) || document,
+        key     = (window.CSS && CSS.escape) ? CSS.escape(slug) : slug,
+        trigger = scope.querySelector('[data-slug="' + key + '"]');
+    if (!trigger) { return; }
+
+    function arrive() {
+        trigger.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (OPEN_ON_ARRIVAL) {
+            // B: open into the existing detail state — the open itself IS the highlight (no new CSS).
+            var thumb = trigger.querySelector(W_THUMB);
+            if (thumb) { setTimeout(function () { thumb.click(); }, 650); }   // after the scroll settles
+        } else {
+            // A: reuse the existing engaged cue — lift the first thumbnail's veil, the same
+            // .thumb-hover.is-revealed you get when returning from a detail view. No new CSS.
+            var veil = trigger.querySelector('.thumb-hover');
+            if (veil) { veil.classList.add('is-revealed'); }
+        }
+        // one-shot: drop the flag so a refresh won't re-fire and the URL settles back to /
+        if (history.replaceState) { history.replaceState({}, '', location.pathname); }
+    }
+    if (document.readyState === 'complete') { setTimeout(arrive, 250); }
+    else { window.addEventListener('load', function () { setTimeout(arrive, 250); }); }
+}());
+
 // Realm hover cue (Track B, cross-state): hovering a column lights its masthead
 // word in the rust accent — the same signal the fullscreen lock uses. Skipped
 // while immersive so the locked realm stays put.
