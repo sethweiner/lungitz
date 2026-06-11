@@ -1152,11 +1152,11 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
 // ── Standalone-entry wayfinding (Track C — findability) ──
 // A per-entry page (/giveaways/<slug>, /hideaways/<slug>) reached cold from search
 // needs a way back into the index. The masthead LUNGITZ word returns to Home
-// flagged (?entry=coll/slug); on Home that flag scrolls to + highlights the entry,
-// and (OPEN_ON_ARRIVAL) opens it into its detail state. Param-gated — a normal Home
-// visit (no ?entry=) is completely untouched. Entry-to-entry prev/next: TODO.
+// flagged (?entry=coll/slug); on Home that flag scrolls to the entry and lights the
+// existing hover-highlight (entry rust + the realm/category word) — reproduced with the
+// same tokens, no new CSS. Param-gated — a normal Home visit (no ?entry=) is untouched.
+// Entry-to-entry prev/next: TODO.
 (function wayfinding() {
-    var OPEN_ON_ARRIVAL = true;   // B: open the entry on arrival.  false → A: highlight only.
     var entry = /^\/(giveaways|hideaways)\/([^\/]+)\/?$/.exec(location.pathname);
 
     if (entry) {                              // ── on a standalone entry page ──
@@ -1186,15 +1186,14 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
 
     function arrive() {
         trigger.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        if (OPEN_ON_ARRIVAL) {
-            // B: open into the existing detail state — the open itself IS the highlight (no new CSS).
-            var thumb = trigger.querySelector(W_THUMB);
-            if (thumb) { setTimeout(function () { thumb.click(); }, 650); }   // after the scroll settles
-        } else {
-            // A: reuse the existing engaged cue — lift the first thumbnail's veil, the same
-            // .thumb-hover.is-revealed you get when returning from a detail view. No new CSS.
-            var veil = trigger.querySelector('.thumb-hover');
-            if (veil) { veil.classList.add('is-revealed'); }
+        // Reproduce the existing hover-highlight (no new CSS): the entry goes rust with the
+        // SAME tokens as the live .trigger-accordion:hover (border + text + 8px radius), and
+        // its realm/category word lights via lightRealm (.h5-nav.is-realm). Persists to reload.
+        trigger.style.borderColor  = 'var(--_lungitz---color-accent-b-500)';
+        trigger.style.color        = 'var(--_lungitz---color-accent-b-500)';
+        trigger.style.borderRadius = '8px';
+        if (typeof lightRealm === 'function') {
+            lightRealm(coll === 'hideaways' ? 'hideaways' : 'giveaways');
         }
         // one-shot: drop the flag so a refresh won't re-fire and the URL settles back to /
         if (history.replaceState) { history.replaceState({}, '', location.pathname); }
