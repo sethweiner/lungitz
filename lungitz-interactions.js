@@ -1203,7 +1203,9 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         window.removeEventListener('wheel', clearHighlight, true);
     }
     function arrive() {
-        trigger.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Instant (not smooth): a smooth scroll fought the view-transition cross-fade and
+        // read as jumpy. Run early (below) so the fade reveals Home already centered here.
+        trigger.scrollIntoView({ block: 'center' });
         // Reproduce the existing hover-highlight (no new CSS): rust border + text (the same
         // .trigger-accordion:hover token) + the realm/category word via lightRealm. It's a
         // transient "you are here" cue — it clears on the first interaction (open a drawer,
@@ -1220,8 +1222,11 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         // one-shot: drop the flag so a refresh won't re-fire and the URL settles back to /
         if (history.replaceState) { history.replaceState({}, '', location.pathname); }
     }
-    if (document.readyState === 'complete') { setTimeout(arrive, 250); }
-    else { window.addEventListener('load', function () { setTimeout(arrive, 250); }); }
+    // Run as early as the target exists (it's server-rendered) so the instant scroll is
+    // reflected in the view-transition snapshot — the fade reveals the entry already
+    // centered instead of fading in and then scrolling (the jumpy bit).
+    if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', arrive); }
+    else { arrive(); }
 }());
 
 // Realm hover cue (Track B, cross-state): hovering a column lights its masthead
