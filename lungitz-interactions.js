@@ -1567,7 +1567,10 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         '.nav.wide.is-immersive .nav-hideaways{padding-right:0!important;}',
         '.nav.wide.is-immersive .nav-giveaways{padding-left:0!important;}',
         '@media (max-width:767px){',
-        '  .nav.wide{width:auto;left:0;right:0;margin:0.75rem;}',
+        // mobile masthead stays put (was position:absolute → scrolled away as a
+        // block). Fixed + opaque ink bg + z-index so content scrolls behind it.
+        // (Immersive keeps its own z-index:1000 via the higher-specificity combo.)
+        '  .nav.wide{position:fixed;z-index:100;background:' + INK + ';width:auto;left:0;right:0;margin:0.75rem;}',
         '  .h5-nav{font-size:clamp(0.875rem, 4.4vw, 1.375rem)!important;letter-spacing:-0.05rem;}',
         '  .wrapper-content.is-left{padding-right:1rem!important;}',
         '  .wrapper-content.is-right{padding-left:1rem!important;}',
