@@ -1576,6 +1576,17 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         LCUR = CUR("%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='26'%20height='26'%3E%3Cg%20fill='none'%20stroke='%23e8e2da'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cline%20x1='19'%20y1='13'%20x2='7'%20y2='13'/%3E%3Cpolyline%20points='12,8%207,13%2012,18'/%3E%3C/g%3E%3C/svg%3E"),
         RCUR = CUR("%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='26'%20height='26'%3E%3Cg%20fill='none'%20stroke='%23e8e2da'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cline%20x1='7'%20y1='13'%20x2='19'%20y2='13'/%3E%3Cpolyline%20points='14,8%2019,13%2014,18'/%3E%3C/g%3E%3C/svg%3E");
     var css = [
+        // ★ The "author bounce" (state 1↔2). Diagnosed LIVE via the Chrome bridge:
+        // .author lives in a NESTED collection-list inside the entry header, and the
+        // header is a 2-row grid sitting in the trigger's animating `grid-template-rows`
+        // auto row. During the open/close the animation hands the header a transient
+        // sliver of extra height; default align-content distributed it INTO the rows,
+        // inflating row 1 (~+16px visible / +33px raw) and shoving the author's row
+        // down, then it settled — the drop-then-realign. Title HEIGHT stayed constant
+        // 71.3px the whole time; it was the grid TRACK thrashing (not padding/leading —
+        // those earlier fixes were red herrings, kept as harmless smoothing).
+        // align-content:start packs the rows to the top so row 1 can never inflate.
+        '.header-accordion{align-content:start;}',
         '.nav.wide.is-immersive .nav-hideaways{padding-right:0!important;}',
         '.nav.wide.is-immersive .nav-giveaways{padding-left:0!important;}',
         '@media (max-width:767px){',
