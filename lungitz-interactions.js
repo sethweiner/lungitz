@@ -72,7 +72,10 @@ var detail      = null,
             '  transition:opacity 120ms ease;',
             '}',
             '.trigger-accordion.is-closing{',
-            '  transition:grid-template-rows 500ms ' + CLOSE_EASE + '!important;',
+            // Also ease `padding`: the open entry has padding-top/bottom space-6
+            // (~22px) vs the base space-3 (12px); without this it SNAPS on close
+            // (.open removed) and the contents — incl .author — jump ~10px.
+            '  transition:grid-template-rows 500ms ' + CLOSE_EASE + ',padding 500ms ' + CLOSE_EASE + '!important;',
             '}',
             '.trigger-accordion.is-closing .content-accordion{',
             '  opacity:0;',
