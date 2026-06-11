@@ -1184,17 +1184,27 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         trigger = scope.querySelector('[data-slug="' + key + '"]');
     if (!trigger) { return; }
 
+    function clearHighlight() {
+        trigger.style.borderColor = trigger.style.color = trigger.style.borderRadius = '';
+        if (typeof lightRealm === 'function') { lightRealm(null); }
+        document.removeEventListener('pointerdown', clearHighlight, true);
+        window.removeEventListener('wheel', clearHighlight, true);
+    }
     function arrive() {
         trigger.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        // Reproduce the existing hover-highlight (no new CSS): the entry goes rust with the
-        // SAME tokens as the live .trigger-accordion:hover (border + text + 8px radius), and
-        // its realm/category word lights via lightRealm (.h5-nav.is-realm). Persists to reload.
+        // Reproduce the existing hover-highlight (no new CSS): rust border + text (the same
+        // .trigger-accordion:hover token) + the realm/category word via lightRealm. It's a
+        // transient "you are here" cue — it clears on the first interaction (open a drawer,
+        // click, or scroll away) so it never sticks. (Programmatic smooth-scroll fires no
+        // wheel/pointer events, so the arrival itself won't clear it.)
         trigger.style.borderColor  = 'var(--_lungitz---color-accent-b-500)';
         trigger.style.color        = 'var(--_lungitz---color-accent-b-500)';
         trigger.style.borderRadius = '8px';
         if (typeof lightRealm === 'function') {
             lightRealm(coll === 'hideaways' ? 'hideaways' : 'giveaways');
         }
+        document.addEventListener('pointerdown', clearHighlight, true);
+        window.addEventListener('wheel', clearHighlight, { capture: true, passive: true });
         // one-shot: drop the flag so a refresh won't re-fire and the URL settles back to /
         if (history.replaceState) { history.replaceState({}, '', location.pathname); }
     }
