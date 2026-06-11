@@ -863,8 +863,12 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             NAVC + '{',
             '  grid-auto-flow:row;grid-template-columns:1fr;grid-row-gap:0;',
             '  grid-template-rows:auto 0fr;height:auto;',  /* align-items:stretch stopgap removed 2026-06-10 — published on Designer .nav.wide */
+            // `width` intentionally NOT transitioned: the masthead is width:97vw, so a
+            // width transition animates on every viewport RESIZE → a rubber-band bounce
+            // (Seth, 2026-06-11, durability pass). Immersive width:auto now snaps, which
+            // is hidden under the fullscreen FLIP. Proven in sandbox v19.
             '  transition:grid-template-rows .45s ' + SETTLE + ',',
-            '    padding .2s,border-radius .175s,color 75ms,margin .3s,width .3s;',
+            '    padding .2s,border-radius .175s,color 75ms,margin .3s;',
             '}',
             NAVC + '.is-open{',
             '  grid-template-rows:auto 1fr;',
