@@ -2,36 +2,44 @@
 'use strict';
 
 // ════════════════════════════════════════════════════════════════════════
-//  Lungitz sandbox v20 — Thread B (durability) Phase 2: FLUID MACRO-SPACE proof
+//  Lungitz sandbox v20 — Thread B (durability) Phase 2 proof. Page-local (?v=20);
+//  loads v18 for the real masthead / columns / CMS. Phase 1 (fluid type) is LIVE.
 //
-//  Phase 1 (fluid type) is now LIVE in the published CSS. This proof layers the
-//  macro-space clamps on top via a :root override — page-local (?v=20) — so the
-//  layout rhythm can be felt at any width before committing to the live Variables.
-//  Loads v18 for the real masthead / columns / CMS.
-//
-//  Keep space-0..4 (0/4/8/12/16px) FIXED — component gaps, fine padding, hairline
-//  rhythm stay crisp. Make space-5..24 FLUID: scale DOWN on mobile (oversized fixed
-//  gaps look huge on a phone), hold at today's value on desktop (ceiling = current,
-//  band 380→1440 — standard screens unchanged; no big-screen growth, the gutters
-//  already breathe wide screens). Floors are monotonic and ≥ space-4 (16px) so the
-//  scale never inverts against the fixed tier.
-//
-//  The semantic aliases (space-stack-*, space-gutter-page*, space-component-*)
-//  REFERENCE these primitives, so overriding the primitive cascades to them.
-//  Note: a few classes use a --space-* token for font-size (.button:hover /
-//  .nav-item-body → space-6; .type → space-4 which stays fixed) — space-6 going
-//  fluid makes those sizes fluid too (minor, acceptable).
+//  rev2 — Seth feedback on rev1:
+//   (1) "a pixel more air on mobile" → bumped the macro-space floors.
+//   (2) MOBILE MASTHEAD (≤479) fixes — both issues share one root: 3 words
+//       (GIVEAWAYS · LUNGITZ · HIDEAWAYS) are too wide for a phone.
+//        · Issue 1 (overflow/scrollbar clips HIDEAWAYS): .nav is position:absolute,
+//          width:97vw + margin:1rem, so its right edge lands past the scrollbar
+//          (vw ignores the scrollbar). Fix: on mobile drop the vw width — left:0/
+//          right:0 + small margin sizes it to the scrollbar-safe area, and
+//          scrollbar-gutter:stable reserves the bar so nothing paints under it.
+//        · Issue 2 (immersive squish, center pinned): the words overflow their
+//          1fr auto 1fr cells and collide. Fix: a mobile masthead size that fits
+//          all three (clamp ~13→20px across phones), tighter letter-spacing, and
+//          less ✕ gap in the immersive frame.
+//   These are mobile-masthead candidates to FEEL — not yet promoted.
 // ════════════════════════════════════════════════════════════════════════
 var S = '--_lungitz---space-';
 var css =
     ':root{'
-  + S + '5:clamp(1rem, 0.9104rem + 0.377vw, 1.25rem);'        /* 16→20 */
-  + S + '6:clamp(1.125rem, 0.9906rem + 0.566vw, 1.5rem);'     /* 18→24 */
-  + S + '8:clamp(1.375rem, 1.151rem + 0.943vw, 2rem);'        /* 22→32 */
-  + S + '10:clamp(1.625rem, 1.311rem + 1.32vw, 2.5rem);'      /* 26→40 */
-  + S + '12:clamp(1.875rem, 1.472rem + 1.7vw, 3rem);'         /* 30→48 */
-  + S + '16:clamp(2.375rem, 1.792rem + 2.45vw, 4rem);'        /* 38→64 */
-  + S + '24:clamp(3.25rem, 2.264rem + 4.15vw, 6rem);'         /* 52→96 */
+  + S + '5:clamp(1.062rem, 0.9953rem + 0.283vw, 1.25rem);'    /* 17→20 */
+  + S + '6:clamp(1.25rem, 1.16rem + 0.377vw, 1.5rem);'        /* 20→24 */
+  + S + '8:clamp(1.562rem, 1.406rem + 0.66vw, 2rem);'         /* 25→32 */
+  + S + '10:clamp(1.812rem, 1.566rem + 1.04vw, 2.5rem);'      /* 29→40 */
+  + S + '12:clamp(2.125rem, 1.811rem + 1.32vw, 3rem);'        /* 34→48 */
+  + S + '16:clamp(2.688rem, 2.217rem + 1.98vw, 4rem);'        /* 43→64 */
+  + S + '24:clamp(3.625rem, 2.774rem + 3.58vw, 6rem);'        /* 58→96 */
+  + '}'
+  // ── Mobile masthead (≤479): fit the three words + keep clear of the scrollbar ──
+  + '@media (max-width:479px){'
+  + '  html{scrollbar-gutter:stable;}'
+  // scrollbar-safe nav width: drop the 97vw, let left/right + margin size it.
+  + '  .nav.wide{width:auto;left:0;right:0;margin:0.5rem;}'
+  // shrink the words so all three fit a phone; tighter tracking buys room.
+  + '  .h5-nav{font-size:clamp(0.8125rem, 4.2vw, 1.375rem)!important;letter-spacing:-0.04rem;}'
+  // immersive frame is tighter (margin + ✕ gap) — trim the ✕ gap so it doesn\'t squish.
+  + '  .nav.wide.is-immersive .nav-hideaways{padding-right:1.5rem;}'
   + '}';
 var s = document.createElement('style');
 s.setAttribute('data-fluid-space', 'b2');
