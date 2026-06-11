@@ -1202,17 +1202,33 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         document.head.appendChild(s);
         // Neighbours in INDEX order, read from Home (every entry rendered with data-slug per
         // column). Wrap-around so both arrows always resolve; leave controls in place on a miss.
-        var column = coll === 'hideaways' ? '.wrapper-content.is-right' : '.wrapper-content.is-left';
-        fetch('/').then(function (r) { return r.text(); }).then(function (html) {
-            var doc = new DOMParser().parseFromString(html, 'text/html'),
-                slugs = [].map.call(doc.querySelectorAll(column + ' [data-slug]'), function (el) {
-                    return el.getAttribute('data-slug');
-                }),
-                i = slugs.indexOf(slug), n = slugs.length;
+        function link(slugs) {
+            var i = slugs.indexOf(slug), n = slugs.length;
             if (i === -1 || n < 2) { return; }
             if (prev) { prev.setAttribute('href', '/' + coll + '/' + slugs[(i - 1 + n) % n]); }
             if (next) { next.setAttribute('href', '/' + coll + '/' + slugs[(i + 1) % n]); }
-        }).catch(function () {});
+        }
+        // Cache the order per collection for the session — VALIDATED (only trusted if it
+        // contains this entry) so a bad list can't poison it — so prev/next clicks don't
+        // re-fetch Home. Deferred off the critical page load.
+        var key = 'lz-order-' + coll, cached;
+        try { cached = JSON.parse(sessionStorage.getItem(key) || 'null'); } catch (e) {}
+        if (cached && cached.indexOf(slug) !== -1) { link(cached); return; }
+        var column = coll === 'hideaways' ? '.wrapper-content.is-right' : '.wrapper-content.is-left';
+        var run = function () {
+            fetch('/').then(function (r) { return r.text(); }).then(function (html) {
+                var doc = new DOMParser().parseFromString(html, 'text/html'),
+                    slugs = [].map.call(doc.querySelectorAll(column + ' [data-slug]'), function (el) {
+                        return el.getAttribute('data-slug');
+                    });
+                if (slugs.indexOf(slug) !== -1) {
+                    try { sessionStorage.setItem(key, JSON.stringify(slugs)); } catch (e) {}
+                }
+                link(slugs);
+            }).catch(function () {});
+        };
+        if (window.requestIdleCallback) { requestIdleCallback(run, { timeout: 1500 }); }
+        else { setTimeout(run, 300); }
     }
 
     var flag = /[?&]entry=([^&]+)/.exec(location.search);   // ── on the index (Home) ──
