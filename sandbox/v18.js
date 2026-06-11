@@ -854,7 +854,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             // stopgap was removed 2026-06-10 — confirmed published on Designer .nav.wide,
             // which carries align-items:stretch + grid-template-rows:auto 0fr at rest.)
             NAVC + '{transition:grid-template-rows .45s ' + SETTLE + ',',
-            '  padding .2s,border-radius .175s,color 75ms,margin .3s,width .3s;}',
+            '  padding .2s,border-radius .175s,color 75ms,margin .3s;}',
             '.nav-detail{transition:grid-template-rows .45s ' + SETTLE + ';}',
             //
             // (2) DESCENDANT selectors — Webflow can't author `.a .b`.
