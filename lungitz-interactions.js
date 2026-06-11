@@ -30,6 +30,18 @@ var detail      = null,
     dragMoved   = false,
     pendingOpen = null;
 
+// ── Soft page transition (entry ↔ index) ──
+// Opt into the cross-document View Transitions API so same-origin navigations
+// cross-fade instead of hard-cutting. Progressive: unsupported browsers just
+// hard-navigate (the @rule is ignored). Injected site-wide, early.
+(function softNav() {
+    var s = document.createElement('style');
+    s.textContent = '@view-transition{navigation:auto}'
+        + '::view-transition-old(root),::view-transition-new(root){'
+        + 'animation-duration:300ms;animation-timing-function:ease}';
+    (document.head || document.documentElement).appendChild(s);
+}());
+
 // ── Injected styles (scrollbars + detail animation) + theme-color ──
 (function injectCSS() {
     var INK = 'var(--_lungitz---color-ink-900)',
