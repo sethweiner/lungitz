@@ -2,25 +2,25 @@
 'use strict';
 
 // ════════════════════════════════════════════════════════════════════════
-//  Lungitz sandbox v19 — Thread B (durability): FLUID TYPE proof
-//  Rev 2 (Seth feedback): elastic in BOTH directions + leading fix + masthead split.
+//  Lungitz sandbox v19 — Thread B (durability) PROOF.  Page-local (?v=19);
+//  live Variables / production untouched. Loads v18 for the real masthead /
+//  columns / CMS so everything is felt in context.
 //
-//  Phase B1: prove a clamp() type scale BEFORE committing it to the live Webflow
-//  Variables (site-wide). Injected :root override is page-local (only ?v=19);
-//  live token values untouched. Loads v18 so the ramp is felt on the REAL
-//  masthead / columns / CMS at any width.
+//  Rev 3 adds two Seth-requested polish items to the type work:
+//   (A) Big-screen side gutters — content shouldn't run edge-to-edge on a huge
+//       monitor (double 16:9). Fluid side padding that stays 0 until ~1920px
+//       then grows gently (capped). Tunable: start 1920 / rate .12 / cap 6vw.
+//   (B) Masthead bounce fix — .nav is width:97vw and its transition included
+//       `width .3s`, so RESIZING the browser animated the width → rubber-band
+//       bounce. Drop `width` from the transition (kept drawer/padding/margin/
+//       color). The immersive width:auto change just snaps now (unnoticeable
+//       under the fullscreen FLIP). Overridden here with !important; on promote
+//       this edit goes into the production navMenu transition.
 //
-//  Ramp (a11y: rem floors/ceilings + `rem + vw` term so zoom still scales type):
-//    · band widened to 380→1920 so type keeps GROWING on large screens (ceilings
-//      now exceed today's desktop px) — "elastic up". Laptop (1440) lands ~today.
-//    · floors RAISED so titles/display read bigger on mobile — "elastic down".
-//    · fs-1..3 (12/14/16px body + fine print) stay STATIC for legibility.
-//    · MASTHEAD .h5-nav is SPLIT off fs-8 onto its own contained ramp (22→32,
-//      capped at 32 — it's chrome, and three words must fit a phone). The
-//      !important also retires the published @479 .h5-nav{font-size:22px} patch.
-//    · LEADING fix: .title + .h5-nav used line-height:var(--space-8) = a fixed
-//      32px, which goes loose once the font scales down. Made unitless so leading
-//      tracks the font at every width (also a durability correctness fix).
+//  Rev 2 (kept): fluid type ramp, a11y rem+vw, elastic BOTH directions
+//  (band 380→1920, ceilings exceed today's desktop), fs-1..3 static, masthead
+//  .h5-nav split off fs-8 onto its own contained ramp (22→32, capped), and the
+//  unitless leading fix on .title / .h5-nav.
 // ════════════════════════════════════════════════════════════════════════
 var V = '--_lungitz---font-size-';
 var css =
@@ -34,7 +34,11 @@ var css =
   + V + '10:clamp(2.75rem, 2.0406rem + 2.9870vw, 5.625rem);'    /* 44→90 */
   + '}'
   + '.h5-nav{font-size:clamp(1.375rem, 1.1509rem + 0.9434vw, 2rem)!important;line-height:1.1;}'  /* masthead 22→32, capped */
-  + '.title{line-height:1.05;}';                                /* unitless leading */
+  + '.title{line-height:1.05;}'                                 /* unitless leading */
+  // (A) big-screen side gutters — 0 until ~1920px, then gentle, capped at 6vw.
+  + '.container-content{padding-inline:clamp(0px, calc((100vw - 1920px) * 0.12), 6vw);}'
+  // (B) masthead bounce fix — same transition as v18's navMenu MINUS `width .3s`.
+  + '.nav.wide{transition:grid-template-rows .45s cubic-bezier(0.16,1,0.3,1),padding .2s,border-radius .175s,color 75ms,margin .3s!important;}';
 var s = document.createElement('style');
 s.setAttribute('data-fluid-type', 'b1');
 s.textContent = css;
