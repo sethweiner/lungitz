@@ -1180,7 +1180,46 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
                 location.href = '/?entry=' + entry[1] + '/' + encodeURIComponent(entry[2]);
             });
         }
+        wireEntryNav(entry[1], entry[2]);
         return;
+    }
+
+    // Entry→entry prev/next. Controls are [data-entry-nav="prev"|"next"] (styled in the
+    // Designer). Their href comes from the neighbours in INDEX order — sourced by reading
+    // Home, which renders every entry in order with data-slug per column (works cold; no
+    // per-template list needed; cached per session). Wrap-around so both arrows resolve.
+    function wireEntryNav(coll, slug) {
+        var prev = document.querySelector('[data-entry-nav="prev"]'),
+            next = document.querySelector('[data-entry-nav="next"]');
+        if (!prev && !next) { return; }
+        // the shared .fs-chev sits at opacity:0 (the fullscreen edge-reveal) — show it here
+        [prev, next].forEach(function (b) {
+            if (!b) { return; }
+            b.style.opacity = '1';
+            var g = b.querySelector('.fs-chev'); if (g) { g.style.opacity = '1'; }
+        });
+        function apply(slugs) {
+            var i = slugs.indexOf(slug), n = slugs.length;
+            if (i === -1 || n < 2) {
+                if (prev) { prev.style.display = 'none'; }
+                if (next) { next.style.display = 'none'; }
+                return;
+            }
+            if (prev) { prev.setAttribute('href', '/' + coll + '/' + slugs[(i - 1 + n) % n]); }
+            if (next) { next.setAttribute('href', '/' + coll + '/' + slugs[(i + 1) % n]); }
+        }
+        var key = 'lz-order-' + coll, cached = null;
+        try { cached = sessionStorage.getItem(key); } catch (e) {}
+        if (cached) { apply(JSON.parse(cached)); return; }
+        var column = coll === 'hideaways' ? '.wrapper-content.is-right' : '.wrapper-content.is-left';
+        fetch('/').then(function (r) { return r.text(); }).then(function (html) {
+            var doc = new DOMParser().parseFromString(html, 'text/html'),
+                slugs = [].map.call(doc.querySelectorAll(column + ' [data-slug]'), function (el) {
+                    return el.getAttribute('data-slug');
+                });
+            try { sessionStorage.setItem(key, JSON.stringify(slugs)); } catch (e) {}
+            apply(slugs);
+        }).catch(function () {});
     }
 
     var flag = /[?&]entry=([^&]+)/.exec(location.search);   // ── on the index (Home) ──
