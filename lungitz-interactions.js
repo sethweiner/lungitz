@@ -1192,33 +1192,26 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         var prev = document.querySelector('[data-entry-nav="prev"]'),
             next = document.querySelector('[data-entry-nav="next"]');
         if (!prev && !next) { return; }
-        // the shared .fs-chev sits at opacity:0 (the fullscreen edge-reveal) — show it here
-        [prev, next].forEach(function (b) {
-            if (!b) { return; }
-            b.style.opacity = '1';
-            var g = b.querySelector('.fs-chev'); if (g) { g.style.opacity = '1'; }
-        });
-        function apply(slugs) {
-            var i = slugs.indexOf(slug), n = slugs.length;
-            if (i === -1 || n < 2) {
-                if (prev) { prev.style.display = 'none'; }
-                if (next) { next.style.display = 'none'; }
-                return;
-            }
-            if (prev) { prev.setAttribute('href', '/' + coll + '/' + slugs[(i - 1 + n) % n]); }
-            if (next) { next.setAttribute('href', '/' + coll + '/' + slugs[(i + 1) % n]); }
-        }
-        var key = 'lz-order-' + coll, cached = null;
-        try { cached = sessionStorage.getItem(key); } catch (e) {}
-        if (cached) { apply(JSON.parse(cached)); return; }
+        // The controls share .fs-chev, which the fullscreen module pins to opacity:0 (its
+        // edge-reveal). Override it ONLY inside/at a data-entry-nav control so the entry
+        // arrows stay visible — !important + higher specificity beats the plain rule, and
+        // the scope leaves the real fullscreen chevrons' reveal intact.
+        var s = document.createElement('style');
+        s.textContent = '[data-entry-nav]{opacity:1}'
+            + '[data-entry-nav] .fs-chev,[data-entry-nav].fs-chev{opacity:1!important}';
+        document.head.appendChild(s);
+        // Neighbours in INDEX order, read from Home (every entry rendered with data-slug per
+        // column). Wrap-around so both arrows always resolve; leave controls in place on a miss.
         var column = coll === 'hideaways' ? '.wrapper-content.is-right' : '.wrapper-content.is-left';
         fetch('/').then(function (r) { return r.text(); }).then(function (html) {
             var doc = new DOMParser().parseFromString(html, 'text/html'),
                 slugs = [].map.call(doc.querySelectorAll(column + ' [data-slug]'), function (el) {
                     return el.getAttribute('data-slug');
-                });
-            try { sessionStorage.setItem(key, JSON.stringify(slugs)); } catch (e) {}
-            apply(slugs);
+                }),
+                i = slugs.indexOf(slug), n = slugs.length;
+            if (i === -1 || n < 2) { return; }
+            if (prev) { prev.setAttribute('href', '/' + coll + '/' + slugs[(i - 1 + n) % n]); }
+            if (next) { next.setAttribute('href', '/' + coll + '/' + slugs[(i + 1) % n]); }
         }).catch(function () {});
     }
 
