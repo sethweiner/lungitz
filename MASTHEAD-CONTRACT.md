@@ -85,4 +85,28 @@ reveal — they build nothing when the component is present.
 
 ---
 
+## 5. `durabilityPolish()` — Thread B pile, promoted 2026-06-11 (CODE-OWNED)
+
+The durability/UX pile folded into `lungitz-interactions.js` (the `durabilityPolish`
+IIFE) after sandbox proof (v18→v25). Code-owned because each is a runtime / descendant
+/ pseudo / `clamp()`-on-a-class rule Webflow can't author — except the ⬜ rows, which
+could migrate to the Designer as plain breakpoint styles.
+
+| rule | why it's code |
+|---|---|
+| `.nav.wide` @≤767 `position:fixed` + ink bg + `z-index:100` + `width:auto` | mobile masthead sticky + scrollbar-safe (was `absolute`, scrolled away). ⬜ width/margin are Designer-able; `fixed`+bg is the behavior knob |
+| `.h5-nav` @≤767 `font-size: clamp(…)` | **Webflow styles can't hold `clamp()`** — only Variables can |
+| `.wrapper-content.is-left/.is-right` @≤767 `padding: 1rem` | ⬜ Designer-able — resets the desktop inner-gutter on the stacked mobile edge |
+| `html` @≤767 custom scrollbar (`::-webkit-scrollbar*`) | pseudo-elements Webflow can't author |
+| `.nav.wide.is-immersive .nav-hideaways/.nav-giveaways` padding | descendant + JS state |
+| `.frame-close{display:none}` + LUNGITZ / backdrop close + ✕ / ← / → cursors | the runtime fullscreen close (Option A) + SVG cursors |
+| `.fs-chev` → state-3 `.button` look (`::before` ←/→) | pseudo + descendant; covers fullscreen slides **and** `.entry-nav` |
+| `.author`/`.rich-text-block`/`.type`/`.number-list`/`.button`/`.button-copy` `line-height` = fixed px | ⚠ **MASKS a Designer slip**: those classes bind `line-height` to a SPACE token, so fluid space bumped them. Real fix = unbind in the Designer (set fixed px on the class) so the canvas matches |
+
+Phase 2 fluid **space** (`space-5…24` clamps) and the fluid **type** scale live in the
+Webflow **Variables**, not here. Bounce-fix (`width` dropped from the nav transition) is
+in the navMenu transition.
+
+---
+
 _Maintained by Seth + Claude. Edit freely — this file is the agreement._

@@ -1590,7 +1590,16 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         '.fs-chev::before{font-size:' + F4 + ';line-height:1;}',
         '.fs-nav.is-prev .fs-chev::before,[data-entry-nav="prev"] .fs-chev::before,[data-entry-nav="prev"].fs-chev::before{content:"\\2190";}',
         '.fs-nav.is-next .fs-chev::before,[data-entry-nav="next"] .fs-chev::before,[data-entry-nav="next"].fs-chev::before{content:"\\2192";}',
-        '.fs-nav:hover .fs-chev,[data-entry-nav]:hover .fs-chev{color:' + RUST + '!important;}'
+        '.fs-nav:hover .fs-chev,[data-entry-nav]:hover .fs-chev{color:' + RUST + '!important;}',
+        // .author bump fix: these classes bind line-height to a SPACE token, so
+        // Phase 2's fluid space made their leading viewport-dependent and it jumped
+        // on the state 2→1 collapse. Pin to the pre-Phase-2 fixed px (the exact
+        // prior look — unitless ratios shifted it, so px it is).
+        // [Designer cleanup later: set these line-heights on the classes natively,
+        //  unbinding the space token, so the canvas matches.]
+        '.author,.rich-text-block,.type{line-height:20px!important;}',  /* was space-5 */
+        '.number-list{line-height:16px!important;}',                    /* was space-4 */
+        '.button,.button-copy{line-height:32px!important;}'             /* was space-8 */
     ].join('\n');
     var st = document.createElement('style');
     st.textContent = css;
