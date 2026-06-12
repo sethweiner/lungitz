@@ -1643,4 +1643,236 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     }, false);
 }());
 
+// ════════════════════════════════════════════════════════════════════════
+//  §Keyboard navigation (arc 3 — promoted from sandbox v27→v30) — drive the state ladder from
+//  the keys. Spine: ⏎ drills IN · Esc drills OUT (the existing ladder) · arrows
+//  move laterally at the current level · +/− zoom in fullscreen. A quiet hint
+//  chip surfaces the current level's keys. Additive + a11y-minded:
+//    · never preventDefault while typing in a field, or with ⌘/Ctrl/Alt held;
+//    · never traps focus — native Tab still works; if a real link/button holds
+//      focus, ⏎ falls through to its native activation (no double-fire);
+//    · the index/thumbnail focus ring reuses the rust hover tokens (nothing new
+//      to style) and scrolls with {block:'nearest'} so it never yanks the page;
+//    · a mouse press clears the keyboard ring — the two coexist, mouse wins;
+//    · hint chip is aria-hidden + hidden on touch / no-hover pointers.
+//  ?ring gate: v1 (full, default) lets the arrows focus the index from a cold
+//  start; ?ring=0 (v2) turns that off — the mouse opens the first entry and the
+//  keys take over from state 2 onward.
+// ════════════════════════════════════════════════════════════════════════
+(function keyboardNav() {
+    // INDEX_RING also gates on the index columns existing, so on entry pages
+    // (no columns) the arrows aren't swallowed and the index hint stays quiet.
+    var HAS_INDEX = !!(document.querySelector('.wrapper-content.is-left') || document.querySelector('.wrapper-content.is-right')),
+        INDEX_RING = HAS_INDEX && new URLSearchParams(location.search).get('ring') !== '0',
+        RUST = 'var(--_lungitz---color-accent-b-500)';
+
+    function typing(e) {
+        var t = e.target;
+        return !!(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable));
+    }
+    function nativeFocused() {
+        var a = document.activeElement;
+        return !!(a && a !== document.body && a.matches &&
+                  a.matches('a[href],button,[role="button"],input,select,textarea,[tabindex]:not([tabindex="-1"])'));
+    }
+    function col(side) { return document.querySelector('.wrapper-content.is-' + side); }
+    function trigsIn(c) { return c ? [].slice.call(c.querySelectorAll(TRIGGER)) : []; }
+    function openTrig() { return document.querySelector(TRIGGER + '.open'); }
+    function thumbsOf(t) { return t ? [].slice.call(t.querySelectorAll(W_THUMB)) : []; }
+
+    // ── index focus ring (state 1) — reuses the rust hover-highlight tokens ──
+    var kbEntry = null, lastEntry = null;
+    function ring(el, on) {
+        if (!el) { return; }
+        el.style.borderColor  = on ? RUST : '';
+        el.style.color        = on ? RUST : '';
+        el.style.borderRadius = on ? '8px' : '';
+    }
+    function focusEntry(el, scroll) {
+        if (kbEntry && kbEntry !== el) { ring(kbEntry, false); }
+        kbEntry = el || null;
+        if (!kbEntry) { if (typeof lightRealm === 'function') { lightRealm(null); } return; }
+        ring(kbEntry, true);
+        lastEntry = kbEntry;
+        if (typeof lightRealm === 'function') {
+            lightRealm(kbEntry.closest('.wrapper-content.is-right') ? 'hideaways'
+                     : kbEntry.closest('.wrapper-content.is-left') ? 'giveaways' : null);
+        }
+        if (scroll !== false) { kbEntry.scrollIntoView({ block: 'nearest' }); }
+    }
+    function blurEntry() {
+        ring(kbEntry, false); kbEntry = null;
+        if (typeof lightRealm === 'function') { lightRealm(null); }
+    }
+    function nearestTop(list) {
+        var best = null, bestD = Infinity;
+        list.forEach(function (t) {
+            var d = Math.abs(t.getBoundingClientRect().top - 88);
+            if (d < bestD) { bestD = d; best = t; }
+        });
+        return best;
+    }
+    function seed() {
+        if (kbEntry) { return true; }
+        var all = trigsIn(col('left')).concat(trigsIn(col('right')));
+        focusEntry((lastEntry && all.indexOf(lastEntry) !== -1) ? lastEntry : nearestTop(all));
+        return !!kbEntry;
+    }
+    function moveEntry(d) {
+        if (!seed()) { return; }
+        var list = trigsIn(kbEntry.closest('.wrapper-content')), i = list.indexOf(kbEntry);
+        if (i === -1) { return; }
+        focusEntry(list[Math.max(0, Math.min(list.length - 1, i + d))]);
+    }
+    function switchCol() {
+        if (!seed()) { return; }
+        var list = trigsIn(col(kbEntry.closest('.wrapper-content.is-left') ? 'right' : 'left'));
+        if (!list.length) { return; }
+        var y = kbEntry.getBoundingClientRect().top, best = list[0], bD = Infinity;
+        list.forEach(function (t) {
+            var dd = Math.abs(t.getBoundingClientRect().top - y);
+            if (dd < bD) { bD = dd; best = t; }
+        });
+        focusEntry(best);
+    }
+
+    // ── thumbnail focus ring (state 2) ──
+    var kbThumb = -1;
+    function ringThumb(t, idx) {
+        thumbsOf(t).forEach(function (th, k) {
+            th.style.outline = (k === idx) ? '2px solid ' + RUST : '';
+            th.style.outlineOffset = (k === idx) ? '2px' : '';
+            var hov = th.querySelector('.thumb-hover');   // lift the veil on the focused thumb (matches hover)
+            if (hov) { hov.classList.toggle('is-revealed', k === idx); }
+        });
+    }
+    function focusThumb(t, idx) {
+        var th = thumbsOf(t);
+        if (!th.length) { return; }
+        kbThumb = Math.max(0, Math.min(th.length - 1, idx));
+        ringThumb(t, kbThumb);
+        th[kbThumb].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+    function clearThumb() { var t = openTrig(); if (t) { ringThumb(t, -1); } kbThumb = -1; }
+
+    // ── hint chip ──
+    var hint = document.createElement('div');
+    hint.className = 'kb-hint';
+    hint.setAttribute('aria-hidden', 'true');
+    var hs = document.createElement('style');
+    hs.textContent =
+        '.kb-hint{position:fixed;right:1.5rem;bottom:1.5rem;z-index:1200;font-family:inherit;'
+      + 'font-size:12px;letter-spacing:.02em;line-height:1;color:color-mix(in srgb,var(--_lungitz---color-accent-a-500),#fff 30%);'
+      + 'background:color-mix(in srgb,var(--_lungitz---color-ink-900),#000 8%);'
+      + 'padding:.4rem .6rem;border-radius:6px;pointer-events:none;white-space:nowrap;'
+      + 'border:1px solid transparent;opacity:0;transition:opacity .25s,border-color .25s;}'
+      + '.kb-hint.is-on{opacity:.8;border-color:color-mix(in srgb,var(--_lungitz---color-accent-a-500),transparent 50%);}'
+      + '@media (hover:none),(pointer:coarse){.kb-hint{display:none!important;}}';
+    document.head.appendChild(hs);
+    (document.body || document.documentElement).appendChild(hint);
+
+    var kbMode = false;   // true once the keyboard is in use; a mouse press exits
+    function levelText() {
+        if (fs) { return zoom ? '←→ pan · +/− zoom · esc reset' : '←→ image · +/− zoom · ⏎ zoom · esc exit'; }
+        if (detail) { return '←→ image · ⏎ fullscreen · esc back'; }
+        if (openTrig()) { return '←→ thumbnails · ⏎ view · esc close'; }
+        return INDEX_RING ? '↑↓ browse · ←→ switch side · ⏎ open' : '';
+    }
+    function paintHint() {
+        var txt = kbMode ? levelText() : '';
+        if (txt) { hint.textContent = txt; hint.classList.add('is-on'); }
+        else { hint.classList.remove('is-on'); }
+    }
+    function reconcile() {            // after a step-out, restore the ring to where you were
+        if (INDEX_RING && kbMode && !fs && !detail && !openTrig() && lastEntry) {
+            focusEntry(lastEntry, false);
+        }
+        paintHint();
+    }
+
+    // ── zoom via keys (state 4) ──
+    function kbZoom(dir) {
+        if (!fs) { return; }
+        var img = fs.view.querySelector(DETAIL_IMG);
+        if (!img) { return; }
+        var r = img.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        if (dir > 0) { zoomSet(img, (zoom ? zoom.scale : 1) * 1.6, cx, cy); }
+        else if (zoom) {
+            var s = zoom.scale / 1.6;
+            if (s <= 1.05) { zoomOut(img); } else { zoomSet(img, s, cx, cy); }
+        }
+    }
+
+    // ── the handler ──
+    document.addEventListener('keydown', function (e) {
+        if (typing(e) || e.metaKey || e.ctrlKey || e.altKey) { return; }
+        var k = e.key;
+
+        if (k === 'Escape') { kbMode = true; setTimeout(reconcile, 0); return; }   // step-out is the main handler's
+
+        if (k === 'Enter') {                       // ⏎ — drill IN
+            if (nativeFocused()) { return; }       // a real control owns ⏎ → let it fire
+            kbMode = true;
+            if (fs) {                          // ⏎ in fullscreen → toggle zoom
+                e.preventDefault();
+                var fimg = fs.view.querySelector(DETAIL_IMG);
+                if (zoom) { zoomOut(fimg); }
+                else if (fimg) { var fr = fimg.getBoundingClientRect(); zoomSet(fimg, 2, fr.left + fr.width / 2, fr.top + fr.height / 2); }
+                paintHint(); return;
+            }
+            if (detail) { e.preventDefault(); if (typeof openFullscreen === 'function') { openFullscreen(); } paintHint(); return; }
+            var ot = openTrig();
+            if (ot) {
+                var th = thumbsOf(ot);
+                if (kbThumb < 0) { kbThumb = 0; }
+                if (th[kbThumb]) { e.preventDefault(); th[kbThumb].click(); }
+                paintHint(); return;
+            }
+            if (INDEX_RING && seed()) {
+                e.preventDefault();
+                var header = kbEntry.querySelector(HEADER);
+                if (header) { ring(kbEntry, false); header.click(); }
+                paintHint();
+            }
+            return;
+        }
+
+        if (fs && (k === '+' || k === '=' || k === '-' || k === '_')) {   // +/− zoom
+            e.preventDefault(); kbMode = true;
+            kbZoom((k === '-' || k === '_') ? -1 : +1);
+            paintHint(); return;
+        }
+        if (fs && k === '0' && zoom) {
+            e.preventDefault(); kbMode = true;
+            zoomOut(fs.view.querySelector(DETAIL_IMG)); paintHint(); return;
+        }
+
+        if (k === 'ArrowUp' || k === 'ArrowDown' || k === 'ArrowLeft' || k === 'ArrowRight') {
+            if (fs || detail) { kbMode = true; setTimeout(paintHint, 0); return; }   // existing handler does image nav
+            var ot2 = openTrig();
+            if (ot2) {                              // state 2 — thumbnails
+                if (k === 'ArrowLeft' || k === 'ArrowRight') {
+                    e.preventDefault(); kbMode = true;
+                    focusThumb(ot2, kbThumb < 0 ? 0 : kbThumb + (k === 'ArrowRight' ? 1 : -1));
+                    paintHint();
+                }
+                return;
+            }
+            if (!INDEX_RING) { return; }            // state 1 ring off (v2) → page scrolls normally
+            e.preventDefault(); kbMode = true;
+            if (k === 'ArrowUp') { moveEntry(-1); }
+            else if (k === 'ArrowDown') { moveEntry(+1); }
+            else { switchCol(); }
+            paintHint();
+        }
+    });
+
+    // Mouse takes over → drop the keyboard rings + hint (mouse wins).
+    document.addEventListener('mousedown', function () {
+        if (kbEntry) { blurEntry(); }
+        clearThumb();
+        if (kbMode) { kbMode = false; paintHint(); }
+    });
+}());
+
 }());
