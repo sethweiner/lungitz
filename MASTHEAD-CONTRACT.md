@@ -19,7 +19,7 @@ Status legend: ✅ already in the Designer · ⬜ to migrate (currently injected
 | `.nav.wide.is-open` | menu-open state | `grid-template-rows: auto 1fr`, `padding-bottom: space-5`, dashed `accent-b-500` border, `border-radius: space-2` | ⬜ |
 | `.nav-content` | 3-up centering row | `display:grid`, `grid-template-columns: 1fr auto 1fr`, `align-items:center` | 🔧 (flex now) |
 | `.nav-giveaways` / `.nav-lungitz` / `.nav-hideaways` | the three words | `justify-self: start / center / end` | 🔧 |
-| `.nav-body` | collapsing drawer row | `overflow:hidden`, `min-height:0` — **not** `display:none` (the collapsed `0fr` row hides it) | 🔧 |
+| `.nav-body` | collapsing drawer row | `overflow:hidden`, `min-height:0`; **`display:none`** = canvas-tidiness knob (re-added 2026-06-12) — the script's `.nav.wide .nav-body{display:block}` overrides it at runtime, where the `0fr` row does the live collapse. ⚠ the *component editor* reveals it anyway, so judge resting state on a page/live | ✅ |
 | `.nav-menu` | 2-column menu | `display:grid`, `grid-template-columns: 1fr 1fr`, gaps `space-3`/`space-4`, padding `space-2 space-1 0` | ⬜ (empty now) |
 | `.nav-panel` | one column | `display:flex`, `flex-direction:column`, row-gap `space-1` | ⬜ |
 | `.nav-panel.is-giveaways` / `.is-hideaways` | column alignment | `align-items: flex-start / flex-end` | ⬜ |
