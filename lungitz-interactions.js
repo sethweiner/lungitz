@@ -1559,9 +1559,9 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
 //  targets), and the bulky fullscreen/entry chevrons reborn as the state-3
 //  .button arrows (+ directional ←/→ cursors over the nav zones). Phase 2 fluid
 //  SPACE lives in the Webflow Variables (space-5..24 clamps), not here.
-//  ⚠ FLAGGED (not fixed): .author / .rich-text-block / .button bind line-height
-//  to a SPACE token, so fluid space makes those leadings bump on state 2→1.
-//  Separate fix pass — rebind to fixed-px, preserving the exact look.
+//  ✓ RESOLVED (2026-06-12): the .author / Rich Text Block / .type / .number-list /
+//  .button / .button-copy line-heights are now fixed-px ON THE CLASS in the Designer
+//  (unbound from the space tokens), verified live — so the px-pins below were removed.
 // ════════════════════════════════════════════════════════════════════════
 (function durabilityPolish() {
     var INK   = 'var(--_lungitz---color-ink-900)',
@@ -1613,16 +1613,12 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         '.fs-chev::before{font-size:' + F4 + ';line-height:1;}',
         '.fs-nav.is-prev .fs-chev::before,[data-entry-nav="prev"] .fs-chev::before,[data-entry-nav="prev"].fs-chev::before{content:"\\2190";}',
         '.fs-nav.is-next .fs-chev::before,[data-entry-nav="next"] .fs-chev::before,[data-entry-nav="next"].fs-chev::before{content:"\\2192";}',
-        '.fs-nav:hover .fs-chev,[data-entry-nav]:hover .fs-chev{color:' + RUST + '!important;}',
-        // .author bump fix: these classes bind line-height to a SPACE token, so
-        // Phase 2's fluid space made their leading viewport-dependent and it jumped
-        // on the state 2→1 collapse. Pin to the pre-Phase-2 fixed px (the exact
-        // prior look — unitless ratios shifted it, so px it is).
-        // [Designer cleanup later: set these line-heights on the classes natively,
-        //  unbinding the space token, so the canvas matches.]
-        '.author,.rich-text-block,.type{line-height:20px!important;}',  /* was space-5 */
-        '.number-list{line-height:16px!important;}',                    /* was space-4 */
-        '.button,.button-copy{line-height:32px!important;}'             /* was space-8 */
+        '.fs-nav:hover .fs-chev,[data-entry-nav]:hover .fs-chev{color:' + RUST + '!important;}'
+        // RESOLVED 2026-06-12 — the line-height px-pins that used to live here are
+        // gone: leading is now fixed-px ON THE CLASS in the Designer (.author / .type /
+        // Rich Text Block 20px · .number-list 16px · .button / .button-copy 32px),
+        // unbound from the fluid space tokens and verified live. The canvas now matches
+        // live, so the script no longer needs to mask it. (See MASTHEAD-CONTRACT.md §5.)
     ].join('\n');
     var st = document.createElement('style');
     st.textContent = css;

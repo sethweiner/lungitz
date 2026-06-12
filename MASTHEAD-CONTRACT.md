@@ -101,7 +101,7 @@ could migrate to the Designer as plain breakpoint styles.
 | `.nav.wide.is-immersive .nav-hideaways/.nav-giveaways` padding | descendant + JS state |
 | `.frame-close{display:none}` + LUNGITZ / backdrop close + ✕ / ← / → cursors | the runtime fullscreen close (Option A) + SVG cursors |
 | `.fs-chev` → state-3 `.button` look (`::before` ←/→) | pseudo + descendant; covers fullscreen slides **and** `.entry-nav` |
-| `.author`/`.rich-text-block`/`.type`/`.number-list`/`.button`/`.button-copy` `line-height` = fixed px | ⚠ **MASKS a Designer slip**: those classes bind `line-height` to a SPACE token, so fluid space bumped them. Real fix = unbind in the Designer (set fixed px on the class) so the canvas matches |
+| ~~`.author`/`Rich Text Block`/`.type`/`.number-list`/`.button`/`.button-copy` `line-height` = fixed px~~ | ✓ **RESOLVED 2026-06-12** — migrated to the Designer: `line-height` is now fixed-px on each class (20/16/32px), unbound from the space tokens, verified live on `lungitz.shared.f0022a466.css`. The masking px-pins were removed from `durabilityPolish()`. No longer code-owned. |
 
 Phase 2 fluid **space** (`space-5…24` clamps) and the fluid **type** scale live in the
 Webflow **Variables**, not here. Bounce-fix (`width` dropped from the nav transition) is
