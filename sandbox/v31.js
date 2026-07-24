@@ -1201,10 +1201,10 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         if (fs) { closeFullscreen(); }
         if (nav.classList.contains('is-open')) { closeMenu(); }
         if (!col) { location.href = '/?realm=' + side; return; }
-        col.scrollIntoView({ behavior: 'smooth', block: 'start' });   // stacked (mobile): bring the column up
-        if (col.scrollHeight > col.clientHeight + 4) {                // split (desktop): column starts at its top
-            col.scrollTo({ top: 0, behavior: 'smooth' });
-        }
+        // Instant, not smooth — the ?entry= arrival precedent (arrive(), below):
+        // programmatic smooth scroll fights transitions and reads as jumpy.
+        col.scrollIntoView({ block: 'start' });    // stacked (mobile): bring the column up
+        col.scrollTop = 0;                         // split (desktop): column starts at its top
         lightRealm(side);
         setTimeout(function () {
             document.addEventListener('pointerdown', clearRealmCue, true);
