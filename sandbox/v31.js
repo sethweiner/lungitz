@@ -14,8 +14,6 @@
 //   · ?realm=giveaways|hideaways wayfinding · LUNGITZ→home on any non-index page
 //   · landingVeil(): intro veil over the index — DORMANT until Seth authors .landing-veil in the Designer
 //   · mobile: open menu drawer scrolls when taller than viewport (the Impressum trap)
-//   · REGRESSION FIX: the menu drawer + nav-detail reveal animate via explicit px rows —
-//     Chrome wedges the 0fr↔1fr grid-rows tween on the positioned nav (menu never opened)
 //   · fullscreen ✕ visible on touch (hide now scoped to fine pointers)
 //   · external links open in a new tab (noopener)
 
@@ -1080,8 +1078,6 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         restoreBody();
         detailBody.innerHTML = html || '';
         detail.className = 'nav-detail is-shown is-' + side;
-        detailTo(true);                              // px motion (fr tween wedges — see animateRows)
-        drawerTo(true);                              // re-target the outer drawer to the grown body
     }
 
     function showDetailNode(side, bodyEl, el) {      // CMS path (real elements)
@@ -1095,8 +1091,6 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             bodyEl.classList.add('is-shown');   // beat the .nav-item-body{display:none}
         }
         detail.className = 'nav-detail is-shown is-' + side;
-        detailTo(true);                              // px motion (fr tween wedges — see animateRows)
-        drawerTo(true);                              // re-target the outer drawer to the grown body
     }
 
     // The component may ship .nav-body eye-hidden for a tidy canvas; its drawer
@@ -1178,49 +1172,8 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         closeFullscreen();
     });
 
-    // ── v31: the drawer motion, rebuilt on pixels ──
-    // REGRESSION FIX (the "menu never opens" bug, all viewports): Chrome no
-    // longer completes a grid-template-rows transition between fr tracks on this
-    // positioned, auto-height grid — the 0fr→1fr tween wedges at 0 forever, so
-    // .is-open never visibly opened (verified live: transition:none opens it
-    // perfectly; the class end-states are fine). The accordions (in-flow) still
-    // interpolate; only the nav wedges. Fix: drive the motion through EXPLICIT
-    // PIXEL rows (px↔px always interpolates), then hand the settled value back
-    // to the class (auto 0fr / auto 1fr) with the transition muted for the swap
-    // so the fr never animates.
-    // rowsPrefix: 'auto ' for the 2-row nav (words + body); '' for the 1-row
-    // .nav-detail. from/to are the collapsing row's pixel heights.
-    function animateRows(el, rowsPrefix, from, to) {
-        el.style.transition = 'none';
-        el.style.gridTemplateRows = rowsPrefix + from + 'px';
-        void el.offsetHeight;
-        el.style.transition = '';
-        el.style.gridTemplateRows = rowsPrefix + to + 'px';
-        clearTimeout(el._rowsT);
-        el._rowsT = setTimeout(function () {
-            el.style.transition = 'none';
-            el.style.gridTemplateRows = '';     // back to the class value, un-animated
-            void el.offsetHeight;
-            el.style.transition = '';
-        }, 470);
-    }
-    function drawerTo(open) {
-        var body = nav.querySelector('.nav-body');
-        if (!body) { return; }
-        animateRows(nav, 'auto ',
-            body.getBoundingClientRect().height,
-            open ? body.scrollHeight : 0);
-    }
-    function detailTo(open) {
-        if (!detail || !detailBody) { return; }
-        animateRows(detail, '',
-            detailBody.getBoundingClientRect().height,
-            open ? detailBody.scrollHeight : 0);
-    }
-
     function closeMenu() {
         nav.classList.remove('is-open');
-        drawerTo(false);
         nav.querySelectorAll('.nav-item.is-current').forEach(function (b) {
             b.classList.remove('is-current');
         });
@@ -1230,10 +1183,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     }
     function toggleMenu() {
         if (nav.classList.contains('is-open')) { closeMenu(); }
-        else {
-            nav.classList.add('is-open');
-            drawerTo(true);
-        }
+        else { nav.classList.add('is-open'); }
     }
 
     // ── Nav redesign (v31, 17.6 feedback): the realm words GO THERE ──
