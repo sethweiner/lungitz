@@ -12,8 +12,10 @@
 //   · menu opens from .nav-menu-toggle (Designer) — interim fallback: LUNGITZ toggles on the index
 //   · Designer-linked .nav-item (real href) NAVIGATES to its template page; inline reveal stays as fallback
 //   · ?realm=giveaways|hideaways wayfinding · LUNGITZ→home on any non-index page
-//   · landingVeil(): first-thing intro veil over the index (scaffold until Seth styles .landing-veil)
+//   · landingVeil(): intro veil over the index — DORMANT until Seth authors .landing-veil in the Designer
 //   · mobile: open menu drawer scrolls when taller than viewport (the Impressum trap)
+//   · REGRESSION FIX: the menu drawer + nav-detail reveal animate via explicit px rows —
+//     Chrome wedges the 0fr↔1fr grid-rows tween on the positioned nav (menu never opened)
 //   · fullscreen ✕ visible on touch (hide now scoped to fine pointers)
 //   · external links open in a new tab (noopener)
 
@@ -1078,6 +1080,8 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         restoreBody();
         detailBody.innerHTML = html || '';
         detail.className = 'nav-detail is-shown is-' + side;
+        detailTo(true);                              // px motion (fr tween wedges — see animateRows)
+        drawerTo(true);                              // re-target the outer drawer to the grown body
     }
 
     function showDetailNode(side, bodyEl, el) {      // CMS path (real elements)
@@ -1091,6 +1095,8 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             bodyEl.classList.add('is-shown');   // beat the .nav-item-body{display:none}
         }
         detail.className = 'nav-detail is-shown is-' + side;
+        detailTo(true);                              // px motion (fr tween wedges — see animateRows)
+        drawerTo(true);                              // re-target the outer drawer to the grown body
     }
 
     // The component may ship .nav-body eye-hidden for a tidy canvas; its drawer
@@ -1172,8 +1178,49 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         closeFullscreen();
     });
 
+    // ── v31: the drawer motion, rebuilt on pixels ──
+    // REGRESSION FIX (the "menu never opens" bug, all viewports): Chrome no
+    // longer completes a grid-template-rows transition between fr tracks on this
+    // positioned, auto-height grid — the 0fr→1fr tween wedges at 0 forever, so
+    // .is-open never visibly opened (verified live: transition:none opens it
+    // perfectly; the class end-states are fine). The accordions (in-flow) still
+    // interpolate; only the nav wedges. Fix: drive the motion through EXPLICIT
+    // PIXEL rows (px↔px always interpolates), then hand the settled value back
+    // to the class (auto 0fr / auto 1fr) with the transition muted for the swap
+    // so the fr never animates.
+    // rowsPrefix: 'auto ' for the 2-row nav (words + body); '' for the 1-row
+    // .nav-detail. from/to are the collapsing row's pixel heights.
+    function animateRows(el, rowsPrefix, from, to) {
+        el.style.transition = 'none';
+        el.style.gridTemplateRows = rowsPrefix + from + 'px';
+        void el.offsetHeight;
+        el.style.transition = '';
+        el.style.gridTemplateRows = rowsPrefix + to + 'px';
+        clearTimeout(el._rowsT);
+        el._rowsT = setTimeout(function () {
+            el.style.transition = 'none';
+            el.style.gridTemplateRows = '';     // back to the class value, un-animated
+            void el.offsetHeight;
+            el.style.transition = '';
+        }, 470);
+    }
+    function drawerTo(open) {
+        var body = nav.querySelector('.nav-body');
+        if (!body) { return; }
+        animateRows(nav, 'auto ',
+            body.getBoundingClientRect().height,
+            open ? body.scrollHeight : 0);
+    }
+    function detailTo(open) {
+        if (!detail || !detailBody) { return; }
+        animateRows(detail, '',
+            detailBody.getBoundingClientRect().height,
+            open ? detailBody.scrollHeight : 0);
+    }
+
     function closeMenu() {
         nav.classList.remove('is-open');
+        drawerTo(false);
         nav.querySelectorAll('.nav-item.is-current').forEach(function (b) {
             b.classList.remove('is-current');
         });
@@ -1183,7 +1230,10 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     }
     function toggleMenu() {
         if (nav.classList.contains('is-open')) { closeMenu(); }
-        else { nav.classList.add('is-open'); }
+        else {
+            nav.classList.add('is-open');
+            drawerTo(true);
+        }
     }
 
     // ── Nav redesign (v31, 17.6 feedback): the realm words GO THERE ──
@@ -1767,8 +1817,8 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
 //  Home fetch, and findability). The veil is Designer-owned content: Seth authors
 //  .landing-veil in the Home body (ink ground, dashed rust rule, title/intro,
 //  enter affordance — every visual knob a class). Code owns only the gate + the
-//  dismiss motion. Until the Designer element exists, a marked scaffold stands in
-//  so the moment is feelable — swap by authoring the real .landing-veil.
+//  dismiss motion. Wireframe-first: until Seth authors .landing-veil in the
+//  Designer, this module is DORMANT (returns immediately — nothing renders).
 //  Shows every load (it IS the landing page); skip: ?entry= / ?realm= deep links,
 //  ?veil=0. Dismiss: click / ⏎ / Esc / space / first scroll. Page scroll locks
 //  while it holds.
@@ -1778,45 +1828,19 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     if (!onIndex) { return; }
     if (/[?&](entry|realm)=/.test(location.search) || /[?&]veil=0\b/.test(location.search)) { return; }
 
-    var V = function (n) { return 'var(--_lungitz---' + n + ')'; },
-        veil = document.querySelector('.landing-veil'),
-        scaffold = !veil;
-
-    if (!veil) {
-        veil = document.createElement('div');
-        veil.className = 'landing-veil';
-        veil.setAttribute('data-scaffold', '1');
-        veil.innerHTML =
-            '<div class="landing-veil-inner">'
-          + '<div class="landing-veil-title">LUNGITZ</div>'
-          + '<p class="landing-veil-text">Giveaways &amp; Hideaways — placeholder intro. '
-          + 'Contemporary artworks given away, historical documents hidden away.</p>'
-          + '<div class="landing-veil-enter">enter</div>'
-          + '</div>';
-        document.body.appendChild(veil);
-    }
+    // Designer-first: the veil is Seth's element, wireframed in Webflow. No
+    // element, no veil — the gate stays dormant until .landing-veil exists.
+    var veil = document.querySelector('.landing-veil');
+    if (!veil) { return; }
 
     // Code-owned: the gate positioning + dismiss motion (contract §2 row).
+    // Every visual knob (ground, frame, type, the enter affordance) is Seth's
+    // .landing-veil styling in the Designer.
     var css = [
         '.landing-veil{position:fixed;inset:0;z-index:2000;cursor:pointer;',
         '  transition:opacity .6s ease,transform .7s ' + SETTLE + ';}',
         '.landing-veil.is-dismissed{opacity:0;transform:translateY(-1.5%);pointer-events:none;}'
     ];
-    if (scaffold) {
-        // Scaffold look ONLY (dies with the scaffold — Seth's .landing-veil replaces it).
-        css = css.concat([
-            '.landing-veil[data-scaffold]{display:grid;place-items:center;text-align:center;',
-            '  background:' + V('color-ink-900') + ';padding:1.5rem;}',
-            '.landing-veil[data-scaffold] .landing-veil-inner{max-width:34rem;',
-            '  border:1px dashed ' + V('color-accent-b-500') + ';border-radius:' + V('space-2') + ';',
-            '  padding:' + V('space-6') + ' ' + V('space-5') + ';}',
-            '.landing-veil[data-scaffold] .landing-veil-title{color:' + V('color-accent-a-500') + ';',
-            '  font-size:' + V('font-size-4') + ';letter-spacing:.04em;margin-bottom:' + V('space-3') + ';}',
-            '.landing-veil[data-scaffold] .landing-veil-text{color:' + V('color-ink-100') + ';',
-            '  margin:0 0 ' + V('space-4') + ';}',
-            '.landing-veil[data-scaffold] .landing-veil-enter{color:' + V('color-accent-b-500') + ';}'
-        ]);
-    }
     var st = document.createElement('style');
     st.textContent = css.join('\n');
     document.head.appendChild(st);
