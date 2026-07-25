@@ -1018,20 +1018,24 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     document.addEventListener('click', function (e) {
         var w = e.target.closest('.nav-giveaways, .nav-hideaways, .nav-lungitz');
         if (!w) { return; }
+        // LUNGITZ is BEHAVIORAL, always — it means "the menu", even where the
+        // Designer bound it as a plain link home: toggle the modal in place
+        // where the gate manages one (the index); everywhere else go home WITH
+        // the menu expanded (?menu=1 beats the session flag).
+        if (w.closest('.nav-lungitz') || w.classList.contains('nav-lungitz')) {
+            e.preventDefault();
+            if (typeof modalToggle === 'function') { modalToggle(); }
+            else { location.href = '/?menu=1'; }
+            return;
+        }
         var a = w.closest('a[href]') || w.querySelector('a[href]'),
             href = a && a.getAttribute('href');
         if (href && href !== '#') { return; }          // Seth-bound link → navigate
         e.preventDefault();
-        if (w.closest('.nav-giveaways') || w.classList.contains('nav-giveaways')) {
-            goToInfo('giveaways');
-        } else if (w.closest('.nav-hideaways') || w.classList.contains('nav-hideaways')) {
+        if (w.closest('.nav-hideaways') || w.classList.contains('nav-hideaways')) {
             goToInfo('hideaways');
         } else {
-            // LUNGITZ = the menu, ALWAYS: toggle the modal in place where the
-            // gate manages one (the index); everywhere else, go home WITH the
-            // menu expanded (?menu=1 — the gate honors it over the session flag).
-            if (typeof modalToggle === 'function') { modalToggle(); }
-            else { location.href = '/?menu=1'; }
+            goToInfo('giveaways');
         }
     });
 
