@@ -1015,28 +1015,41 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     // A word with a REAL href (Designer-bound link) always just navigates; only
     // unlinked words get the behavior. Clicks while the modal is SHOWN never
     // reach here (landingModal's capture handler owns them).
+    // THE LINKS ARE THE TRUTH (Designer-owned): GIVEAWAYS→/#info-giveaways,
+    // LUNGITZ→/?menu=1, HIDEAWAYS→/#info-hideaways — they work with no script
+    // at all, from every page. The script only SMOOTHS them in place:
+    //   · a word whose destination is already on-screen glides instead of
+    //     reloading (the rust cue rides along);
+    //   · LUNGITZ on the index toggles the modal instead of reloading;
+    //   · unlinked words (older copies) fall back to the same behavior.
     document.addEventListener('click', function (e) {
         var w = e.target.closest('.nav-giveaways, .nav-hideaways, .nav-lungitz');
         if (!w) { return; }
-        // LUNGITZ is BEHAVIORAL, always — it means "the menu", even where the
-        // Designer bound it as a plain link home: toggle the modal in place
-        // where the gate manages one (the index); everywhere else go home WITH
-        // the menu expanded (?menu=1 beats the session flag).
+        var a = w.closest('a[href]') || w.querySelector('a[href]'),
+            href = (a && a.getAttribute('href')) || '';
         if (w.closest('.nav-lungitz') || w.classList.contains('nav-lungitz')) {
-            e.preventDefault();
-            if (typeof modalToggle === 'function') { modalToggle(); }
-            else { location.href = '/?menu=1'; }
+            if (typeof modalToggle === 'function') {
+                e.preventDefault();                    // in place on the index
+                modalToggle();
+            } else if (!href || href === '#') {
+                e.preventDefault();                    // unlinked fallback
+                location.href = '/?menu=1';
+            }
+            return;                                    // real link navigates natively
+        }
+        var side = (w.closest('.nav-hideaways') || w.classList.contains('nav-hideaways'))
+            ? 'hideaways' : 'giveaways';
+        var target = document.getElementById('info-' + side);
+        if (target && target.offsetParent !== null) {
+            e.preventDefault();                        // destination on-screen → glide
+            goToInfo(side);
             return;
         }
-        var a = w.closest('a[href]') || w.querySelector('a[href]'),
-            href = a && a.getAttribute('href');
-        if (href && href !== '#') { return; }          // Seth-bound link → navigate
-        e.preventDefault();
-        if (w.closest('.nav-hideaways') || w.classList.contains('nav-hideaways')) {
-            goToInfo('hideaways');
-        } else {
-            goToInfo('giveaways');
+        if (!href || href === '#') {
+            e.preventDefault();                        // unlinked fallback
+            goToInfo(side);
         }
+        // else: the Designer link navigates natively (e.g. /#info-giveaways)
     });
 
     // The realm info entries expand on click ("+"): code flips .is-expanded,
@@ -1612,9 +1625,17 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     // the dismissing click never reaches the ladder beneath.
     document.addEventListener('click', function (e) {
         if (!shown()) { return; }
-        // The realm words need no hrefs (a link inside a component can only
-        // target ONE page's anchor) — the modal routes them per page itself:
-        // dismiss, then glide to this page's info entry.
+        // LUNGITZ while the menu is open = dismiss (its /?menu=1 link would
+        // reload the menu you're already in — smooth it to the toggle).
+        var lz = e.target.closest('.nav-lungitz');
+        if (lz && modal.contains(lz)) {
+            e.preventDefault();
+            e.stopPropagation();
+            dismiss();
+            return;
+        }
+        // Realm words while the menu is open: dismiss, then glide in place
+        // (their /#info-* links stay the no-script truth).
         var word = e.target.closest('.nav-giveaways, .nav-hideaways');
         if (word && modal.contains(word)) {
             e.preventDefault();
