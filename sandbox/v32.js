@@ -1012,12 +1012,11 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         } else if (w.closest('.nav-hideaways') || w.classList.contains('nav-hideaways')) {
             goToInfo('hideaways');
         } else {
-            // LUNGITZ = the menu: re-open the modal on the index; home elsewhere.
-            if (onIndex) {
-                if (typeof modalToggle === 'function') { modalToggle(); }
-            } else {
-                location.href = '/';
-            }
+            // LUNGITZ = the menu, ALWAYS: toggle the modal in place where the
+            // gate manages one (the index); everywhere else, go home WITH the
+            // menu expanded (?menu=1 — the gate honors it over the session flag).
+            if (typeof modalToggle === 'function') { modalToggle(); }
+            else { location.href = '/?menu=1'; }
         }
     });
 
@@ -1576,7 +1575,14 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
 
     var seen = false;
     try { seen = !!sessionStorage.getItem(SEEN); } catch (e) {}
-    if (/[?&]entry=/.test(location.search) || /[?&]veil=0\b/.test(location.search) || location.hash || seen) {
+    if (/[?&]menu=1\b/.test(location.search)) {
+        show();             // LUNGITZ from a sub-page: arrive WITH the menu open
+        try {
+            history.replaceState({}, '', location.pathname
+                + location.search.replace(/([?&])menu=1&?/, '$1').replace(/[?&]$/, '')
+                + location.hash);
+        } catch (e) {}
+    } else if (/[?&]entry=/.test(location.search) || /[?&]veil=0\b/.test(location.search) || location.hash || seen) {
         dismiss();          // deep link / already greeted this session → the word-row masthead
     } else {
         show();             // first arrival of the session: the landing greets

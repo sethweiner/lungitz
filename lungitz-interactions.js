@@ -6,7 +6,29 @@
 // zoom/pan, arrangement). Loaded by the Home page — bail on /sandbox so it doesn't
 // double-bind with the loader's sandbox/vN.js. The injected CSS scaffold below is
 // being migrated to Designer combos; motion + grid-rows transitions stay here.
+// ★ v32 PROMOTED TO PRODUCTION 2026-07-25 — the landing/menu modal concept.
+// Loaded per-page via <script src="https://sethweiner.github.io/lungitz/lungitz-interactions.js">
+// (Home + the menu pages; paste the same tag into any new page's custom code).
+// Bail on /sandbox (its loader runs sandbox/vN.js) and guard against double loads
+// (the tag can exist at both site and page level during migration).
+if (window.__lzLoaded) { return; }
+window.__lzLoaded = true;
 if (/\/sandbox\/?$/.test(location.pathname)) { return; }
+// v32 — LANDING/MENU MODAL CONCEPT (Seth's wireframes, 2026-07-25):
+//   · §landingModal: Seth's container-landing modal IS the landing + the menu — greets on
+//     arrival at the index, dismisses on any click outside its links, LUNGITZ re-opens it
+//     (dormant until the modal is instanced on the page — wireframe-first)
+//   · §masthead (focused): GIVEAWAYS/HIDEAWAYS → #info-giveaways / #info-hideaways anchors
+//     (+ rust cue); LUNGITZ → the modal / home; .category-content "+" toggles .is-expanded
+//   · fullscreen: Seth's .immersive-overlay becomes the state-4 view when present (paint,
+//     .is-open, light FLIP in); the proven gesture layer retargets; legacy portal path is the
+//     fallback until the overlay exists on the index
+//   · browser BACK closes fullscreen (history state — the Antoine fix: Esc is never the only
+//     way out; the hint chip advertises "✕ / back" in browser-fullscreen)
+//   · participants links rewrite to /?entry=<coll>/<slug> — index arrival highlight
+//   · RETIRED: the drawer menu (v8→v31), the landing veil, ?realm= wayfinding, the
+//     is-immersive masthead frame (the overlay carries its own bar/✕)
+//   · kept from v31: external links → new tab (noopener)
 
 var TRIGGER    = '.trigger-accordion',
     HEADER     = '.header-accordion',
@@ -28,7 +50,16 @@ var detail      = null,
     zoom        = null,
     panState    = null,
     dragMoved   = false,
-    pendingOpen = null;
+    pendingOpen = null,
+    modalToggle = null,    // set by §landingModal; used by §masthead (LUNGITZ)
+    goInfo      = null,    // set by §masthead; used by §landingModal (anchor links)
+    fsPushed    = false;   // fullscreen pushed a history entry (back closes it)
+
+// State-4 view (v32): Seth's Designer-owned overlay when it exists on the page
+// (wireframe-first find-or-reuse); the legacy promoted detail-view otherwise.
+var OVERLAY = document.querySelector('.immersive-overlay');
+var FS_IMG  = '.immersive-image, .detail-image';
+function fsImage() { return fs ? fs.view.querySelector(FS_IMG) : null; }
 
 // ── Soft page transition (entry ↔ index) ──
 // Opt into the cross-document View Transitions API so same-origin navigations
@@ -182,7 +213,7 @@ function paintDetail(view) {
     img = detail.images[detail.idx];
     n   = detail.images.length;
 
-    el = view.querySelector(DETAIL_IMG);
+    el = view.querySelector(FS_IMG);       // .immersive-image (overlay) or .detail-image
     if (el && img.src) {
         el.src = img.src;
     }
@@ -190,6 +221,13 @@ function paintDetail(view) {
     count = view.querySelector('[data-detail="count"]');
     if (count) {
         count.textContent = (detail.idx + 1) + ' / ' + n;
+    }
+
+    // Overlay bar title (v32): "N · Entry Title" — N pages with the slides.
+    var bar = view.querySelector('[data-detail="title"]');
+    if (bar) {
+        var tEl = detail.trigger.querySelector('.title');
+        bar.textContent = (detail.idx + 1) + ' · ' + (tEl ? tEl.textContent.trim() : '');
     }
 
     // Fullscreen slide counter — sits first in the caption row (bottom-left,
@@ -323,14 +361,12 @@ function lightRealm(side) {
     if (h) { h.classList.toggle('is-realm', side === 'hideaways'); }
 }
 
-// Immersive frame (Track B): in fullscreen the masthead persists as the frame
-// instead of being covered. Toggle .is-immersive on .nav (it breathes + animates
-// the ✕ into place) and lock the active realm word lit (is-left → giveaways,
-// is-right → hideaways). The ✕ + styling live in navMenu.
+// Fullscreen side-state. v32: with the Designer overlay the masthead stays
+// itself (the overlay carries its own bar/✕) — the .is-immersive frame only
+// applies on the LEGACY path. Body flags for the chevrons + the realm word
+// cue apply to both.
 function setImmersive(on, trigger) {
-    var nav = document.querySelector('.nav.wide, .nav.expand'), side;
-    if (!nav) { return; }
-    nav.classList.toggle('is-immersive', on);
+    var nav, side;
     // Toggle the body flag the slideshow chevrons key off (multi-image only).
     document.body.classList.toggle('is-fs', on && !!detail && detail.images.length > 1);
     if (!on) { document.body.classList.remove('is-fs-zoom'); }
@@ -341,13 +377,66 @@ function setImmersive(on, trigger) {
     } else {
         lightRealm(null);
     }
+    if (OVERLAY) { return; }                 // overlay world: no masthead frame
+    nav = document.querySelector('.nav.wide, .nav.expand');
+    if (nav) { nav.classList.toggle('is-immersive', on); }
 }
+
+// ── History-backed close (the Antoine fix) ── opening state 4 pushes an entry
+// so browser BACK closes fullscreen — Esc is never the only way out (in
+// browser-fullscreen the browser eats Esc). UI closes route through
+// history.back() so the history stays consistent.
+function pushFsState() {
+    try { history.pushState({ lzFs: 1 }, ''); fsPushed = true; } catch (e) {}
+}
+window.addEventListener('popstate', function () {
+    if (fs) { fsPushed = false; closeFullscreenNow(); }
+});
 
 function openFullscreen() {
     var view, first, last, dx, dy, sx, sy;
     if (!detail) {
         return;
     }
+
+    // ── v32 overlay path: GROWTH IN (Seth, 2026-07-25: "growth in, growth
+    // out — restore the old feel"): the WHOLE overlay FLIP-morphs from the
+    // source image's rect to the full frame — the same math and easing as the
+    // old promoted detail-view. The curtain transition is retired from the
+    // Designer base; the rest state is a static hide (opacity 0, clipped).
+    if (OVERLAY) {
+        var srcEl = detail.trigger.querySelector(DETAIL_IMG),
+            srcRect = srcEl && srcEl.getBoundingClientRect();
+        if (!srcRect || !srcRect.width) {
+            srcEl = detail.trigger.querySelectorAll(W_THUMB)[detail.idx];
+            srcRect = srcEl && srcEl.getBoundingClientRect();
+        }
+        fs = { view: OVERLAY };
+        OVERLAY.classList.add('is-viewing');
+        paintDetail(OVERLAY);
+        setImmersive(true, detail.trigger);
+        pushFsState();
+        if (srcRect && srcRect.width) {
+            var oLast = OVERLAY.getBoundingClientRect(),
+                oDx = srcRect.left + srcRect.width / 2 - (oLast.left + oLast.width / 2),
+                oDy = srcRect.top + srcRect.height / 2 - (oLast.top + oLast.height / 2),
+                oSx = srcRect.width / oLast.width,
+                oSy = srcRect.height / oLast.height;
+            OVERLAY.style.transition = 'none';
+            OVERLAY.style.transform = 'translate(' + oDx + 'px,' + oDy + 'px) scale(' + oSx + ',' + oSy + ')';
+            requestAnimationFrame(function () {
+                OVERLAY.style.transition = 'transform ' + TRANSITION + 'ms ' + SETTLE;
+                OVERLAY.style.transform = 'none';
+                setTimeout(function () {
+                    OVERLAY.style.transition = '';
+                    OVERLAY.style.transform = '';
+                }, TRANSITION);
+            });
+        }
+        return;
+    }
+
+    // ── legacy path (no overlay on this page): promote the detail view ──
     view = detail.trigger.querySelector(DETAIL);
     if (!view) {
         return;
@@ -374,6 +463,7 @@ function openFullscreen() {
 
     fs = { view: view };
     setImmersive(true, detail.trigger);
+    pushFsState();
 
     requestAnimationFrame(function () {
         view.style.transition = 'transform ' + TRANSITION + 'ms ' + SETTLE;
@@ -381,11 +471,20 @@ function openFullscreen() {
     });
 }
 
+// Public close: route through history when we pushed (Back and ✕ behave the
+// same); popstate calls closeFullscreenNow directly.
 function closeFullscreen() {
+    if (!fs) { return; }
+    if (fsPushed) { history.back(); return; }
+    closeFullscreenNow();
+}
+
+function closeFullscreenNow() {
     var view, trigger, wasSingle, first, last, dx, dy, sx, sy;
     if (!fs) {
         return;
     }
+    fsPushed = false;
     view = fs.view;
     trigger = detail ? detail.trigger : null;
     wasSingle = detail && detail.images.length === 1;
@@ -396,6 +495,38 @@ function closeFullscreen() {
 
     fs = null;
     setImmersive(false);
+
+    // ── v32 overlay path: GROWTH OUT — the overlay FLIP-shrinks back to the
+    // state-3 detail image beneath (still engaged). Single-image entries keep
+    // the Option-C snap (no in-flow view to land on; the snap is bulletproof).
+    if (view === OVERLAY) {
+        var oImg = OVERLAY.querySelector('.immersive-image');
+        if (oImg) { oImg.style.transition = ''; oImg.style.transform = ''; }
+        var tEl = !wasSingle && trigger && trigger.querySelector(DETAIL_IMG),
+            tRect = tEl && tEl.getBoundingClientRect();
+        if (!tRect || !tRect.width) {                       // snap (single-image / no target)
+            OVERLAY.classList.remove('is-viewing');
+            OVERLAY.style.transition = '';
+            OVERLAY.style.transform = '';
+            if (wasSingle && trigger) { closeDetail(trigger); }
+            return;
+        }
+        var cFirst = OVERLAY.getBoundingClientRect(),
+            cDx = tRect.left + tRect.width / 2 - (cFirst.left + cFirst.width / 2),
+            cDy = tRect.top + tRect.height / 2 - (cFirst.top + cFirst.height / 2),
+            cSx = tRect.width / cFirst.width,
+            cSy = tRect.height / cFirst.height;
+        OVERLAY.style.transition = 'transform ' + TRANSITION + 'ms ' + SETTLE;
+        OVERLAY.style.transform = 'translate(' + cDx + 'px,' + cDy + 'px) scale(' + cSx + ',' + cSy + ')';
+        setTimeout(function () {
+            OVERLAY.style.transition = 'none';
+            OVERLAY.classList.remove('is-viewing');         // rest state is static (opacity 0)
+            OVERLAY.style.transform = '';
+            void OVERLAY.offsetHeight;
+            OVERLAY.style.transition = '';
+        }, TRANSITION);
+        return;
+    }
 
     // OPTION C (adopted): single-image close snaps instantly, no motion.
     // The fullscreen-to-thumbnail morph was flash-prone; a clean snap back to
@@ -506,7 +637,7 @@ function resetZoom() {
     if (!zoom || !fs) {
         return;
     }
-    img = fs.view.querySelector(DETAIL_IMG);
+    img = fsImage();
     if (img) {
         img.style.transition = 'none';
         img.style.transform = 'none';
@@ -607,7 +738,7 @@ document.addEventListener('click', function (e) {
 
 // State 3 -> 4 : Detail image click / fullscreen zoom toggle
 document.addEventListener('click', function (e) {
-    var img = e.target.closest(DETAIL_IMG);
+    var img = e.target.closest(FS_IMG);
     if (!img) {
         return;
     }
@@ -703,7 +834,7 @@ document.addEventListener('pointerdown', function (e) {
     if (!fs || !zoom || zoom.scale <= 1.001) {
         return;
     }
-    img = e.target.closest(DETAIL_IMG);
+    img = e.target.closest(FS_IMG);
     if (!img) {
         return;
     }
@@ -747,7 +878,7 @@ document.addEventListener('pointerup', function () {
 document.addEventListener('wheel', function (e) {
     var img;
     if (!fs || !detail) { return; }
-    img = fs.view.querySelector(DETAIL_IMG);
+    img = fsImage();
     if (!img || !fs.view.contains(e.target)) { return; }
     if (e.ctrlKey) {                                   // pinch → ramp zoom toward cursor
         e.preventDefault();
@@ -770,7 +901,7 @@ document.addEventListener('keydown', function (e) {
     var open, view;
     if (e.key === 'Escape') {
         if (zoom && fs) {
-            zoomOut(fs.view.querySelector(DETAIL_IMG));
+            zoomOut(fsImage());
             return;
         }
         if (fs) {
@@ -817,363 +948,104 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
 });
 
 // ════════════════════════════════════════════════════════════════════════
-//  §Masthead menu  (v8 — Track A; built as a DRAWER, promote → Designer)
-//
-//  Masthead order: GIVEAWAYS (left) · LUNGITZ (center/home) · HIDEAWAYS (right).
-//  The masthead IS a grid-rows drawer, same mechanic/easing as .caption-drawer:
-//    row 1 (auto) = .nav-content (the words) — the persistent handle
-//    row 2 (1fr↔0fr) = .nav-body — the collapsing menu (mirror of .caption-body)
-//  Click a side word → .nav gets .is-open, row 2 animates open (grid-template-rows
-//  .45s, injected in code — motion-in-code, so Webflow's audit never sees it).
-//  Two columns held inside the nav's 96vw (giveaways left, hideaways right) so
-//  the right column can't overflow at ~1900px (the v6-era bug).
-//
-//  Menu items reuse the masthead's own .h5-nav type (+ a .nav-item combo for
-//  item-specific tweaks) so they line up with the words above and stay fully
-//  editable in the Designer. .nav-menu shares .nav-content's horizontal padding
-//  (var space-1) so items align under their trigger word.
-//
-//  The TWIST: clicking an item reveals its content in .nav-detail — itself a
-//  nested grid-rows drawer (the reveal echoes the hide/reveal scaffold).
-//  Close: click LUNGITZ, Esc, or click outside. Mobile stacks the columns.
-//  Sourcing (2026-06-10): find-or-reuse a Designer .nav-menu — the Masthead
-//  component's two CMS Collection Lists — and wire the reveal; fall back to the
-//  in-code arrays on any page without the component. Injected static CSS retained.
+//  §Masthead (v32 — focused). GIVEAWAYS · LUNGITZ · HIDEAWAYS, nothing else.
+//  The drawer menu (v8→v31) is RETIRED — the landing modal (§landingModal,
+//  below) is the menu now. What each word does:
+//    · GIVEAWAYS / HIDEAWAYS — go to that realm's info entry: on the index,
+//      scroll to #info-giveaways / #info-hideaways (Seth's .category-content
+//      blocks) with the transient rust cue; off the index, navigate home to
+//      the same anchor (native fragment — the ?realm= route is retired).
+//    · LUNGITZ — the menu word: on the index it re-opens the landing modal;
+//      everywhere else it navigates home, where the modal greets on arrival.
+//  The "+" on a .category-content toggles .is-expanded — the look and motion
+//  of both states are Seth's in the Designer; code only flips the class.
+//  Kept in code: the 3-col centering grid + scroll-margins (anchor arrivals
+//  clear the fixed masthead) — things Webflow can't author here.
 // ════════════════════════════════════════════════════════════════════════
-(function navMenu() {
-    // The masthead combo was renamed expand→wide in the Designer (2026-06-10).
-    // Accept either chain and emit the injected CSS against the one the element
-    // actually carries, so a Designer rename can't silently kill the menu again.
+(function masthead() {
     var nav = document.querySelector('.nav.wide, .nav.expand');
     if (!nav) { return; }
-    var NAVC = nav.classList.contains('wide') ? '.nav.wide' : '.nav.expand';
 
-    var GIVEAWAYS = [
-        { label: 'Participants', html: '<p>Brishty Alam · Abdul Sharif Oluwafemi Baruwa · Flo Karl Berger · Marc-Alexandre Dumoulin · Baptiste El Baz · Julia S. Goodman · Edgar Lessig · Morusiewicz / Maggessi · Stephanie Misa · Johanna Tinzl · Antoine Turillon · Rosabel Rosalind · Anna Weberberger · Seth Weiner</p>' },
-        { label: 'Friends',      html: '<p>Friends of the project — placeholder.</p>' },
-        { label: 'Supporters',   html: '<p>Supporters — placeholder.</p>' },
-        { label: 'Impressum',    html: '<p>Concept — Antoine Turillon, Seth Weiner.</p><p>Thanks to Andrea Wahl, Andreas Haider, Annalise Podor, Felix Vierlinger, Fina Esslinger, Judith Pirkelbauer, Laura Rumpl, Otto Tremetzberger, Tomiris Dmitrievskikh, Wolgang Schmutz, FdR-Team.</p>' }
-    ];
-    var HIDEAWAYS = [
-        { label: 'Lungitz',    html: '<p>Lungitz is a village in the community of Katsdorf, Perg district of Upper Austria. During WWII it was the site of slave labour and the “Gusen III” sub-camp of the Mauthausen-Gusen concentration camp complex.</p>' },
-        { label: 'Gusen III',  html: '<p>Gusen III — placeholder.</p>' },
-        { label: 'Mauthausen', html: '<p>Mauthausen — placeholder.</p>' },
-        { label: 'Resources',  html: '<p>Resources — placeholder.</p>' }
-    ];
-
-    // Inject feelable styling (sandbox-only; reuses the live design tokens +
-    // the SETTLE easing from the outer scope). On promote this translates to
-    // Designer combos on the same class names; the grid-rows transition stays
-    // in code (motion-in-code — Webflow's audit rejects grid-template-rows).
-    var V = function (n) { return 'var(--_lungitz---' + n + ')'; },
-        css = [
-            // .nav is a 2-row drawer: words (auto) + collapsing body (0fr↔1fr).
-            // The static rest grid (auto 0fr, row-gap 0) now ALSO lives on the
-            // Designer's .nav.wide combo (caption-drawer precedent); this keeps
-            // the values for the expand fallback + carries the motion, which the
-            // Designer can't (Webflow's audit blocks grid-template-rows there).
-            NAVC + '{',
-            '  grid-auto-flow:row;grid-template-columns:1fr;grid-row-gap:0;',
-            '  grid-template-rows:auto 0fr;height:auto;',  /* align-items:stretch stopgap removed 2026-06-10 — published on Designer .nav.wide */
-            // `width` intentionally NOT transitioned: the masthead is width:97vw, so a
-            // width transition animates on every viewport RESIZE → a rubber-band bounce
-            // (Seth, 2026-06-11, durability pass). Immersive width:auto now snaps, which
-            // is hidden under the fullscreen FLIP. Proven in sandbox v19.
-            '  transition:grid-template-rows .45s ' + SETTLE + ',',
-            '    padding .2s,border-radius .175s,color 75ms,margin .3s;',
-            '}',
-            NAVC + '.is-open{',
-            '  grid-template-rows:auto 1fr;',
-            '  padding-bottom:' + V('space-5') + ';',
-            '  border:1px dashed ' + V('color-accent-b-500') + ';',
-            '  border-radius:' + V('space-2') + ';',
-            '}',
-            // The collapsing row clips its content (mirror of .caption-body).
-            // display:block at .nav.wide .nav-body specificity overrides the
-            // Designer's .nav-body{display:none} — Seth's canvas-tidiness knob —
-            // so the published class can never kill the runtime drawer (Home's
-            // fallback-built menu uses the same class).
-            NAVC + ' .nav-body{display:block;min-height:0;overflow:hidden;}',
-            // two columns, sharing .nav-content's horizontal padding (space-1) so
-            // items line up under their trigger word
-            '.nav-menu{',
-            '  display:grid;grid-template-columns:1fr 1fr;',
-            '  grid-column-gap:' + V('space-3') + ';grid-row-gap:' + V('space-4') + ';',
-            '  padding:' + V('space-2') + ' ' + V('space-1') + ' 0;',
-            '}',
-            '.nav-panel{display:flex;flex-direction:column;grid-row-gap:' + V('space-1') + ';}',
-            '.nav-panel.is-giveaways{align-items:flex-start;}',
-            '.nav-panel.is-hideaways{align-items:flex-end;}',
-            // items reuse the masthead .h5-nav type; neutralise its flex:1 and add
-            // the click affordance via the .nav-item combo (Seth styles this)
-            '.nav-panel .h5-nav{flex:0 0 auto;}',
-            // CMS path (find-or-reuse): hide each item's body at rest. Descendant
-            // selector — Webflow can't author it. The script MOVES the chosen body
-            // into .nav-detail-body (out of .nav-panel) where this stops matching
-            // and the body shows, styled.
-            '.nav-panel .nav-item-body{display:none;}',
-            '.nav-item{cursor:pointer;text-decoration:none;display:block;}',
-            '.nav-item.is-current{color:' + V('color-ink-100') + ';}',
-            // the TWIST: selected item content reveals via a nested grid-rows drawer
-            '.nav-detail{',
-            '  grid-column:1 / -1;display:grid;grid-template-rows:0fr;',
-            '  transition:grid-template-rows .45s ' + SETTLE + ';',
-            '}',
-            '.nav-detail.is-shown{grid-template-rows:1fr;}',
-            '.nav-detail-body{',
-            '  min-height:0;overflow:hidden;color:' + V('color-ink-100') + ';',
-            '  padding-top:' + V('space-2') + ';',
-            '}',
-            '.nav-detail.is-hideaways .nav-detail-body{text-align:right;}',
-            '.nav-detail-body p{margin:0 0 ' + V('space-2') + ';max-width:60ch;}',
-            '.nav-detail.is-hideaways .nav-detail-body p{margin-left:auto;}',
-            // ── Immersive frame (Track B — fullscreen) ──
-            // The modal FILLS the viewport (opaque ink, inset:0) so the archive
-            // columns are fully covered — no bleed-through (the v10 bug). The image
-            // is held below the masthead by padding-top; side/bottom padding lets the
-            // frame breathe. The nav floats ON TOP via z-index (set below), rather
-            // than insetting the modal beneath it (which left gaps showing columns).
-            // z-index 999 re-asserts the D5 stack (the Designer combo drifted
-            // back to 100000, which buries the masthead frame at 1000). margin:0
-            // kills the base .detail-view margin — a fixed element honors margin,
-            // so it was shoving the modal off the viewport top (the bleed strip,
-            // measured live: margin-top 12px ⇒ rect.top 12).
-            '.detail-view.is-fullscreen{',
-            '  inset:0;margin:0;display:flex;flex-direction:column;z-index:999;',
-            '  padding:calc(4vh + 3rem) 1.5rem 1.5rem;',
-            '}',
-            // State-3 control bar is stripped in fullscreen (the frame ✕ is the close).
-            '.detail-bar.is-fullscreen{display:none;}',
-            // Image fits to the available height; the caption drawer sits below, shown
-            // (override .is-collapsed so caption + credit are visible in fullscreen).
-            '.detail-image.is-fullscreen{flex:1 1 auto;min-height:0;height:auto;}',
-            '.caption-drawer.is-fullscreen{flex:0 0 auto;grid-template-rows:auto 1fr;transition:opacity .25s;}',
-            // Zoomed = uncluttered: the caption row fades out while the magnifier
-            // is active (body.is-fs-zoom — the same flag that hides the chevrons)
-            // and returns on zoom-out. Opacity, not display — no layout jump.
-            'body.is-fs-zoom .caption-drawer.is-fullscreen{opacity:0;pointer-events:none;}',
-            // Caption footer: slide counter first (bottom-left), then caption · credit.
-            // One steady caption row: counter + credit never break internally;
-            // the caption text wraps naturally and takes the slack. Text LOOK
-            // (size/color/family) = Seth's base .caption-content in Designer.
-            '.caption-content.is-fullscreen{display:flex;flex-wrap:wrap;justify-content:flex-start;align-items:baseline;column-gap:' + V('space-3') + ';row-gap:.25rem;}',
-            '.caption-content.is-fullscreen .fs-count{flex:0 0 auto;white-space:nowrap;}',
-            '.caption-content.is-fullscreen p{flex:0 1 auto;min-width:0;margin:0;}',
-            '.caption-content.is-fullscreen p + p{flex:0 0 auto;white-space:nowrap;}',
-            '.fs-count{display:none;}',
-            '.caption-drawer.is-fullscreen .fs-count{display:inline-block;color:' + V('color-accent-a-500') + ';}',
-            // Migrated to Designer combos (2026-06-09): masthead breathing
-            // (.nav.expand.is-immersive), the rust realm word (.h5-nav.is-realm), and
-            // the ✕ LOOK (.frame-close + :hover). Kept here: the 3-col centering grid
-            // + descendant rules (Webflow can't author descendants), and the ✕'s
-            // position + reveal motion.
-            '.nav-content{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;}',
-            '.nav-giveaways{justify-self:start;}',
-            '.nav-lungitz{justify-self:center;}',
-            '.nav-hideaways{justify-self:end;}',
-            // Re-homed in code: the migrated .nav.expand.is-immersive Designer
-            // combo was orphaned by the expand→wide rename (the MCP can't author
-            // the shared is-immersive modifier on a new chain — gotcha).
-            NAVC + '.is-immersive{margin:1.5rem;width:auto;z-index:1000;}',
-            // Equal margins around the ✕ (Seth, 2026-06-10): measured settled
-            // (post nav-width transition), 2.75rem lands word→✕ and ✕→edge both
-            // at 13px. Knob: grows/shrinks the HIDEAWAYS↔✕ gap in immersive.
-            NAVC + '.is-immersive .nav-hideaways{padding-right:2.75rem;}',
-            // Reveal MOTION only — position/size/look live on the Designer's
-            // .frame-close class now (injected position was stomping Seth's
-            // Designer tuning, e.g. his right: space-2). The .12s delay lets the
-            // FLIP land first, so the ✕ breathes in instead of popping; the
-            // drawer easing matches the rest of the frame.
-            '.frame-close{',
-            '  opacity:0;transform:scale(.85);pointer-events:none;',
-            '  font-family:inherit;',
-            '  transition:opacity .4s ease .12s,transform .4s ' + SETTLE + ' .12s,color .2s,border-color .2s;',
-            '}',
-            NAVC + '.is-immersive .frame-close{opacity:1;transform:scale(1);pointer-events:auto;}',
-            '@media (max-width:640px){',
-            '  .nav-menu{grid-template-columns:1fr;}',
-            '  .nav-panel.is-hideaways{align-items:flex-start;}',
-            '  .nav-panel.is-hideaways .nav-item.is-right{text-align:left;}',
-            '  .nav-detail.is-hideaways .nav-detail-body{text-align:left;}',
-            '  .nav-detail.is-hideaways .nav-detail-body p{margin-left:0;}',
-            '}'
-        ].join('\n'),
-        styleEl = document.createElement('style');
+    var css = [
+        '.nav-content{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;}',
+        '.nav-giveaways{justify-self:start;}',
+        '.nav-lungitz{justify-self:center;}',
+        '.nav-hideaways{justify-self:end;}',
+        // anchor / arrival targets land clear of the fixed masthead
+        '.category-content{scroll-margin-top:5rem;}',
+        '.wrapper-content{scroll-margin-top:5rem;}'
+    ].join('\n');
+    var styleEl = document.createElement('style');
     styleEl.textContent = css;
     document.head.appendChild(styleEl);
 
-    // Hide Seth's early scaffold panel (we render a clean one in its place).
-    var scaffold = nav.querySelector('.nav-menu-content');
-    if (scaffold) { scaffold.style.display = 'none'; }
+    var onIndex = !!document.querySelector('.wrapper-content.is-left, .wrapper-content.is-right');
 
-    // ── Find-or-reuse the menu body (ported from sandbox/v18, 2026-06-10) ────
-    // Live world: a Designer-authored .nav-menu (the Masthead component's two CMS
-    // Collection Lists — .nav-panel.is-giveaways / .is-hideaways) whose items each
-    // carry a visible .nav-item label (→ Name) + a hidden .nav-item-body (→ Body).
-    // Find that and wire the reveal — build nothing. Fallback (no CMS menu, e.g. a
-    // page without the component): build the panels from the in-code arrays so the
-    // menu still works everywhere. detail/detailBody are shared with closeMenu
-    // below; ensureDetail sets them in both paths.
-    var detail = null, detailBody = null;
+    function clearRealmCue() {
+        lightRealm(null);
+        document.removeEventListener('pointerdown', clearRealmCue, true);
+        window.removeEventListener('wheel', clearRealmCue, true);
+    }
+    // Go to a realm's info entry. Instant scroll (the arrive() precedent —
+    // programmatic smooth scroll fights transitions and reads as jumpy).
+    function goToInfo(side) {
+        var el = document.getElementById('info-' + side);
+        if (!el) { location.href = '/#info-' + side; return; }
+        if (fs) { closeFullscreen(); }
+        el.scrollIntoView({ block: 'start' });
+        lightRealm(side);
+        setTimeout(function () {
+            document.addEventListener('pointerdown', clearRealmCue, true);
+            window.addEventListener('wheel', clearRealmCue, { capture: true, passive: true });
+        }, 50);
+    }
+    goInfo = goToInfo;   // shared with the landing modal's anchor links
 
-    function ensureDetail(host) {
-        detail = host.querySelector('.nav-detail');
-        if (detail) { detailBody = detail.querySelector('.nav-detail-body'); }
-        if (!detail) {
-            detail = document.createElement('div');
-            detail.className = 'nav-detail';
-            host.appendChild(detail);
+    // DELEGATED word wiring: the page may carry more than one nav row (the old
+    // Masthead component AND the container-landing's own rows — including the
+    // bottom PARTICIPANTS/IMPRESSUM/RESOURCES row, which reuses these classes).
+    // A word with a REAL href (Designer-bound link) always just navigates; only
+    // unlinked words get the behavior. Clicks while the modal is SHOWN never
+    // reach here (landingModal's capture handler owns them).
+    document.addEventListener('click', function (e) {
+        var w = e.target.closest('.nav-giveaways, .nav-hideaways, .nav-lungitz');
+        if (!w) { return; }
+        var a = w.closest('a[href]') || w.querySelector('a[href]'),
+            href = a && a.getAttribute('href');
+        if (href && href !== '#') { return; }          // Seth-bound link → navigate
+        e.preventDefault();
+        if (w.closest('.nav-giveaways') || w.classList.contains('nav-giveaways')) {
+            goToInfo('giveaways');
+        } else if (w.closest('.nav-hideaways') || w.classList.contains('nav-hideaways')) {
+            goToInfo('hideaways');
+        } else {
+            // LUNGITZ = the menu, ALWAYS: toggle the modal in place where the
+            // gate manages one (the index); everywhere else, go home WITH the
+            // menu expanded (?menu=1 — the gate honors it over the session flag).
+            if (typeof modalToggle === 'function') { modalToggle(); }
+            else { location.href = '/?menu=1'; }
         }
-        if (!detailBody) {
-            detailBody = document.createElement('div');
-            detailBody.className = 'nav-detail-body';
-            detail.appendChild(detailBody);
-        }
-    }
+    });
 
-    // Reveal bookkeeping: the CMS path MOVES the item's real .nav-item-body node
-    // into the detail drawer (so its Designer styling is exactly what renders) and
-    // moves it home on close/switch. At rest the bodies hide via the injected
-    // '.nav-panel .nav-item-body' descendant rule; moved out of the panel that rule
-    // stops matching and the body shows.
-    var placedBody = null, placedHome = null;
+    // The realm info entries expand on click ("+"): code flips .is-expanded,
+    // the Designer owns both states' look and motion.
+    document.addEventListener('click', function (e) {
+        var info = e.target.closest('.category-content');
+        if (!info || e.target.closest('a[href]')) { return; }
+        info.classList.toggle('is-expanded');
+    });
 
-    function restoreBody() {
-        if (placedBody) { placedBody.classList.remove('is-shown'); }
-        if (placedBody && placedHome) { placedHome.appendChild(placedBody); }
-        placedBody = placedHome = null;
-    }
-
-    function setCurrent(el) {
-        nav.querySelectorAll('.nav-item.is-current').forEach(function (b) {
-            b.classList.remove('is-current');
-        });
-        if (el) { el.classList.add('is-current'); }
-    }
-
-    function showDetail(side, html, el) {            // fallback path (arrays)
-        setCurrent(el);
-        restoreBody();
-        detailBody.innerHTML = html || '';
-        detail.className = 'nav-detail is-shown is-' + side;
-    }
-
-    function showDetailNode(side, bodyEl, el) {      // CMS path (real elements)
-        setCurrent(el);
-        restoreBody();
-        detailBody.innerHTML = '';
-        if (bodyEl) {
-            placedBody = bodyEl;
-            placedHome = bodyEl.parentNode;
-            detailBody.appendChild(bodyEl);
-            bodyEl.classList.add('is-shown');   // beat the .nav-item-body{display:none}
-        }
-        detail.className = 'nav-detail is-shown is-' + side;
-    }
-
-    // The component may ship .nav-body eye-hidden for a tidy canvas; its drawer
-    // layout only exists at runtime. Lift the design-time hide however Webflow
-    // encoded it. (No-op when the script builds the menu itself.)
-    var bodyHost = nav.querySelector('.nav-body');
-    if (bodyHost) {
-        bodyHost.classList.remove('w-condition-invisible');
-        bodyHost.style.display = '';
-    }
-
-    var cmsMenu = nav.querySelector('.nav-menu');
-    if (cmsMenu && cmsMenu.querySelector('.nav-item')) {
-        // Reuse the CMS-rendered menu (the Masthead component): wire each item's
-        // click to the reveal; the body is the .nav-item-body sibling in the item.
-        ensureDetail(cmsMenu);
-        nav.querySelectorAll('.nav-item').forEach(function (el) {
-            el.addEventListener('click', function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                var side = el.closest('.nav-panel.is-hideaways') ? 'hideaways' : 'giveaways',
-                    item = el.closest('.w-dyn-item') || el.parentNode,
-                    bodyEl = item ? item.querySelector('.nav-item-body') : null;
-                showDetailNode(side, bodyEl, el);
-            });
-        });
-    } else {
-        // Fallback: build the panels from the in-code arrays (legacy runtime menu).
-        var buildPanel = function (side, items) {
-            var align = side === 'hideaways' ? 'is-right' : 'is-left',
-                panel = document.createElement('div');
-            panel.className = 'nav-panel is-' + side;
-            items.forEach(function (item) {
-                var el = document.createElement('a');
-                el.href = '#';
-                el.className = 'h5-nav nav-item ' + align;
-                el.textContent = item.label;
-                el.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    showDetail(side, item.html, el);
-                });
-                panel.appendChild(el);
-            });
-            return panel;
-        };
-        var body = document.createElement('div'),
-            menu = document.createElement('div');
-        body.className = 'nav-body';
-        menu.className = 'nav-menu';
-        menu.appendChild(buildPanel('giveaways', GIVEAWAYS));
-        menu.appendChild(buildPanel('hideaways', HIDEAWAYS));
-        body.appendChild(menu);
-        nav.appendChild(body);
-        ensureDetail(menu);
-    }
-
-    // Fullscreen ✕ (frame-breathes) — find-or-reuse: the Masthead component carries
-    // a real Designer .frame-close (position + look + :hover on its class); create
-    // one only where it's absent (a page without the component). Closes immersive.
-    var closeBtn = nav.querySelector('.frame-close');
-    if (!closeBtn) {
-        closeBtn = document.createElement('button');
-        closeBtn.type = 'button';
-        closeBtn.className = 'frame-close';
-        closeBtn.setAttribute('aria-label', 'Close fullscreen');
-        closeBtn.textContent = '✕';
-        nav.appendChild(closeBtn);
-    }
-    closeBtn.addEventListener('click', function (e) {
+    // Universal ✕ (.frame-close — the modal frame's corner close): in
+    // fullscreen it closes fullscreen; on a menu page it steps back (or home
+    // when arrived cold). One wiring for every instance.
+    document.addEventListener('click', function (e) {
+        var x = e.target.closest('.frame-close');
+        if (!x) { return; }
         e.preventDefault();
         e.stopPropagation();
-        closeFullscreen();
-    });
-
-    function closeMenu() {
-        nav.classList.remove('is-open');
-        nav.querySelectorAll('.nav-item.is-current').forEach(function (b) {
-            b.classList.remove('is-current');
-        });
-        detail.className = 'nav-detail';
-        restoreBody();                      // send the moved body home first
-        detailBody.innerHTML = '';
-    }
-    function toggleMenu() {
-        if (nav.classList.contains('is-open')) { closeMenu(); }
-        else { nav.classList.add('is-open'); }
-    }
-
-    var gWord = nav.querySelector('.nav-giveaways'),
-        hWord = nav.querySelector('.nav-hideaways'),
-        lWord = nav.querySelector('.nav-lungitz');
-    if (gWord) { gWord.addEventListener('click', function (e) { e.preventDefault(); toggleMenu(); }); }
-    if (hWord) { hWord.addEventListener('click', function (e) { e.preventDefault(); toggleMenu(); }); }
-    if (lWord) {
-        lWord.addEventListener('click', function (e) {
-            if (nav.classList.contains('is-open')) { e.preventDefault(); closeMenu(); }
-        });
-    }
-
-    document.addEventListener('click', function (e) {
-        if (nav.classList.contains('is-open') && !nav.contains(e.target)) { closeMenu(); }
-    });
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && nav.classList.contains('is-open')) { closeMenu(); }
+        if (fs) { closeFullscreen(); return; }
+        if (history.length > 1) { history.back(); }
+        else { location.href = '/'; }
     });
 }());
 
@@ -1188,17 +1060,13 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     var entry = /^\/(giveaways|hideaways)\/([^\/]+)\/?$/.exec(location.pathname);
 
     if (entry) {                              // ── on a standalone entry page ──
-        var lWord = document.querySelector('.nav-lungitz');
-        if (lWord) {
-            lWord.style.cursor = 'pointer';
-            lWord.addEventListener('click', function (e) {
-                e.preventDefault();
-                location.href = '/?entry=' + entry[1] + '/' + encodeURIComponent(entry[2]);
-            });
-        }
+        // v32: LUNGITZ wiring lives in §masthead now (LUNGITZ → home, where the
+        // landing modal greets as the menu). Here only the entry↔entry arrows.
         wireEntryNav(entry[1], entry[2]);
         return;
     }
+    // (v31's ?realm= route + non-index LUNGITZ wiring retired — realm words use
+    // native /#info-* anchors and §masthead owns LUNGITZ on every page.)
 
     // Entry→entry prev/next. Controls are [data-entry-nav="prev"|"next"] (styled in the
     // Designer). Their href comes from the neighbours in INDEX order — sourced by reading
@@ -1498,7 +1366,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     // swap "felt right"). The swipe still tracks the finger; the commit snaps.
     function slideTo(dir) {
         if (!fs || !detail || detail.images.length < 2 || zoom) { return; }
-        var img = fs.view.querySelector(DETAIL_IMG);
+        var img = fsImage();
         if (!img) { return; }
         detail.idx = (detail.idx + dir + detail.images.length) % detail.images.length;
         paintDetail(fs.view);
@@ -1526,7 +1394,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     document.addEventListener('pointerdown', function (e) {
         var img;
         if (!fs || !detail || detail.images.length < 2 || zoom) { return; }
-        img = fs.view.querySelector(DETAIL_IMG);
+        img = fsImage();
         if (!img || img._sliding || !fs.view.contains(e.target) || e.target.closest('.fs-nav')) { return; }
         swipe = { x0: e.clientX, img: img, dx: 0 };
         img.style.transition = 'none';
@@ -1587,8 +1455,6 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         // those earlier fixes were red herrings, kept as harmless smoothing).
         // align-content:start packs the rows to the top so row 1 can never inflate.
         '.header-accordion{align-content:start;}',
-        '.nav.wide.is-immersive .nav-hideaways{padding-right:0!important;}',
-        '.nav.wide.is-immersive .nav-giveaways{padding-left:0!important;}',
         '@media (max-width:767px){',
         // mobile masthead stays put (was position:absolute → scrolled away as a
         // block). Fixed + opaque ink bg + z-index so content scrolls behind it.
@@ -1603,10 +1469,23 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         '  html::-webkit-scrollbar-thumb{background:#000;border-radius:4px;}',
         '  html::-webkit-scrollbar-thumb:hover{background:#1a1a1a;}',
         '}',
-        '.frame-close{display:none!important;}',
-        '.nav.wide.is-immersive .nav-lungitz{cursor:' + XCUR + ';}',
+        // v32: the overlay backdrop reads as the exit (✕ cursor); its bar,
+        // caption, and image keep their own affordances. Legacy-path rules kept
+        // beneath for pages without the overlay.
+        '.immersive-overlay.is-viewing{cursor:' + XCUR + ';}',
+        '.immersive-overlay .immersive-bar,.immersive-overlay .caption-drawer,.immersive-overlay .immersive-image{cursor:auto;}',
         '.detail-view.is-fullscreen{cursor:' + XCUR + ';}',
         '.caption-drawer.is-fullscreen{cursor:auto;}',
+        // Slide counter: hidden at rest (paintDetail seeds it into every caption
+        // row), shown inside the overlay / legacy fullscreen caption.
+        '.fs-count{display:none;}',
+        '.immersive-overlay .fs-count,.caption-drawer.is-fullscreen .fs-count{display:inline-block;color:' + ACC + ';}',
+        // LEGACY fullscreen fill (fallback pages without the overlay only —
+        // the overlay path never touches these; layout there is Seth's).
+        '.detail-view.is-fullscreen{inset:0;margin:0;display:flex;flex-direction:column;z-index:999;padding:calc(4vh + 3rem) 1.5rem 1.5rem;}',
+        '.detail-bar.is-fullscreen{display:none;}',
+        '.detail-image.is-fullscreen{flex:1 1 auto;min-height:0;height:auto;}',
+        '.caption-drawer.is-fullscreen{flex:0 0 auto;grid-template-rows:auto 1fr;}',
         '.fs-nav.is-prev{cursor:' + LCUR + ';}',
         '.fs-nav.is-next{cursor:' + RCUR + ';}',
         '.fs-chev{font-size:0!important;text-shadow:none!important;font-family:inherit!important;padding:' + SP3 + '!important;color:' + ACC + '!important;line-height:1!important;}',
@@ -1624,10 +1503,11 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     st.textContent = css;
     document.head.appendChild(st);
 
-    // Fullscreen close = LUNGITZ + backdrop + Esc (Esc already wired in keydown).
-    // closeFullscreen / fs / zoom are in scope (this runs inside the main IIFE).
+    // Fullscreen close = ✕ (data-detail) + backdrop + Back + Esc. The
+    // LUNGITZ-closes shortcut survives only on the LEGACY path (with the
+    // overlay, LUNGITZ means "menu" and sits beneath it anyway).
     document.addEventListener('click', function (e) {
-        if (!fs) { return; }
+        if (!fs || OVERLAY) { return; }
         if (e.target.closest('.nav-lungitz')) {
             e.preventDefault();
             e.stopPropagation();
@@ -1638,9 +1518,161 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         if (!fs || zoom) { return; }
         var view = fs.view;
         if (!view || !view.contains(e.target)) { return; }
-        if (e.target.closest('.detail-image, .caption-drawer, .fs-nav, .nav, [data-detail]')) { return; }
+        if (e.target.closest('.detail-image, .immersive-image, .immersive-bar, .caption-drawer, .fs-nav, .nav, [data-detail]')) { return; }
         closeFullscreen();
     }, false);
+}());
+
+// ════════════════════════════════════════════════════════════════════════
+//  §Landing modal (v32) — Seth's container-landing modal IS the landing AND
+//  the menu. It greets on arrival at the index and dismisses IN PLACE on any
+//  click outside its links ("click anywhere → the index"); LUNGITZ re-opens it
+//  (see §masthead). Every visual knob — BOTH states — is Seth's in the
+//  Designer (.container-landing rest + .is-active shown, HIS class pair);
+//  code owns only the gate, the click routing, and motion. Deep links (?entry=)
+//  and #anchor arrivals skip the landing and land on the index directly.
+//  Wireframe-first: dormant until the modal is instanced on the page.
+//  ?veil=0 suppresses it for testing.
+// ════════════════════════════════════════════════════════════════════════
+(function landingModal() {
+    var onIndex = !!document.querySelector('.wrapper-content.is-left, .wrapper-content.is-right');
+    if (!onIndex) { return; }                       // menu pages carry their own static modal
+    var modal = document.querySelector('.container-landing, .container-landing-modal');
+    if (!modal) { return; }
+
+    // ── THE MODEL (worked out with Seth, 2026-07-25 late) ──────────────────
+    // The modal IS the masthead — one structure, two states:
+    //   · rest (.container-landing, no is-active): ONLY the top word row shows
+    //     — that row is .nav.wide, so it *is* the persistent masthead. The
+    //     landing content, bottom menu row, and ✕ collapse away (descendant
+    //     rules below — structural, Webflow can't author them; the LOOK of
+    //     both states stays Seth's).
+    //   · expanded (.is-active): the full landing/menu.
+    // The old Masthead component retires — no duplicate navs.
+    // PERSISTENCE: it greets expanded ONCE per browser session on arriving at
+    // the index; after any dismissal (or a deep link) it rests as the word-row
+    // masthead. LUNGITZ re-expands it any time — it is the menu.
+    var st = document.createElement('style');
+    st.textContent =
+        '.container-landing,.container-landing-modal{'
+      + 'transition:grid-template-rows .45s ' + SETTLE + ',opacity .5s ease,transform .6s ' + SETTLE + ',padding .3s;}'
+        // rest = word row only (code-owned descendant hides; contract §2)
+      + '.container-landing:not(.is-active) .landing-content,'
+      + '.container-landing:not(.is-active) .nav-content.bottom,'
+      + '.container-landing:not(.is-active) .frame-close{display:none;}';
+    document.head.appendChild(st);
+
+    var SEEN = 'lz-landing-seen';
+
+    var prevOverflow = document.documentElement.style.overflow;
+    function lock(on) {
+        document.documentElement.style.overflow = on ? 'hidden' : prevOverflow;
+    }
+    function shown() { return modal.classList.contains('is-active'); }
+    function dismiss() {
+        modal.classList.remove('is-active');
+        lock(false);
+        try { sessionStorage.setItem(SEEN, '1'); } catch (e) {}
+    }
+    function show() {
+        modal.classList.add('is-active');
+        lock(true);
+    }
+    modalToggle = function () { if (shown()) { dismiss(); } else { show(); } };
+
+    var seen = false;
+    try { seen = !!sessionStorage.getItem(SEEN); } catch (e) {}
+    if (/[?&]menu=1\b/.test(location.search)) {
+        show();             // LUNGITZ from a sub-page: arrive WITH the menu open
+        try {
+            history.replaceState({}, '', location.pathname
+                + location.search.replace(/([?&])menu=1&?/, '$1').replace(/[?&]$/, '')
+                + location.hash);
+        } catch (e) {}
+    } else if (/[?&]entry=/.test(location.search) || /[?&]veil=0\b/.test(location.search) || location.hash || seen) {
+        dismiss();          // deep link / already greeted this session → the word-row masthead
+    } else {
+        show();             // first arrival of the session: the landing greets
+    }
+
+    // Click routing while the modal holds: its links act (the realm anchors
+    // dismiss first, then glide); anywhere else = enter the index. Capture, so
+    // the dismissing click never reaches the ladder beneath.
+    document.addEventListener('click', function (e) {
+        if (!shown()) { return; }
+        // The realm words need no hrefs (a link inside a component can only
+        // target ONE page's anchor) — the modal routes them per page itself:
+        // dismiss, then glide to this page's info entry.
+        var word = e.target.closest('.nav-giveaways, .nav-hideaways');
+        if (word && modal.contains(word)) {
+            e.preventDefault();
+            e.stopPropagation();
+            dismiss();
+            var wSide = word.closest('.nav-hideaways') || word.classList.contains('nav-hideaways')
+                ? 'hideaways' : 'giveaways';
+            if (typeof goInfo === 'function') { goInfo(wSide); }
+            return;
+        }
+        var a = e.target.closest('a[href]');
+        if (a && modal.contains(a)) {
+            var href = a.getAttribute('href') || '';
+            if (href.charAt(0) === '#' || href.indexOf('/#') === 0) {
+                e.preventDefault();
+                e.stopPropagation();
+                dismiss();
+                var side = /giveaways/.test(href) ? 'giveaways'
+                         : /hideaways/.test(href) ? 'hideaways' : null;
+                if (side && typeof goInfo === 'function') { goInfo(side); }
+                else {
+                    var el = document.getElementById(href.replace(/^\/?#/, ''));
+                    if (el) { el.scrollIntoView({ block: 'start' }); }
+                }
+                return;
+            }
+            return;                                  // real link → navigate
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        dismiss();
+    }, true);
+
+    // Esc / ⏎ / space enter the index too (capture — the ladder never sees it).
+    document.addEventListener('keydown', function (e) {
+        if (!shown()) { return; }
+        if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            e.stopPropagation();
+            dismiss();
+        }
+    }, true);
+}());
+
+// ── External links → new tab (v31, 17.6 "links should open to a new tab") ──
+// Just-in-time on click (capture) so it also covers CMS bodies the menu moves
+// around: any http(s) anchor pointing off-host opens in a new tab, noopener.
+(function externalNewTab() {
+    document.addEventListener('click', function (e) {
+        var a = e.target.closest('a[href]');
+        if (!a || !a.host || a.host === location.host) { return; }
+        if (!/^https?:$/.test(a.protocol)) { return; }
+        a.target = '_blank';
+        if (!/\bnoopener\b/.test(a.rel || '')) { a.rel = (a.rel ? a.rel + ' ' : '') + 'noopener'; }
+    }, true);
+}());
+
+// ── Participants → index arrival (v32) ── The Designer binds each contributor
+// name to their Featured work's template page (/giveaways/<slug> — the no-JS
+// fallback). Landing IN THE INDEX with the rust arrival highlight reads better
+// (Seth), so rewrite those hrefs to the ?entry= flag the wayfinding module
+// already understands. Progressive enhancement — content and curation stay in
+// the CMS.
+(function participantsToIndex() {
+    var wrap = document.querySelector('.content-participants');
+    if (!wrap) { return; }
+    wrap.querySelectorAll('a[href^="/giveaways/"], a[href^="/hideaways/"]').forEach(function (a) {
+        var m = /^\/(giveaways|hideaways)\/([^\/?#]+)/.exec(a.getAttribute('href'));
+        if (m) { a.setAttribute('href', '/?entry=' + m[1] + '/' + m[2]); }
+    });
 }());
 
 // ════════════════════════════════════════════════════════════════════════
@@ -1772,8 +1804,14 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     (document.body || document.documentElement).appendChild(hint);
 
     var kbMode = false;   // true once the keyboard is in use; a mouse press exits
+    // Browser-fullscreen steals Esc (the Antoine case) — advertise the paths
+    // that always work there instead. Back genuinely closes (history state).
+    function browserFs() {
+        return !!document.fullscreenElement || Math.abs(window.innerHeight - screen.height) < 6;
+    }
     function levelText() {
-        if (fs) { return zoom ? '←→ pan · +/− zoom · esc reset' : '←→ image · +/− zoom · ⏎ zoom · esc exit'; }
+        var esc = browserFs() ? '✕ / back' : 'esc';
+        if (fs) { return zoom ? '←→ pan · +/− zoom · ' + esc + ' reset' : '←→ image · +/− zoom · ⏎ zoom · ' + esc + ' exit'; }
         if (detail) { return '←→ image · ⏎ fullscreen · esc back'; }
         if (openTrig()) { return '←→ thumbnails · ⏎ view · esc close'; }
         return INDEX_RING ? '↑↓ browse · ←→ switch side · ⏎ open' : '';
@@ -1793,7 +1831,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     // ── zoom via keys (state 4) ──
     function kbZoom(dir) {
         if (!fs) { return; }
-        var img = fs.view.querySelector(DETAIL_IMG);
+        var img = fsImage();
         if (!img) { return; }
         var r = img.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
         if (dir > 0) { zoomSet(img, (zoom ? zoom.scale : 1) * 1.6, cx, cy); }
@@ -1815,7 +1853,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             kbMode = true;
             if (fs) {                          // ⏎ in fullscreen → toggle zoom
                 e.preventDefault();
-                var fimg = fs.view.querySelector(DETAIL_IMG);
+                var fimg = fsImage();
                 if (zoom) { zoomOut(fimg); }
                 else if (fimg) { var fr = fimg.getBoundingClientRect(); zoomSet(fimg, 2, fr.left + fr.width / 2, fr.top + fr.height / 2); }
                 paintHint(); return;
@@ -1844,7 +1882,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         }
         if (fs && k === '0' && zoom) {
             e.preventDefault(); kbMode = true;
-            zoomOut(fs.view.querySelector(DETAIL_IMG)); paintHint(); return;
+            zoomOut(fsImage()); paintHint(); return;
         }
 
         if (k === 'ArrowUp' || k === 'ArrowDown' || k === 'ArrowLeft' || k === 'ArrowRight') {
