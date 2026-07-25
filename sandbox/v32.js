@@ -972,25 +972,32 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     }
     goInfo = goToInfo;   // shared with the landing modal's anchor links
 
-    var gWord = nav.querySelector('.nav-giveaways'),
-        hWord = nav.querySelector('.nav-hideaways'),
-        lWord = nav.querySelector('.nav-lungitz');
-    if (gWord) { gWord.addEventListener('click', function (e) { e.preventDefault(); goToInfo('giveaways'); }); }
-    if (hWord) { hWord.addEventListener('click', function (e) { e.preventDefault(); goToInfo('hideaways'); }); }
-    if (lWord) {
-        lWord.addEventListener('click', function (e) {
+    // DELEGATED word wiring: the page may carry more than one nav row (the old
+    // Masthead component AND the container-landing's own rows — including the
+    // bottom PARTICIPANTS/IMPRESSUM/RESOURCES row, which reuses these classes).
+    // A word with a REAL href (Designer-bound link) always just navigates; only
+    // unlinked words get the behavior. Clicks while the modal is SHOWN never
+    // reach here (landingModal's capture handler owns them).
+    document.addEventListener('click', function (e) {
+        var w = e.target.closest('.nav-giveaways, .nav-hideaways, .nav-lungitz');
+        if (!w) { return; }
+        var a = w.closest('a[href]') || w.querySelector('a[href]'),
+            href = a && a.getAttribute('href');
+        if (href && href !== '#') { return; }          // Seth-bound link → navigate
+        e.preventDefault();
+        if (w.closest('.nav-giveaways') || w.classList.contains('nav-giveaways')) {
+            goToInfo('giveaways');
+        } else if (w.closest('.nav-hideaways') || w.classList.contains('nav-hideaways')) {
+            goToInfo('hideaways');
+        } else {
+            // LUNGITZ = the menu: re-open the modal on the index; home elsewhere.
             if (onIndex) {
-                // LUNGITZ = the menu: re-open the landing modal (if wired).
-                if (typeof modalToggle === 'function') {
-                    e.preventDefault();
-                    modalToggle();
-                }
+                if (typeof modalToggle === 'function') { modalToggle(); }
             } else {
-                e.preventDefault();
-                location.href = '/';       // home, where the modal greets
+                location.href = '/';
             }
-        });
-    }
+        }
+    });
 
     // The realm info entries expand on click ("+"): code flips .is-expanded,
     // the Designer owns both states' look and motion.
@@ -1505,12 +1512,17 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     var modal = document.querySelector('.container-landing, .container-landing-modal');
     if (!modal) { return; }
 
-    // Code-owned: dismiss/reopen MOTION only (the look of both states is Seth's).
+    // Code-owned: MOTION ONLY. What "dismissed" LOOKS like is entirely Seth's
+    // .is-dismissed combo in the Designer — e.g. the drawer move: collapse to
+    // just the top word row (grid-rows), which then IS the persistent masthead.
+    // The transition list covers whichever channel he styles (grid-rows can't
+    // carry a Designer transition — the audit blocks it — so it rides here).
+    // NOTE: if the dismissed state hides the whole modal instead, add
+    // pointer-events:none to the combo so the index beneath is clickable.
     var st = document.createElement('style');
     st.textContent =
-        '.container-landing,.container-landing-modal{transition:opacity .5s ease,transform .6s ' + SETTLE + ';}'
-      + '.container-landing.is-dismissed,.container-landing-modal.is-dismissed{'
-      + 'opacity:0;transform:translateY(-1.25%);pointer-events:none;}';
+        '.container-landing,.container-landing-modal{'
+      + 'transition:grid-template-rows .45s ' + SETTLE + ',opacity .5s ease,transform .6s ' + SETTLE + ',padding .3s;}';
     document.head.appendChild(st);
 
     var prevOverflow = document.documentElement.style.overflow;
