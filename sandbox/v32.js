@@ -1572,6 +1572,19 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     // the dismissing click never reaches the ladder beneath.
     document.addEventListener('click', function (e) {
         if (!shown()) { return; }
+        // The realm words need no hrefs (a link inside a component can only
+        // target ONE page's anchor) — the modal routes them per page itself:
+        // dismiss, then glide to this page's info entry.
+        var word = e.target.closest('.nav-giveaways, .nav-hideaways');
+        if (word && modal.contains(word)) {
+            e.preventDefault();
+            e.stopPropagation();
+            dismiss();
+            var wSide = word.closest('.nav-hideaways') || word.classList.contains('nav-hideaways')
+                ? 'hideaways' : 'giveaways';
+            if (typeof goInfo === 'function') { goInfo(wSide); }
+            return;
+        }
         var a = e.target.closest('a[href]');
         if (a && modal.contains(a)) {
             var href = a.getAttribute('href') || '';
