@@ -1015,34 +1015,38 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     //     reloading (the rust cue rides along);
     //   · LUNGITZ on the index toggles the modal instead of reloading;
     //   · unlinked words (older copies) fall back to the same behavior.
+    // Smoothing keys off each link's HREF, never its class (the menu row
+    // reuses the word classes). A link is only smoothed when its own
+    // destination can happen in place; anything else navigates natively.
     document.addEventListener('click', function (e) {
         var w = e.target.closest('.nav-giveaways, .nav-hideaways, .nav-lungitz');
         if (!w) { return; }
         var a = w.closest('a[href]') || w.querySelector('a[href]'),
             href = (a && a.getAttribute('href')) || '';
-        if (w.closest('.nav-lungitz') || w.classList.contains('nav-lungitz')) {
-            if (typeof modalToggle === 'function') {
-                e.preventDefault();                    // in place on the index
-                modalToggle();
-            } else if (!href || href === '#') {
-                e.preventDefault();                    // unlinked fallback
-                location.href = '/?menu=1';
+        var m = /#info-(giveaways|hideaways)\b/.exec(href);
+        if (m) {
+            var target = document.getElementById('info-' + m[1]);
+            if (target && target.offsetParent !== null) {
+                e.preventDefault();                    // destination on-screen → glide
+                goToInfo(m[1]);
             }
-            return;                                    // real link navigates natively
+            return;                                    // else: native anchor navigation
         }
-        var side = (w.closest('.nav-hideaways') || w.classList.contains('nav-hideaways'))
-            ? 'hideaways' : 'giveaways';
-        var target = document.getElementById('info-' + side);
-        if (target && target.offsetParent !== null) {
-            e.preventDefault();                        // destination on-screen → glide
-            goToInfo(side);
-            return;
+        if (href === '#' || href === '/' || /\?menu=1\b/.test(href) || !href) {
+            // the menu intent (LUNGITZ) or an unlinked word
+            if (w.closest('.nav-lungitz') || w.classList.contains('nav-lungitz')) {
+                e.preventDefault();
+                if (typeof modalToggle === 'function') { modalToggle(); }
+                else { location.href = '/?menu=1'; }
+                return;
+            }
+            if (!href || href === '#') {               // unlinked realm word fallback
+                e.preventDefault();
+                goToInfo((w.closest('.nav-hideaways') || w.classList.contains('nav-hideaways'))
+                    ? 'hideaways' : 'giveaways');
+            }
         }
-        if (!href || href === '#') {
-            e.preventDefault();                        // unlinked fallback
-            goToInfo(side);
-        }
-        // else: the Designer link navigates natively (e.g. /#info-giveaways)
+        // any other real link (menu row pages etc.) navigates natively
     });
 
     // The realm info entries expand on click ("+"): code flips .is-expanded,
@@ -1616,43 +1620,30 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     // Click routing while the modal holds: its links act (the realm anchors
     // dismiss first, then glide); anywhere else = enter the index. Capture, so
     // the dismissing click never reaches the ladder beneath.
+    // Click routing while the menu holds — keyed off HREFS ONLY (never
+    // classes: the bottom row reuses the word classes, so class-sniffing
+    // hijacks real page links). The links are the truth:
+    //   · #info-* anchors → dismiss, then glide in place
+    //   · /?menu=1 (LUNGITZ inside the open menu) → just dismiss
+    //   · any other real link (PARTICIPANTS/IMPRESSUM/RESOURCES…) → NAVIGATE
+    //   · a non-link click anywhere → enter the index
     document.addEventListener('click', function (e) {
         if (!shown()) { return; }
-        // LUNGITZ while the menu is open = dismiss (its /?menu=1 link would
-        // reload the menu you're already in — smooth it to the toggle).
-        var lz = e.target.closest('.nav-lungitz');
-        if (lz && modal.contains(lz)) {
-            e.preventDefault();
-            e.stopPropagation();
-            dismiss();
-            return;
-        }
-        // Realm words while the menu is open: dismiss, then glide in place
-        // (their /#info-* links stay the no-script truth).
-        var word = e.target.closest('.nav-giveaways, .nav-hideaways');
-        if (word && modal.contains(word)) {
-            e.preventDefault();
-            e.stopPropagation();
-            dismiss();
-            var wSide = word.closest('.nav-hideaways') || word.classList.contains('nav-hideaways')
-                ? 'hideaways' : 'giveaways';
-            if (typeof goInfo === 'function') { goInfo(wSide); }
-            return;
-        }
         var a = e.target.closest('a[href]');
         if (a && modal.contains(a)) {
             var href = a.getAttribute('href') || '';
-            if (href.charAt(0) === '#' || href.indexOf('/#') === 0) {
+            var m = /#info-(giveaways|hideaways)\b/.exec(href);
+            if (m) {
                 e.preventDefault();
                 e.stopPropagation();
                 dismiss();
-                var side = /giveaways/.test(href) ? 'giveaways'
-                         : /hideaways/.test(href) ? 'hideaways' : null;
-                if (side && typeof goInfo === 'function') { goInfo(side); }
-                else {
-                    var el = document.getElementById(href.replace(/^\/?#/, ''));
-                    if (el) { el.scrollIntoView({ block: 'start' }); }
-                }
+                if (typeof goInfo === 'function') { goInfo(m[1]); }
+                return;
+            }
+            if (href === '#' || href === '/' || /\?menu=1\b/.test(href)) {
+                e.preventDefault();
+                e.stopPropagation();
+                dismiss();
                 return;
             }
             return;                                  // real link → navigate
