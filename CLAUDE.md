@@ -28,7 +28,10 @@ behavior layer. Violating this is the #1 recurring failure — do not repeat it.
    create/update a combo whose modifier name already exists elsewhere, e.g.
    `is-open`); pages duplicated from Home may carry hidden index copies
    (`container-content.hide`) — index detection must use visible columns;
-   element `id` attr is set via set_dom_id, not set_attributes.
+   element `id` attr is set via set_dom_id, not set_attributes;
+   **binding `text` on a WRAPPER element (Link, Block) DESTROYS its child
+   elements irreversibly** — bind text only on leaf text elements (Heading,
+   Paragraph) that own their styling; link bindings on Links are safe.
 
 ## Current architecture (v32, promoted 2026-07-25)
 
