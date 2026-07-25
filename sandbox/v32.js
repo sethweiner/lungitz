@@ -1534,17 +1534,29 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     var modal = document.querySelector('.container-landing, .container-landing-modal');
     if (!modal) { return; }
 
-    // The modal's states are SETH'S OWN class pair: .container-landing (rest —
-    // currently display:none) + .is-active (shown — display:block). Code just
-    // toggles is-active; restyling either state in the Designer restyles the
-    // behavior for free (e.g. evolving "rest" into a collapsed word-row bar).
-    // Code contributes MOTION only — a transition list covering the channels
-    // the Designer can't carry (grid-rows) or may reach for later.
+    // ── THE MODEL (worked out with Seth, 2026-07-25 late) ──────────────────
+    // The modal IS the masthead — one structure, two states:
+    //   · rest (.container-landing, no is-active): ONLY the top word row shows
+    //     — that row is .nav.wide, so it *is* the persistent masthead. The
+    //     landing content, bottom menu row, and ✕ collapse away (descendant
+    //     rules below — structural, Webflow can't author them; the LOOK of
+    //     both states stays Seth's).
+    //   · expanded (.is-active): the full landing/menu.
+    // The old Masthead component retires — no duplicate navs.
+    // PERSISTENCE: it greets expanded ONCE per browser session on arriving at
+    // the index; after any dismissal (or a deep link) it rests as the word-row
+    // masthead. LUNGITZ re-expands it any time — it is the menu.
     var st = document.createElement('style');
     st.textContent =
         '.container-landing,.container-landing-modal{'
-      + 'transition:grid-template-rows .45s ' + SETTLE + ',opacity .5s ease,transform .6s ' + SETTLE + ',padding .3s;}';
+      + 'transition:grid-template-rows .45s ' + SETTLE + ',opacity .5s ease,transform .6s ' + SETTLE + ',padding .3s;}'
+        // rest = word row only (code-owned descendant hides; contract §2)
+      + '.container-landing:not(.is-active) .landing-content,'
+      + '.container-landing:not(.is-active) .nav-content.bottom,'
+      + '.container-landing:not(.is-active) .frame-close{display:none;}';
     document.head.appendChild(st);
+
+    var SEEN = 'lz-landing-seen';
 
     var prevOverflow = document.documentElement.style.overflow;
     function lock(on) {
@@ -1554,6 +1566,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     function dismiss() {
         modal.classList.remove('is-active');
         lock(false);
+        try { sessionStorage.setItem(SEEN, '1'); } catch (e) {}
     }
     function show() {
         modal.classList.add('is-active');
@@ -1561,10 +1574,12 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     }
     modalToggle = function () { if (shown()) { dismiss(); } else { show(); } };
 
-    if (/[?&]entry=/.test(location.search) || /[?&]veil=0\b/.test(location.search) || location.hash) {
-        dismiss();          // deep link / anchor arrival: land on the index directly
+    var seen = false;
+    try { seen = !!sessionStorage.getItem(SEEN); } catch (e) {}
+    if (/[?&]entry=/.test(location.search) || /[?&]veil=0\b/.test(location.search) || location.hash || seen) {
+        dismiss();          // deep link / already greeted this session → the word-row masthead
     } else {
-        show();             // the landing greets
+        show();             // first arrival of the session: the landing greets
     }
 
     // Click routing while the modal holds: its links act (the realm anchors

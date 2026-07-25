@@ -1,5 +1,22 @@
 # Designer Handoff — Landing/Menu Modal arc (v32, 2026-07-25)
 
+## THE MODEL (final, worked out late 2026-07-25)
+
+**The Landing Modal component IS the masthead.** One structure, two states:
+
+- **Rest** (`.container-landing`, no `is-active`): only the top word row shows —
+  GIVEAWAYS · LUNGITZ · HIDEAWAYS. That row *is* the persistent masthead
+  (it's `.nav.wide`). Landing content, bottom menu row, and ✕ are collapsed
+  by code-owned descendant rules (Webflow can't author them); the LOOK of
+  both states is yours on the classes.
+- **Expanded** (`.is-active`): the full landing/menu.
+- **Persistence**: greets expanded once per browser session on index arrival;
+  deep links (`?entry=`, `#anchor`) and later visits land on the word-row
+  rest state. LUNGITZ re-expands it anytime — it is the menu.
+- **The old Masthead component retires** (no duplicate navs). Its instance
+  comes off the sandbox page now; the component itself is deleted at promote
+  (Home still instances it until then).
+
 Supersedes DESIGNER-HANDOFF_2026-07-24.md (the drawer/veil concept it describes
 is retired). `sandbox/v32.js` is live on `…/sandbox?v=32` and finds your
 elements wherever they exist — each piece activates on its own.
