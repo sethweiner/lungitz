@@ -85,21 +85,26 @@ function onRealIndex() {
 (function injectCSS() {
     var INK = 'var(--_lungitz---color-ink-900)',
         css = [
-            '.wrapper-content{',
+            // SITEWIDE scrollbars (Seth, 2026-07-25: "make all the scrollbars
+            // uniform, like the home page"). Universal because scrollbar-color
+            // doesn't inherit — every scroll container on every page gets the
+            // same thin dark treatment. Code-owned: Webflow can't author
+            // ::-webkit-scrollbar. (Supersedes the old per-container rules.)
+            '*{',
             '  scrollbar-width:thin;',
             '  scrollbar-color:#000 color-mix(in srgb,' + INK + ',#000 20%);',
-            '  scroll-padding-top:64px;',
             '}',
-            '.wrapper-content::-webkit-scrollbar{width:8px;height:8px}',
-            '.wrapper-content::-webkit-scrollbar-track{',
+            '*::-webkit-scrollbar{width:8px;height:8px}',
+            '*::-webkit-scrollbar-track{',
             '  background:color-mix(in srgb,' + INK + ',#000 20%);',
             '}',
-            '.wrapper-content::-webkit-scrollbar-thumb{',
+            '*::-webkit-scrollbar-thumb{',
             '  background:#000;border-radius:4px;',
             '}',
-            '.wrapper-content::-webkit-scrollbar-thumb:hover{',
+            '*::-webkit-scrollbar-thumb:hover{',
             '  background:#1a1a1a;',
             '}',
+            '.wrapper-content{scroll-padding-top:64px;}',
             '.detail-view{',
             '  transform:scale(0.95);opacity:0;',
             '  transition:transform 400ms ' + SETTLE + ',opacity 300ms ease;',
@@ -1492,11 +1497,8 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         '  .h5-nav{font-size:clamp(0.875rem, 4.4vw, 1.375rem)!important;letter-spacing:-0.05rem;}',
         '  .wrapper-content.is-left{padding-right:1rem!important;}',
         '  .wrapper-content.is-right{padding-left:1rem!important;}',
-        '  html{scrollbar-width:thin;scrollbar-color:#000 ' + TRACK + ';}',
-        '  html::-webkit-scrollbar{width:8px;height:8px;}',
-        '  html::-webkit-scrollbar-track{background:' + TRACK + ';}',
-        '  html::-webkit-scrollbar-thumb{background:#000;border-radius:4px;}',
-        '  html::-webkit-scrollbar-thumb:hover{background:#1a1a1a;}',
+        // (mobile html scrollbar rules removed — the sitewide universal
+        // scrollbar treatment in injectCSS covers every page and container)
         '}',
         // v32: the overlay backdrop reads as the exit (✕ cursor); its bar,
         // caption, and image keep their own affordances. Legacy-path rules kept
