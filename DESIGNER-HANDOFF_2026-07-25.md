@@ -19,24 +19,39 @@ elements wherever they exist — each piece activates on its own.
   eSeL and Flora Fellner matched nothing). You + Antoine: override yours in the
   CMS whenever (custom/overall-project entries welcome — it's one dropdown).
 
-## Yours in the Designer (each activates the moment it exists)
+## ASSEMBLED VIA MCP 2026-07-25 (per Seth's ask — all of it editable Webflow)
 
-1. **`.immersive-overlay` states** — the base (rest) should be hidden
-   (display:none is fine ON YOUR CLASS — canvas-honest), and `.is-open` needs
-   its open geometry (e.g. inset:0 / full-viewport; it currently opens at 0×0
-   because only code's class toggle exists). Bar/caption styling all yours.
-   Note: the old fullscreen chevron edge-zones still exist — once you feel the
-   bar's ←/→, say if you want the edge zones retired.
-2. **Landing modal on the index**: instance `container-landing-modal`
-   (landing mode) on Home — and on `/sandbox` for testing. Style
-   `.is-dismissed` (the dismissed state — code adds a fade/lift transition;
-   opacity/transform end-state is yours to override). Wire its links:
-   giveaways → `#info-giveaways`, hideaways → `#info-hideaways`, LUNGITZ →
-   anywhere (clicks on it dismiss), bottom row → the three pages.
-3. **`#info-giveaways` / `#info-hideaways` on /sandbox** — the anchors exist on
-   Home but not the sandbox page; add them there (or re-duplicate) so the
-   masthead words can be felt in the sandbox. Style `.category-content` +
-   `.category-content.is-expanded` (code only flips the class on click).
+The sandbox page now carries the full working state; **code toggles YOUR
+class pairs**, nothing visual is injected:
+
+- **Overlay**: your curtain mechanic is the whole story — base
+  `.immersive-overlay` (opacity 0 + clip-path, your transitions) ↔ new combo
+  **`.is-viewing`** (opacity 1, clip open, pointer-events auto; created via
+  MCP because the Designer name "is-open" is already taken by the old nav —
+  restyle the combo freely). Code adds/removes `is-viewing`.
+- **Landing modal**: code toggles **your `.is-active`** (shown ↔ your
+  display:none rest). Restyling either class restyles the behavior — e.g.
+  evolving the rest state into a collapsed word-row bar later. `.hide` was
+  removed from the sandbox instance so it participates (and is clickable on
+  canvas again).
+- **Masthead component instance on /sandbox**: visibility restored so the
+  index has its persistent nav after dismissal (flip the prop back off if the
+  modal's own word row should be the only masthead — words are wired by
+  delegation now, so both navs work either way).
+- **`#info-giveaways` / `#info-hideaways`**: real `.category-content` blocks
+  added at the top of both sandbox columns (Home's text copied — edit away).
+  Style `.category-content` + its `.is-expanded` combo (code flips it on click).
+- Site **published to staging** so all of it is live on
+  `lungitz.webflow.io/sandbox?v=32`.
+
+## Still yours (taste, whenever)
+
+1. Overlay bar/caption look; the old fullscreen chevron edge-zones still
+   exist — once you feel the bar's ←/→, say if you want the zones retired.
+2. The modal's link wiring on the sandbox instance (its word row is unlinked
+   raw structure — clicking any non-link inside just dismisses; bind the
+   words/bottom row like the component version whenever).
+3. `.category-content.is-expanded` styling (the "+" expand).
 4. **Participants page**: wrap each contributor name in a link bound to
    `Featured work (Giveaway)` → item's page, with conditional visibility
    (field is set); a second link bound to `Featured work (Hideaway)` for the
