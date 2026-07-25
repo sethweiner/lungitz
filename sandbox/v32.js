@@ -392,10 +392,12 @@ function openFullscreen() {
         return;
     }
 
-    // ── v32 overlay path: Seth's .immersive-overlay is the fullscreen view ──
+    // ── v32 overlay path: GROWTH IN (Seth, 2026-07-25: "growth in, growth
+    // out — restore the old feel"): the WHOLE overlay FLIP-morphs from the
+    // source image's rect to the full frame — the same math and easing as the
+    // old promoted detail-view. The curtain transition is retired from the
+    // Designer base; the rest state is a static hide (opacity 0, clipped).
     if (OVERLAY) {
-        // Light FLIP source: the state-3 detail image if laid out, else the
-        // clicked thumbnail — the image grows from where you left it.
         var srcEl = detail.trigger.querySelector(DETAIL_IMG),
             srcRect = srcEl && srcEl.getBoundingClientRect();
         if (!srcRect || !srcRect.width) {
@@ -403,27 +405,25 @@ function openFullscreen() {
             srcRect = srcEl && srcEl.getBoundingClientRect();
         }
         fs = { view: OVERLAY };
-        OVERLAY.classList.add('is-viewing'); // Seth's curtain: base = clipped+transparent, combo flips it
+        OVERLAY.classList.add('is-viewing');
         paintDetail(OVERLAY);
         setImmersive(true, detail.trigger);
         pushFsState();
-        var oImg = OVERLAY.querySelector('.immersive-image');
-        if (oImg && srcRect && srcRect.width) {
+        if (srcRect && srcRect.width) {
+            var oLast = OVERLAY.getBoundingClientRect(),
+                oDx = srcRect.left + srcRect.width / 2 - (oLast.left + oLast.width / 2),
+                oDy = srcRect.top + srcRect.height / 2 - (oLast.top + oLast.height / 2),
+                oSx = srcRect.width / oLast.width,
+                oSy = srcRect.height / oLast.height;
+            OVERLAY.style.transition = 'none';
+            OVERLAY.style.transform = 'translate(' + oDx + 'px,' + oDy + 'px) scale(' + oSx + ',' + oSy + ')';
             requestAnimationFrame(function () {
-                var last = oImg.getBoundingClientRect();
-                if (!last.width) { return; }
-                var dx = srcRect.left + srcRect.width / 2 - (last.left + last.width / 2),
-                    dy = srcRect.top + srcRect.height / 2 - (last.top + last.height / 2),
-                    s  = Math.max(0.05, srcRect.width / last.width);
-                oImg.style.transition = 'none';
-                oImg.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + s + ')';
-                requestAnimationFrame(function () {
-                    oImg.style.transition = 'transform ' + TRANSITION + 'ms ' + SETTLE;
-                    oImg.style.transform = 'none';
-                    setTimeout(function () {
-                        if (!zoom) { oImg.style.transition = ''; oImg.style.transform = ''; }
-                    }, TRANSITION);
-                });
+                OVERLAY.style.transition = 'transform ' + TRANSITION + 'ms ' + SETTLE;
+                OVERLAY.style.transform = 'none';
+                setTimeout(function () {
+                    OVERLAY.style.transition = '';
+                    OVERLAY.style.transform = '';
+                }, TRANSITION);
             });
         }
         return;
@@ -489,13 +489,35 @@ function closeFullscreenNow() {
     fs = null;
     setImmersive(false);
 
-    // ── v32 overlay path: direct swap out (Option-C precedent — the snap back
-    // to the engaged preview is bulletproof; the entry stays rust + revealed).
+    // ── v32 overlay path: GROWTH OUT — the overlay FLIP-shrinks back to the
+    // state-3 detail image beneath (still engaged). Single-image entries keep
+    // the Option-C snap (no in-flow view to land on; the snap is bulletproof).
     if (view === OVERLAY) {
         var oImg = OVERLAY.querySelector('.immersive-image');
         if (oImg) { oImg.style.transition = ''; oImg.style.transform = ''; }
-        OVERLAY.classList.remove('is-viewing');
-        if (wasSingle && trigger) { closeDetail(trigger); }
+        var tEl = !wasSingle && trigger && trigger.querySelector(DETAIL_IMG),
+            tRect = tEl && tEl.getBoundingClientRect();
+        if (!tRect || !tRect.width) {                       // snap (single-image / no target)
+            OVERLAY.classList.remove('is-viewing');
+            OVERLAY.style.transition = '';
+            OVERLAY.style.transform = '';
+            if (wasSingle && trigger) { closeDetail(trigger); }
+            return;
+        }
+        var cFirst = OVERLAY.getBoundingClientRect(),
+            cDx = tRect.left + tRect.width / 2 - (cFirst.left + cFirst.width / 2),
+            cDy = tRect.top + tRect.height / 2 - (cFirst.top + cFirst.height / 2),
+            cSx = tRect.width / cFirst.width,
+            cSy = tRect.height / cFirst.height;
+        OVERLAY.style.transition = 'transform ' + TRANSITION + 'ms ' + SETTLE;
+        OVERLAY.style.transform = 'translate(' + cDx + 'px,' + cDy + 'px) scale(' + cSx + ',' + cSy + ')';
+        setTimeout(function () {
+            OVERLAY.style.transition = 'none';
+            OVERLAY.classList.remove('is-viewing');         // rest state is static (opacity 0)
+            OVERLAY.style.transform = '';
+            void OVERLAY.offsetHeight;
+            OVERLAY.style.transition = '';
+        }, TRANSITION);
         return;
     }
 
