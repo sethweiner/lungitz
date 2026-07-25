@@ -54,6 +54,14 @@ var OVERLAY = document.querySelector('.immersive-overlay');
 var FS_IMG  = '.immersive-image, .detail-image';
 function fsImage() { return fs ? fs.view.querySelector(FS_IMG) : null; }
 
+// "Am I on the index?" — only VISIBLE columns count. Menu pages built by
+// duplication can carry a hidden copy of the index (.container-content.hide);
+// offsetParent is null inside display:none, so hidden copies don't fool this.
+function onRealIndex() {
+    var col = document.querySelector('.wrapper-content.is-left, .wrapper-content.is-right');
+    return !!(col && col.offsetParent !== null);
+}
+
 // ── Soft page transition (entry ↔ index) ──
 // Opt into the cross-document View Transitions API so same-origin navigations
 // cross-fade instead of hard-cutting. Progressive: unsupported browsers just
@@ -972,7 +980,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     styleEl.textContent = css;
     document.head.appendChild(styleEl);
 
-    var onIndex = !!document.querySelector('.wrapper-content.is-left, .wrapper-content.is-right');
+    var onIndex = onRealIndex();
 
     function clearRealmCue() {
         lightRealm(null);
@@ -1528,7 +1536,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
 //  ?veil=0 suppresses it for testing.
 // ════════════════════════════════════════════════════════════════════════
 (function landingModal() {
-    var onIndex = !!document.querySelector('.wrapper-content.is-left, .wrapper-content.is-right');
+    var onIndex = onRealIndex();
     if (!onIndex) { return; }                       // menu pages carry their own static modal
     var modal = document.querySelector('.container-landing, .container-landing-modal');
     if (!modal) { return; }
@@ -1687,7 +1695,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
 (function keyboardNav() {
     // INDEX_RING also gates on the index columns existing, so on entry pages
     // (no columns) the arrows aren't swallowed and the index hint stays quiet.
-    var HAS_INDEX = !!(document.querySelector('.wrapper-content.is-left') || document.querySelector('.wrapper-content.is-right')),
+    var HAS_INDEX = onRealIndex(),
         INDEX_RING = HAS_INDEX && new URLSearchParams(location.search).get('ring') !== '0',
         RUST = 'var(--_lungitz---color-accent-b-500)';
 
