@@ -1,0 +1,1846 @@
+(function () {
+'use strict';
+
+// Lungitz production interaction script. Promoted from sandbox/v17 (the cumulative
+// winner: masthead menu drawer, immersive fullscreen frame, slideshow nav, layered
+// zoom/pan, arrangement). Loaded by the Home page — bail on /sandbox so it doesn't
+// double-bind with the loader's sandbox/vN.js. The injected CSS scaffold below is
+// being migrated to Designer combos; motion + grid-rows transitions stay here.
+// [sandbox v32] production's /sandbox bail is removed so this standalone build runs here.
+// v32 — LANDING/MENU MODAL CONCEPT (Seth's wireframes, 2026-07-25):
+//   · §landingModal: Seth's container-landing modal IS the landing + the menu — greets on
+//     arrival at the index, dismisses on any click outside its links, LUNGITZ re-opens it
+//     (dormant until the modal is instanced on the page — wireframe-first)
+//   · §masthead (focused): GIVEAWAYS/HIDEAWAYS → #info-giveaways / #info-hideaways anchors
+//     (+ rust cue); LUNGITZ → the modal / home; .category-content "+" toggles .is-expanded
+//   · fullscreen: Seth's .immersive-overlay becomes the state-4 view when present (paint,
+//     .is-open, light FLIP in); the proven gesture layer retargets; legacy portal path is the
+//     fallback until the overlay exists on the index
+//   · browser BACK closes fullscreen (history state — the Antoine fix: Esc is never the only
+//     way out; the hint chip advertises "✕ / back" in browser-fullscreen)
+//   · participants links rewrite to /?entry=<coll>/<slug> — index arrival highlight
+//   · RETIRED: the drawer menu (v8→v31), the landing veil, ?realm= wayfinding, the
+//     is-immersive masthead frame (the overlay carries its own bar/✕)
+//   · kept from v31: external links → new tab (noopener)
+
+var TRIGGER    = '.trigger-accordion',
+    HEADER     = '.header-accordion',
+    CONTENT    = '.content-accordion',
+    W_THUMB    = '.wrapper-thumbnail',
+    IMG_THUMB  = '.image-thumbnail',
+    DETAIL     = '.detail-view',
+    DETAIL_IMG = '.detail-image',
+    CAPTION    = '.caption-drawer',
+    CAP_BODY   = '.caption-content',
+    TRANSITION = 500,
+    SETTLE     = 'cubic-bezier(0.16, 1, 0.3, 1)',
+    CLOSE_EASE = 'cubic-bezier(0.4, 0, 0.2, 1)',
+    CLOSE_STAGGER = 140;
+
+var detail      = null,
+    fs          = null,
+    fsHome      = null,
+    zoom        = null,
+    panState    = null,
+    dragMoved   = false,
+    pendingOpen = null,
+    modalToggle = null,    // set by §landingModal; used by §masthead (LUNGITZ)
+    goInfo      = null,    // set by §masthead; used by §landingModal (anchor links)
+    fsPushed    = false;   // fullscreen pushed a history entry (back closes it)
+
+// State-4 view (v32): Seth's Designer-owned overlay when it exists on the page
+// (wireframe-first find-or-reuse); the legacy promoted detail-view otherwise.
+var OVERLAY = document.querySelector('.immersive-overlay');
+var FS_IMG  = '.immersive-image, .detail-image';
+function fsImage() { return fs ? fs.view.querySelector(FS_IMG) : null; }
+
+// ── Soft page transition (entry ↔ index) ──
+// Opt into the cross-document View Transitions API so same-origin navigations
+// cross-fade instead of hard-cutting. Progressive: unsupported browsers just
+// hard-navigate (the @rule is ignored). Injected site-wide, early.
+(function softNav() {
+    var s = document.createElement('style');
+    s.textContent = '@view-transition{navigation:auto}'
+        + '::view-transition-old(root),::view-transition-new(root){'
+        + 'animation-duration:300ms;animation-timing-function:ease}';
+    (document.head || document.documentElement).appendChild(s);
+}());
+
+// ── Injected styles (scrollbars + detail animation) + theme-color ──
+(function injectCSS() {
+    var INK = 'var(--_lungitz---color-ink-900)',
+        css = [
+            '.wrapper-content{',
+            '  scrollbar-width:thin;',
+            '  scrollbar-color:#000 color-mix(in srgb,' + INK + ',#000 20%);',
+            '  scroll-padding-top:64px;',
+            '}',
+            '.wrapper-content::-webkit-scrollbar{width:8px;height:8px}',
+            '.wrapper-content::-webkit-scrollbar-track{',
+            '  background:color-mix(in srgb,' + INK + ',#000 20%);',
+            '}',
+            '.wrapper-content::-webkit-scrollbar-thumb{',
+            '  background:#000;border-radius:4px;',
+            '}',
+            '.wrapper-content::-webkit-scrollbar-thumb:hover{',
+            '  background:#1a1a1a;',
+            '}',
+            '.detail-view{',
+            '  transform:scale(0.95);opacity:0;',
+            '  transition:transform 400ms ' + SETTLE + ',opacity 300ms ease;',
+            '}',
+            '.detail-view.is-active{transform:scale(1);opacity:1}',
+            '.is-left .detail-view{transform-origin:left top}',
+            '.is-right .detail-view{transform-origin:right top}',
+            '.content-accordion{',
+            '  transition:opacity 120ms ease;',
+            '}',
+            // Arm `padding` on the base trigger transition (the Designer one omits it)
+            // so the open-padding (space-6) ↔ base (space-3) change ANIMATES. A
+            // transition present only on .is-closing is SKIPPED (not armed before the
+            // change) — which is why the close still snapped ~10px while the grid-rows
+            // collapse (armed on the base) was smooth. Replicates the Designer base
+            // transition verbatim + adds padding; existing easings unchanged.
+            '.trigger-accordion{',
+            '  transition:grid-template-rows .45s ' + SETTLE + ',color .175s,border-color .25s ' + SETTLE + ',border-radius 75ms,padding .45s ' + SETTLE + ';',
+            '}',
+            '.trigger-accordion.is-closing{',
+            // Also ease `padding`: the open entry has padding-top/bottom space-6
+            // (~22px) vs the base space-3 (12px); without this it SNAPS on close
+            // (.open removed) and the contents — incl .author — jump ~10px.
+            '  transition:grid-template-rows 500ms ' + CLOSE_EASE + ',padding 500ms ' + CLOSE_EASE + '!important;',
+            '}',
+            '.trigger-accordion.is-closing .content-accordion{',
+            '  opacity:0;',
+            '}',
+            // Caption-drawer collapse motion lives here in code, not the Designer:
+            // Webflow's "invalid styles" audit rejects a transition on
+            // grid-template-rows and blocks publishing. The Designer keeps only the
+            // static grid (display:grid; rows auto 1fr → auto 0fr on .is-collapsed);
+            // the smooth collapse is injected (our motion-in-code split). Remove the
+            // grid-template-rows transition from .caption-drawer in the Designer.
+            '.caption-drawer{',
+            '  transition:grid-template-rows .45s ' + SETTLE + ';',
+            '}'
+        ],
+        style = document.createElement('style'),
+        ink, meta;
+    style.textContent = css.join('\n');
+    document.head.appendChild(style);
+
+    ink = getComputedStyle(document.documentElement)
+        .getPropertyValue('--_lungitz---color-ink-900').trim();
+    if (ink) {
+        meta = document.querySelector('meta[name="theme-color"]');
+        if (!meta) {
+            meta = document.createElement('meta');
+            meta.name = 'theme-color';
+            document.head.appendChild(meta);
+        }
+        meta.content = ink;
+    }
+}());
+
+function getImages(trigger) {
+    var thumbs = trigger.querySelectorAll(W_THUMB),
+        out = [];
+    thumbs.forEach(function (t) {
+        var img = t.querySelector(IMG_THUMB);
+        out.push({
+            src:     img ? (img.src || img.getAttribute('src')) : '',
+            caption: t.getAttribute('data-caption') || '',
+            credit:  t.getAttribute('data-credit')  || ''
+        });
+    });
+    return out;
+}
+
+function thumbIndex(trigger, thumb) {
+    var all = trigger.querySelectorAll(W_THUMB),
+        i;
+    for (i = 0; i < all.length; i += 1) {
+        if (all[i] === thumb) {
+            return i;
+        }
+    }
+    return 0;
+}
+
+function scrollToTrigger(trigger) {
+    var col = trigger.closest('.wrapper-content'),
+        pad = 64, frames = 0, maxFrames = 60, smoothed;
+    if (!col) {
+        return;
+    }
+    function step() {
+        var target = Math.max(0, col.scrollTop
+                   + trigger.getBoundingClientRect().top
+                   - col.getBoundingClientRect().top - pad),
+            diff;
+        frames += 1;
+        if (smoothed === undefined) {
+            smoothed = target;
+        }
+        smoothed += (target - smoothed) * 0.35;
+        diff = smoothed - col.scrollTop;
+        if (frames <= 2) {
+            requestAnimationFrame(step);
+            return;
+        }
+        if ((Math.abs(diff) < 1.5 && Math.abs(target - smoothed) < 1.5) || frames > maxFrames) {
+            return;
+        }
+        col.scrollTop += diff * 0.08;
+        requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+}
+
+// ── State 3 : Detail ──
+
+function paintDetail(view) {
+    var img, n, el, count, caps, prev, next;
+    if (!detail) {
+        return;
+    }
+    img = detail.images[detail.idx];
+    n   = detail.images.length;
+
+    el = view.querySelector(FS_IMG);       // .immersive-image (overlay) or .detail-image
+    if (el && img.src) {
+        el.src = img.src;
+    }
+
+    count = view.querySelector('[data-detail="count"]');
+    if (count) {
+        count.textContent = (detail.idx + 1) + ' / ' + n;
+    }
+
+    // Overlay bar title (v32): "N · Entry Title" — N pages with the slides.
+    var bar = view.querySelector('[data-detail="title"]');
+    if (bar) {
+        var tEl = detail.trigger.querySelector('.title');
+        bar.textContent = (detail.idx + 1) + ' · ' + (tEl ? tEl.textContent.trim() : '');
+    }
+
+    // Fullscreen slide counter — sits first in the caption row (bottom-left,
+    // before the caption). Shown only in fullscreen; the state-3 bar carries
+    // the other one. Created lazily per detail-view.
+    var capRow = view.querySelector(CAP_BODY);
+    if (capRow) {
+        var fsCount = capRow.querySelector('.fs-count');
+        if (!fsCount) {
+            fsCount = document.createElement('span');
+            fsCount.className = 'fs-count';
+            capRow.insertBefore(fsCount, capRow.firstChild);
+        }
+        fsCount.textContent = (detail.idx + 1) + ' / ' + n;
+    }
+
+    caps = view.querySelectorAll(CAP_BODY + ' p');
+    if (caps[0]) {
+        caps[0].textContent = img.caption;
+    }
+    if (caps[1]) {
+        caps[1].textContent = img.credit;
+    }
+
+    prev = view.querySelector('[data-detail="prev"]');
+    next = view.querySelector('[data-detail="next"]');
+    if (prev) {
+        prev.style.display = n > 1 ? '' : 'none';
+    }
+    if (next) {
+        next.style.display = n > 1 ? '' : 'none';
+    }
+}
+
+function openDetail(trigger, idx, images) {
+    var content    = trigger.querySelector(CONTENT),
+        detailView = content ? content.querySelector(DETAIL) : null,
+        thumb, thumbRect, contentRect, originX, originY;
+    if (!detailView) {
+        return;
+    }
+
+    // Engaged state: clear any previously-revealed thumbnail veil in this entry.
+    trigger.querySelectorAll(W_THUMB).forEach(function (t) {
+        var th = t.querySelector('.thumb-hover');
+        if (th) { th.classList.remove('is-revealed'); }
+    });
+
+    thumb = trigger.querySelectorAll(W_THUMB)[idx];
+    if (thumb && content) {
+        thumbRect   = thumb.getBoundingClientRect();
+        contentRect = content.getBoundingClientRect();
+        originX = (thumbRect.left + thumbRect.width / 2 - contentRect.left) + 'px';
+        originY = (thumbRect.top + thumbRect.height / 2 - contentRect.top) + 'px';
+        detailView.style.transformOrigin = originX + ' ' + originY;
+    }
+
+    var imgWrap = content.querySelector('.wrapper-images');
+    if (imgWrap) {
+        imgWrap.style.display = 'none';
+    }
+
+    detailView.style.opacity = '0';
+    detailView.style.transform = 'scale(0.95)';
+    detailView.classList.add('is-active');
+    void detailView.offsetHeight;
+    detailView.style.opacity = '';
+    detailView.style.transform = '';
+
+    detail = { trigger: trigger, idx: idx, images: images };
+    paintDetail(detailView);
+}
+
+function closeDetail(trigger) {
+    var content = trigger.querySelector(CONTENT),
+        detailView;
+    if (!content) {
+        return;
+    }
+    detailView = content.querySelector(DETAIL);
+
+    if (detailView) {
+        detailView.classList.remove('is-active');
+    }
+
+    var imgWrap = content.querySelector('.wrapper-images');
+    if (imgWrap) {
+        imgWrap.style.display = '';
+    }
+
+    if (detail && detail.trigger === trigger) {
+        // Engaged state: keep the thumbnail you were viewing revealed (veil
+        // lifted) on return — styled in Designer via .thumb-hover.is-revealed.
+        var thumbs = trigger.querySelectorAll(W_THUMB);
+        if (thumbs[detail.idx]) {
+            var th = thumbs[detail.idx].querySelector('.thumb-hover');
+            if (th) { th.classList.add('is-revealed'); }
+        }
+        detail = null;
+    }
+}
+
+// ── State 4 : Fullscreen (FLIP — same element promotes to fixed) ──
+
+// Propagate the .is-fullscreen state to every descendant so children can be
+// styled per-element in the Designer via `.child.is-fullscreen` combos (which
+// revert on close). Webflow can't author `.detail-view.is-fullscreen .child`
+// descendant rules, so the state class cascades instead.
+function propagateFs(view, on) {
+    var els = view.querySelectorAll('*'), i;
+    for (i = 0; i < els.length; i += 1) {
+        if (on) { els[i].classList.add('is-fullscreen'); }
+        else { els[i].classList.remove('is-fullscreen'); }
+    }
+}
+
+// Return the portal'd modal to its home slot in the entry (see openFullscreen).
+function fsRestore(view) {
+    if (fsHome && fsHome.parent) {
+        fsHome.parent.insertBefore(view, fsHome.next);
+    }
+    fsHome = null;
+}
+
+// Realm highlight: light a masthead word in the rust accent. Shared by the
+// hover cue (states 1–3) and the fullscreen lock (state 4).
+function lightRealm(side) {
+    var g = document.querySelector('.nav-giveaways .h5-nav'),
+        h = document.querySelector('.nav-hideaways .h5-nav');
+    if (g) { g.classList.toggle('is-realm', side === 'giveaways'); }
+    if (h) { h.classList.toggle('is-realm', side === 'hideaways'); }
+}
+
+// Fullscreen side-state. v32: with the Designer overlay the masthead stays
+// itself (the overlay carries its own bar/✕) — the .is-immersive frame only
+// applies on the LEGACY path. Body flags for the chevrons + the realm word
+// cue apply to both.
+function setImmersive(on, trigger) {
+    var nav, side;
+    // Toggle the body flag the slideshow chevrons key off (multi-image only).
+    document.body.classList.toggle('is-fs', on && !!detail && detail.images.length > 1);
+    if (!on) { document.body.classList.remove('is-fs-zoom'); }
+    if (on && trigger) {
+        side = trigger.closest('.wrapper-content.is-right') ? 'hideaways'
+             : (trigger.closest('.wrapper-content.is-left') ? 'giveaways' : null);
+        lightRealm(side);
+    } else {
+        lightRealm(null);
+    }
+    if (OVERLAY) { return; }                 // overlay world: no masthead frame
+    nav = document.querySelector('.nav.wide, .nav.expand');
+    if (nav) { nav.classList.toggle('is-immersive', on); }
+}
+
+// ── History-backed close (the Antoine fix) ── opening state 4 pushes an entry
+// so browser BACK closes fullscreen — Esc is never the only way out (in
+// browser-fullscreen the browser eats Esc). UI closes route through
+// history.back() so the history stays consistent.
+function pushFsState() {
+    try { history.pushState({ lzFs: 1 }, ''); fsPushed = true; } catch (e) {}
+}
+window.addEventListener('popstate', function () {
+    if (fs) { fsPushed = false; closeFullscreenNow(); }
+});
+
+function openFullscreen() {
+    var view, first, last, dx, dy, sx, sy;
+    if (!detail) {
+        return;
+    }
+
+    // ── v32 overlay path: Seth's .immersive-overlay is the fullscreen view ──
+    if (OVERLAY) {
+        // Light FLIP source: the state-3 detail image if laid out, else the
+        // clicked thumbnail — the image grows from where you left it.
+        var srcEl = detail.trigger.querySelector(DETAIL_IMG),
+            srcRect = srcEl && srcEl.getBoundingClientRect();
+        if (!srcRect || !srcRect.width) {
+            srcEl = detail.trigger.querySelectorAll(W_THUMB)[detail.idx];
+            srcRect = srcEl && srcEl.getBoundingClientRect();
+        }
+        fs = { view: OVERLAY };
+        OVERLAY.classList.add('is-open');    // both states styled in the Designer
+        paintDetail(OVERLAY);
+        setImmersive(true, detail.trigger);
+        pushFsState();
+        var oImg = OVERLAY.querySelector('.immersive-image');
+        if (oImg && srcRect && srcRect.width) {
+            requestAnimationFrame(function () {
+                var last = oImg.getBoundingClientRect();
+                if (!last.width) { return; }
+                var dx = srcRect.left + srcRect.width / 2 - (last.left + last.width / 2),
+                    dy = srcRect.top + srcRect.height / 2 - (last.top + last.height / 2),
+                    s  = Math.max(0.05, srcRect.width / last.width);
+                oImg.style.transition = 'none';
+                oImg.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + s + ')';
+                requestAnimationFrame(function () {
+                    oImg.style.transition = 'transform ' + TRANSITION + 'ms ' + SETTLE;
+                    oImg.style.transform = 'none';
+                    setTimeout(function () {
+                        if (!zoom) { oImg.style.transition = ''; oImg.style.transform = ''; }
+                    }, TRANSITION);
+                });
+            });
+        }
+        return;
+    }
+
+    // ── legacy path (no overlay on this page): promote the detail view ──
+    view = detail.trigger.querySelector(DETAIL);
+    if (!view) {
+        return;
+    }
+
+    first = view.getBoundingClientRect();
+    view.classList.add('is-fullscreen');
+    propagateFs(view, true);
+    // PORTAL: re-home the modal to <body> for the fullscreen run. Inside the
+    // columns, any styled ancestor (position+z-index, transform, filter) traps
+    // its stacking context — entry text bled through the frame exactly that
+    // way. At body level the D5 stack is law: columns < modal 999 < nav 1000.
+    fsHome = { parent: view.parentNode, next: view.nextSibling };
+    document.body.appendChild(view);
+    last = view.getBoundingClientRect();
+
+    dx = first.left + first.width / 2 - (last.left + last.width / 2);
+    dy = first.top + first.height / 2 - (last.top + last.height / 2);
+    sx = first.width / last.width;
+    sy = first.height / last.height;
+
+    view.style.transition = 'none';
+    view.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + sx + ',' + sy + ')';
+
+    fs = { view: view };
+    setImmersive(true, detail.trigger);
+    pushFsState();
+
+    requestAnimationFrame(function () {
+        view.style.transition = 'transform ' + TRANSITION + 'ms ' + SETTLE;
+        view.style.transform = 'none';
+    });
+}
+
+// Public close: route through history when we pushed (Back and ✕ behave the
+// same); popstate calls closeFullscreenNow directly.
+function closeFullscreen() {
+    if (!fs) { return; }
+    if (fsPushed) { history.back(); return; }
+    closeFullscreenNow();
+}
+
+function closeFullscreenNow() {
+    var view, trigger, wasSingle, first, last, dx, dy, sx, sy;
+    if (!fs) {
+        return;
+    }
+    fsPushed = false;
+    view = fs.view;
+    trigger = detail ? detail.trigger : null;
+    wasSingle = detail && detail.images.length === 1;
+
+    if (zoom) {
+        resetZoom();
+    }
+
+    fs = null;
+    setImmersive(false);
+
+    // ── v32 overlay path: direct swap out (Option-C precedent — the snap back
+    // to the engaged preview is bulletproof; the entry stays rust + revealed).
+    if (view === OVERLAY) {
+        var oImg = OVERLAY.querySelector('.immersive-image');
+        if (oImg) { oImg.style.transition = ''; oImg.style.transform = ''; }
+        OVERLAY.classList.remove('is-open');
+        if (wasSingle && trigger) { closeDetail(trigger); }
+        return;
+    }
+
+    // OPTION C (adopted): single-image close snaps instantly, no motion.
+    // The fullscreen-to-thumbnail morph was flash-prone; a clean snap back to
+    // the preview is bulletproof, and the entry stays engaged (rust + revealed
+    // thumbnail) so it doesn't feel abrupt.
+    if (wasSingle) {
+        view.style.transition = 'none';
+        view.style.transform = '';
+        view.classList.remove('is-fullscreen');
+        propagateFs(view, false);
+        fsRestore(view);
+        if (trigger) { closeDetail(trigger); }
+        return;
+    }
+
+    first = view.getBoundingClientRect();
+    view.classList.remove('is-fullscreen');
+    propagateFs(view, false);
+    fsRestore(view);
+    last = view.getBoundingClientRect();
+
+    dx = first.left + first.width / 2 - (last.left + last.width / 2);
+    dy = first.top + first.height / 2 - (last.top + last.height / 2);
+    sx = first.width / last.width;
+    sy = first.height / last.height;
+
+    view.style.transition = 'none';
+    view.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + sx + ',' + sy + ')';
+
+    requestAnimationFrame(function () {
+        view.style.transition = 'transform ' + TRANSITION + 'ms ' + SETTLE;
+        view.style.transform = 'none';
+        setTimeout(function () {
+            view.style.transition = '';
+            view.style.transform = '';
+        }, TRANSITION);
+    });
+}
+
+// ── State 4b : Zoom + Pan ──
+
+// Apply the zoom state to the image, clamping pan so it can't slide out of frame
+// (bounds = the image's own layout box at the live scale).
+function zoomApply(img, animate) {
+    if (!zoom) { return; }
+    var mx = img.clientWidth * (zoom.scale - 1) / 2,
+        my = img.clientHeight * (zoom.scale - 1) / 2;
+    zoom.panX = Math.max(-mx, Math.min(mx, zoom.panX));
+    zoom.panY = Math.max(-my, Math.min(my, zoom.panY));
+    img.style.transition = animate ? 'transform 90ms linear' : 'none';
+    img.style.transformOrigin = zoom.ox + '% ' + zoom.oy + '%';
+    img.style.transform = 'translate(' + zoom.panX + 'px,' + zoom.panY + 'px) scale(' + zoom.scale + ')';
+}
+
+// Set the zoom scale (native model). Entering from 1× anchors the origin at the
+// cursor; dropping back to 1× exits zoom. Used by pinch + scroll-enter.
+function zoomSet(img, s, clientX, clientY) {
+    var rect = img.getBoundingClientRect(), natS;
+    if (!zoom) {
+        natS = Math.max(img.naturalWidth / rect.width, img.naturalHeight / rect.height);
+        zoom = { scale: 1, ox: 50, oy: 50, panX: 0, panY: 0, max: Math.max(1.5, Math.min(natS, 4)) };
+    }
+    if (zoom.scale <= 1.001 && s > 1) {
+        zoom.ox = Math.max(0, Math.min(100, (clientX - rect.left) / rect.width * 100));
+        zoom.oy = Math.max(0, Math.min(100, (clientY - rect.top) / rect.height * 100));
+        zoom.panX = zoom.panY = 0;
+    }
+    zoom.scale = Math.max(1, Math.min(zoom.max, s));
+    if (zoom.scale <= 1.001) { zoomOut(img); return; }
+    img.classList.add('is-zoomed');
+    document.body.classList.add('is-fs-zoom');   // hide the slideshow chevrons while zoomed
+    zoomApply(img, true);
+}
+
+// Click-step zoom (Seth's mouse model, layered with pinch + drag). Each click
+// cycles 1× → 2× → 4× → exit, toward the click point; pan persists across steps;
+// Esc → 1× via the keydown handler. The cap is floored at 4× — these CMS scans are
+// ~screen-res, so a natural-resolution cap collapsed to 2× (Seth, 2026-06-09).
+// Pinch (trackpad/touch) + drag (everywhere) still work alongside this.
+function zoomStepClick(img, clientX, clientY) {
+    var steps = [2, 4],                              // 1×→2×→4×→exit
+        cur = zoom ? zoom.scale : 1, next = null, i;
+    for (i = 0; i < steps.length; i += 1) {
+        if (steps[i] > cur + 0.05) { next = steps[i]; break; }
+    }
+    if (next === null) { zoomOut(img); return; }   // past the last step → exit to 1×
+    zoomSet(img, next, clientX, clientY);
+}
+
+function zoomOut(img) {
+    img.style.transition = 'transform 300ms ' + SETTLE;
+    img.style.transform = 'none';
+    img.classList.remove('is-zoomed');
+    img.classList.remove('is-panning');
+    document.body.classList.remove('is-fs-zoom');
+    zoom = null;
+    panState = null;
+    setTimeout(function () {
+        if (!zoom) {
+            img.style.transition = '';
+            img.style.transformOrigin = '';
+        }
+    }, 300);
+}
+
+function resetZoom() {
+    var img;
+    if (!zoom || !fs) {
+        return;
+    }
+    img = fsImage();
+    if (img) {
+        img.style.transition = 'none';
+        img.style.transform = 'none';
+        img.style.transformOrigin = '';
+        img.classList.remove('is-zoomed');
+        img.classList.remove('is-panning');
+    }
+    document.body.classList.remove('is-fs-zoom');
+    zoom = null;
+    panState = null;
+}
+
+// ── State 1 <-> 2 : Accordion ──
+
+function closeAccordion(el) {
+    closeDetail(el);
+    el.querySelectorAll(W_THUMB).forEach(function (t) {
+        var th = t.querySelector('.thumb-hover');
+        if (th) { th.classList.remove('is-revealed'); }
+    });
+    el.classList.add('is-closing');
+    el.classList.remove('open', 'is-engaged');
+    setTimeout(function () {
+        el.classList.remove('is-closing');
+    }, 550);
+}
+
+document.addEventListener('click', function (e) {
+    var header = e.target.closest(HEADER),
+        trigger;
+    if (!header) {
+        return;
+    }
+    e.preventDefault();
+    trigger = header.closest(TRIGGER);
+    if (!trigger) {
+        return;
+    }
+
+    if (trigger.classList.contains('open')) {
+        closeAccordion(trigger);
+        return;
+    }
+
+    if (pendingOpen) {
+        clearTimeout(pendingOpen);
+        pendingOpen = null;
+    }
+
+    var hadOpen = false;
+    document.querySelectorAll(TRIGGER + '.open').forEach(function (other) {
+        if (other !== trigger) {
+            hadOpen = true;
+            closeAccordion(other);
+        }
+    });
+
+    if (hadOpen) {
+        scrollToTrigger(trigger);
+        pendingOpen = setTimeout(function () {
+            pendingOpen = null;
+            trigger.classList.add('open', 'is-engaged');
+        }, CLOSE_STAGGER);
+    } else {
+        trigger.classList.add('open', 'is-engaged');
+        scrollToTrigger(trigger);
+    }
+});
+
+// State 2 -> 3 : Thumbnail click
+document.addEventListener('click', function (e) {
+    var thumb = e.target.closest(W_THUMB),
+        trigger, images, idx;
+    if (!thumb) {
+        return;
+    }
+    e.preventDefault();
+    trigger = thumb.closest(TRIGGER);
+    if (!trigger) {
+        return;
+    }
+
+    images = getImages(trigger);
+    idx    = thumbIndex(trigger, thumb);
+
+    if (detail && detail.trigger === trigger) {
+        detail.idx = idx;
+        paintDetail(trigger.querySelector(DETAIL));
+        return;
+    }
+
+    openDetail(trigger, idx, images);
+
+    if (images.length === 1) {
+        openFullscreen();
+    }
+});
+
+// State 3 -> 4 : Detail image click / fullscreen zoom toggle
+document.addEventListener('click', function (e) {
+    var img = e.target.closest(FS_IMG);
+    if (!img) {
+        return;
+    }
+    e.preventDefault();
+
+    if (fs) {
+        // Click-step zoom (Seth's mouse model). A click that ended a pan or swipe
+        // drag is swallowed (dragMoved); a clean click steps the zoom toward the
+        // click point. Pinch + drag layer in for trackpad/touch.
+        if (dragMoved) { dragMoved = false; return; }
+        zoomStepClick(img, e.clientX, e.clientY);
+        return;
+    }
+
+    if (detail) {
+        openFullscreen();
+    }
+});
+
+// Control delegation
+document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-detail]'),
+        action, view, c;
+    if (!btn) {
+        return;
+    }
+    action = btn.getAttribute('data-detail');
+    if (action === 'count' || action === 'title') {
+        return;
+    }
+
+    e.preventDefault();
+
+    if (fs && detail) {
+        view = fs.view;
+        if (action === 'close') {
+            closeFullscreen();
+            return;
+        }
+        if (action === 'prev') {
+            detail.idx = (detail.idx - 1 + detail.images.length) % detail.images.length;
+            paintDetail(view);
+            return;
+        }
+        if (action === 'next') {
+            detail.idx = (detail.idx + 1) % detail.images.length;
+            paintDetail(view);
+            return;
+        }
+        if (action === 'toggle-caption') {
+            c = view.querySelector(CAPTION);
+            if (c) {
+                c.classList.toggle('is-collapsed');
+            }
+            return;
+        }
+        return;
+    }
+
+    if (detail) {
+        view = detail.trigger.querySelector(DETAIL);
+        if (action === 'close') {
+            closeDetail(detail.trigger);
+            return;
+        }
+        if (action === 'prev') {
+            detail.idx = (detail.idx - 1 + detail.images.length) % detail.images.length;
+            paintDetail(view);
+            return;
+        }
+        if (action === 'next') {
+            detail.idx = (detail.idx + 1) % detail.images.length;
+            paintDetail(view);
+            return;
+        }
+        if (action === 'expand') {
+            openFullscreen();
+            return;
+        }
+        if (action === 'toggle-caption') {
+            c = view.querySelector(CAPTION);
+            if (c) {
+                c.classList.toggle('is-collapsed');
+            }
+            return;
+        }
+    }
+});
+
+// Pan handlers — pointer-based so trackpad press-drag, mouse, and touch all pan.
+document.addEventListener('pointerdown', function (e) {
+    var img;
+    if (!fs || !zoom || zoom.scale <= 1.001) {
+        return;
+    }
+    img = e.target.closest(FS_IMG);
+    if (!img) {
+        return;
+    }
+    e.preventDefault();
+    dragMoved = false;
+    panState = { img: img, x: e.clientX, y: e.clientY };
+    img.style.transition = 'none';
+    img.classList.add('is-panning');
+});
+
+document.addEventListener('pointermove', function (e) {
+    var dx, dy;
+    if (!panState) {
+        return;
+    }
+    dx = e.clientX - panState.x;
+    dy = e.clientY - panState.y;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+        dragMoved = true;
+    }
+    zoom.panX += dx;
+    zoom.panY += dy;
+    panState.x = e.clientX;
+    panState.y = e.clientY;
+    zoomApply(panState.img, false);
+});
+
+document.addEventListener('pointerup', function () {
+    if (!panState) {
+        return;
+    }
+    panState.img.classList.remove('is-panning');
+    panState = null;
+});
+
+// ── §State 4b : Zoom + pan (v13 — native model, proven on the gesture catalog) ──
+// Layered zoom (v17): click-step is the mouse path (see the click handler +
+// zoomStepClick). Here, pinch (ctrl+wheel) ramps zoom toward the cursor for
+// trackpad/touch, and once zoomed two-finger scroll also pans. Plain wheel no
+// longer enters zoom. Drag pans on every device; Esc → 1×.
+document.addEventListener('wheel', function (e) {
+    var img;
+    if (!fs || !detail) { return; }
+    img = fsImage();
+    if (!img || !fs.view.contains(e.target)) { return; }
+    if (e.ctrlKey) {                                   // pinch → ramp zoom toward cursor
+        e.preventDefault();
+        zoomSet(img, (zoom ? zoom.scale : 1) - e.deltaY * 0.02, e.clientX, e.clientY);
+        return;
+    }
+    if (zoom && zoom.scale > 1.001) {                  // zoomed → two-finger scroll pans
+        e.preventDefault();
+        zoom.panX -= e.deltaX;
+        zoom.panY -= e.deltaY;
+        zoomApply(img, false);
+        return;
+    }
+    // Plain wheel at 1× does nothing now — entering zoom is click-step or pinch
+    // (scroll-down no longer auto-enters; scroll-up just releases to the page).
+}, { passive: false });
+
+// Keyboard: Escape steps back, arrows navigate
+document.addEventListener('keydown', function (e) {
+    var open, view;
+    if (e.key === 'Escape') {
+        if (zoom && fs) {
+            zoomOut(fsImage());
+            return;
+        }
+        if (fs) {
+            closeFullscreen();
+            return;
+        }
+        if (detail) {
+            closeDetail(detail.trigger);
+            return;
+        }
+        open = document.querySelector(TRIGGER + '.open');
+        if (open) {
+            closeAccordion(open);
+        }
+        return;
+    }
+    if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && detail) {
+        e.preventDefault();
+        if (zoom) {
+            resetZoom();
+        }
+        if (e.key === 'ArrowLeft') {
+            detail.idx = (detail.idx - 1 + detail.images.length) % detail.images.length;
+        } else {
+            detail.idx = (detail.idx + 1) % detail.images.length;
+        }
+        view = fs ? fs.view : detail.trigger.querySelector(DETAIL);
+        if (view) {
+            paintDetail(view);
+        }
+    }
+});
+
+// Init: clear design-time state
+document.querySelectorAll(DETAIL + '.is-active').forEach(function (d) {
+    d.classList.remove('is-active');
+});
+
+// Progressive enhancement: intercept real links
+document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+        e.preventDefault();
+    });
+});
+
+// ════════════════════════════════════════════════════════════════════════
+//  §Masthead (v32 — focused). GIVEAWAYS · LUNGITZ · HIDEAWAYS, nothing else.
+//  The drawer menu (v8→v31) is RETIRED — the landing modal (§landingModal,
+//  below) is the menu now. What each word does:
+//    · GIVEAWAYS / HIDEAWAYS — go to that realm's info entry: on the index,
+//      scroll to #info-giveaways / #info-hideaways (Seth's .category-content
+//      blocks) with the transient rust cue; off the index, navigate home to
+//      the same anchor (native fragment — the ?realm= route is retired).
+//    · LUNGITZ — the menu word: on the index it re-opens the landing modal;
+//      everywhere else it navigates home, where the modal greets on arrival.
+//  The "+" on a .category-content toggles .is-expanded — the look and motion
+//  of both states are Seth's in the Designer; code only flips the class.
+//  Kept in code: the 3-col centering grid + scroll-margins (anchor arrivals
+//  clear the fixed masthead) — things Webflow can't author here.
+// ════════════════════════════════════════════════════════════════════════
+(function masthead() {
+    var nav = document.querySelector('.nav.wide, .nav.expand');
+    if (!nav) { return; }
+
+    var css = [
+        '.nav-content{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;}',
+        '.nav-giveaways{justify-self:start;}',
+        '.nav-lungitz{justify-self:center;}',
+        '.nav-hideaways{justify-self:end;}',
+        // anchor / arrival targets land clear of the fixed masthead
+        '.category-content{scroll-margin-top:5rem;}',
+        '.wrapper-content{scroll-margin-top:5rem;}'
+    ].join('\n');
+    var styleEl = document.createElement('style');
+    styleEl.textContent = css;
+    document.head.appendChild(styleEl);
+
+    var onIndex = !!document.querySelector('.wrapper-content.is-left, .wrapper-content.is-right');
+
+    function clearRealmCue() {
+        lightRealm(null);
+        document.removeEventListener('pointerdown', clearRealmCue, true);
+        window.removeEventListener('wheel', clearRealmCue, true);
+    }
+    // Go to a realm's info entry. Instant scroll (the arrive() precedent —
+    // programmatic smooth scroll fights transitions and reads as jumpy).
+    function goToInfo(side) {
+        var el = document.getElementById('info-' + side);
+        if (!el) { location.href = '/#info-' + side; return; }
+        if (fs) { closeFullscreen(); }
+        el.scrollIntoView({ block: 'start' });
+        lightRealm(side);
+        setTimeout(function () {
+            document.addEventListener('pointerdown', clearRealmCue, true);
+            window.addEventListener('wheel', clearRealmCue, { capture: true, passive: true });
+        }, 50);
+    }
+    goInfo = goToInfo;   // shared with the landing modal's anchor links
+
+    var gWord = nav.querySelector('.nav-giveaways'),
+        hWord = nav.querySelector('.nav-hideaways'),
+        lWord = nav.querySelector('.nav-lungitz');
+    if (gWord) { gWord.addEventListener('click', function (e) { e.preventDefault(); goToInfo('giveaways'); }); }
+    if (hWord) { hWord.addEventListener('click', function (e) { e.preventDefault(); goToInfo('hideaways'); }); }
+    if (lWord) {
+        lWord.addEventListener('click', function (e) {
+            if (onIndex) {
+                // LUNGITZ = the menu: re-open the landing modal (if wired).
+                if (typeof modalToggle === 'function') {
+                    e.preventDefault();
+                    modalToggle();
+                }
+            } else {
+                e.preventDefault();
+                location.href = '/';       // home, where the modal greets
+            }
+        });
+    }
+
+    // The realm info entries expand on click ("+"): code flips .is-expanded,
+    // the Designer owns both states' look and motion.
+    document.addEventListener('click', function (e) {
+        var info = e.target.closest('.category-content');
+        if (!info || e.target.closest('a[href]')) { return; }
+        info.classList.toggle('is-expanded');
+    });
+
+    // Universal ✕ (.frame-close — the modal frame's corner close): in
+    // fullscreen it closes fullscreen; on a menu page it steps back (or home
+    // when arrived cold). One wiring for every instance.
+    document.addEventListener('click', function (e) {
+        var x = e.target.closest('.frame-close');
+        if (!x) { return; }
+        e.preventDefault();
+        e.stopPropagation();
+        if (fs) { closeFullscreen(); return; }
+        if (history.length > 1) { history.back(); }
+        else { location.href = '/'; }
+    });
+}());
+
+// ── Standalone-entry wayfinding (Track C — findability) ──
+// A per-entry page (/giveaways/<slug>, /hideaways/<slug>) reached cold from search
+// needs a way back into the index. The masthead LUNGITZ word returns to Home
+// flagged (?entry=coll/slug); on Home that flag scrolls to the entry and lights the
+// existing hover-highlight (entry rust + the realm/category word) — reproduced with the
+// same tokens, no new CSS. Param-gated — a normal Home visit (no ?entry=) is untouched.
+// Entry-to-entry prev/next: TODO.
+(function wayfinding() {
+    var entry = /^\/(giveaways|hideaways)\/([^\/]+)\/?$/.exec(location.pathname);
+
+    if (entry) {                              // ── on a standalone entry page ──
+        // v32: LUNGITZ wiring lives in §masthead now (LUNGITZ → home, where the
+        // landing modal greets as the menu). Here only the entry↔entry arrows.
+        wireEntryNav(entry[1], entry[2]);
+        return;
+    }
+    // (v31's ?realm= route + non-index LUNGITZ wiring retired — realm words use
+    // native /#info-* anchors and §masthead owns LUNGITZ on every page.)
+
+    // Entry→entry prev/next. Controls are [data-entry-nav="prev"|"next"] (styled in the
+    // Designer). Their href comes from the neighbours in INDEX order — sourced by reading
+    // Home, which renders every entry in order with data-slug per column (works cold; no
+    // per-template list needed; cached per session). Wrap-around so both arrows resolve.
+    function wireEntryNav(coll, slug) {
+        var prev = document.querySelector('[data-entry-nav="prev"]'),
+            next = document.querySelector('[data-entry-nav="next"]');
+        if (!prev && !next) { return; }
+        // The controls share .fs-chev, which the fullscreen module pins to opacity:0 (its
+        // edge-reveal). Override it ONLY inside/at a data-entry-nav control so the entry
+        // arrows stay visible — !important + higher specificity beats the plain rule, and
+        // the scope leaves the real fullscreen chevrons' reveal intact.
+        var s = document.createElement('style');
+        s.textContent = '[data-entry-nav]{opacity:1}'
+            + '[data-entry-nav] .fs-chev,[data-entry-nav].fs-chev{opacity:1!important}';
+        document.head.appendChild(s);
+        // Neighbours in INDEX order, read from Home (every entry rendered with data-slug per
+        // column). Wrap-around so both arrows always resolve; leave controls in place on a miss.
+        function link(slugs) {
+            var i = slugs.indexOf(slug), n = slugs.length;
+            if (i === -1 || n < 2) { return; }
+            if (prev) { prev.setAttribute('href', '/' + coll + '/' + slugs[(i - 1 + n) % n]); }
+            if (next) { next.setAttribute('href', '/' + coll + '/' + slugs[(i + 1) % n]); }
+        }
+        // Cache the order per collection for the session — VALIDATED (only trusted if it
+        // contains this entry) so a bad list can't poison it — so prev/next clicks don't
+        // re-fetch Home. Deferred off the critical page load.
+        var key = 'lz-order-' + coll, cached;
+        try { cached = JSON.parse(sessionStorage.getItem(key) || 'null'); } catch (e) {}
+        if (cached && cached.indexOf(slug) !== -1) { link(cached); return; }
+        var column = coll === 'hideaways' ? '.wrapper-content.is-right' : '.wrapper-content.is-left';
+        var run = function () {
+            fetch('/').then(function (r) { return r.text(); }).then(function (html) {
+                var doc = new DOMParser().parseFromString(html, 'text/html'),
+                    slugs = [].map.call(doc.querySelectorAll(column + ' [data-slug]'), function (el) {
+                        return el.getAttribute('data-slug');
+                    });
+                if (slugs.indexOf(slug) !== -1) {
+                    try { sessionStorage.setItem(key, JSON.stringify(slugs)); } catch (e) {}
+                }
+                link(slugs);
+            }).catch(function () {});
+        };
+        if (window.requestIdleCallback) { requestIdleCallback(run, { timeout: 1500 }); }
+        else { setTimeout(run, 300); }
+    }
+
+    var flag = /[?&]entry=([^&]+)/.exec(location.search);   // ── on the index (Home) ──
+    if (!flag) { return; }                    // inert for a normal visit
+    var ref  = decodeURIComponent(flag[1]).split('/'),
+        coll = ref[0], slug = ref[1];
+    if (!slug) { return; }
+
+    var column  = coll === 'hideaways' ? '.wrapper-content.is-right'
+                : coll === 'giveaways' ? '.wrapper-content.is-left' : null,
+        scope   = (column && document.querySelector(column)) || document,
+        key     = (window.CSS && CSS.escape) ? CSS.escape(slug) : slug,
+        trigger = scope.querySelector('[data-slug="' + key + '"]');
+    if (!trigger) { return; }
+
+    function clearHighlight() {
+        trigger.style.borderColor = trigger.style.color = trigger.style.borderRadius = '';
+        if (typeof lightRealm === 'function') { lightRealm(null); }
+        document.removeEventListener('pointerdown', clearHighlight, true);
+        window.removeEventListener('wheel', clearHighlight, true);
+    }
+    function arrive() {
+        // Instant (not smooth): a smooth scroll fought the view-transition cross-fade and
+        // read as jumpy. Run early (below) so the fade reveals Home already centered here.
+        trigger.scrollIntoView({ block: 'center' });
+        // Reproduce the existing hover-highlight (no new CSS): rust border + text (the same
+        // .trigger-accordion:hover token) + the realm/category word via lightRealm. It's a
+        // transient "you are here" cue — it clears on the first interaction (open a drawer,
+        // click, or scroll away) so it never sticks. (Programmatic smooth-scroll fires no
+        // wheel/pointer events, so the arrival itself won't clear it.)
+        trigger.style.borderColor  = 'var(--_lungitz---color-accent-b-500)';
+        trigger.style.color        = 'var(--_lungitz---color-accent-b-500)';
+        trigger.style.borderRadius = '8px';
+        if (typeof lightRealm === 'function') {
+            lightRealm(coll === 'hideaways' ? 'hideaways' : 'giveaways');
+        }
+        document.addEventListener('pointerdown', clearHighlight, true);
+        window.addEventListener('wheel', clearHighlight, { capture: true, passive: true });
+        // one-shot: drop the flag so a refresh won't re-fire and the URL settles back to /
+        if (history.replaceState) { history.replaceState({}, '', location.pathname); }
+    }
+    // Run as early as the target exists (it's server-rendered) so the instant scroll is
+    // reflected in the view-transition snapshot — the fade reveals the entry already
+    // centered instead of fading in and then scrolling (the jumpy bit).
+    if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', arrive); }
+    else { arrive(); }
+}());
+
+// Realm hover cue (Track B, cross-state): hovering a column lights its masthead
+// word in the rust accent — the same signal the fullscreen lock uses. Skipped
+// while immersive so the locked realm stays put.
+(function realmHover() {
+    function immersive() {
+        var nav = document.querySelector('.nav.wide, .nav.expand');
+        return !!(nav && nav.classList.contains('is-immersive'));
+    }
+    [['.wrapper-content.is-left', 'giveaways'],
+     ['.wrapper-content.is-right', 'hideaways']].forEach(function (pair) {
+        var col = document.querySelector(pair[0]);
+        if (!col) { return; }
+        col.addEventListener('mouseenter', function () {
+            if (!immersive()) { lightRealm(pair[1]); }
+        });
+        col.addEventListener('mouseleave', function () {
+            if (!immersive()) { lightRealm(null); }
+        });
+    });
+}());
+
+// ════════════════════════════════════════════════════════════════════════
+//  §Arrangement — drag entries to re-curate  (v14; ephemeral, bench-proven)
+//
+//  Drag a CLOSED entry to reorder it, or carry it across to the other column.
+//  Toward giveaways it "gives away" (reveals); toward hideaways it "hides away".
+//  Drops settle with the drawer easing. DOM-only — resets on reload; the
+//  canonical CMS order is untouched. A move-threshold keeps drag from fighting
+//  tap-to-open, and the click that follows a drag is swallowed.
+//
+//  Hooks for the Designer: .arrange-ghost (lifted entry), .arrange-placeholder
+//  (drop slot), .wrapper-content.arrange-over (hovered column), .arrange-hint
+//  (the give/hide label). Styling here is feelable scaffold — tune in Designer.
+// ════════════════════════════════════════════════════════════════════════
+(function arrange() {
+    var cols = [].slice.call(document.querySelectorAll('.wrapper-content.is-left, .wrapper-content.is-right'));
+    if (cols.length < 2) { return; }
+
+    var V = function (n) { return 'var(--_lungitz---' + n + ')'; },
+        css = [
+            // Looks migrated to Designer combos (.arrange-ghost, .arrange-placeholder,
+            // .wrapper-content.arrange-over, .arrange-hint). Kept here: the fixed
+            // positioning / z-index / pointer-events / transitions the drag depends on.
+            '.arrange-ghost{position:fixed;z-index:1000;pointer-events:none;transition:none!important;}',
+            '.arrange-ghost *{pointer-events:none;}',
+            '.arrange-dragging,.arrange-dragging *{user-select:none!important;-webkit-user-select:none!important;}',
+            '.arrange-hint{position:fixed;z-index:1001;pointer-events:none;opacity:0;transition:opacity .15s;}'
+        ].join('\n'),
+        styleEl = document.createElement('style');
+    styleEl.textContent = css;
+    document.head.appendChild(styleEl);
+
+    var hint = document.createElement('div');
+    hint.className = 'arrange-hint';
+    document.body.appendChild(hint);
+
+    var drag = null, placeholder = null, THRESH = 6;
+
+    function itemsBox(col) { return col.querySelector('.w-dyn-items') || col; }
+
+    document.addEventListener('pointerdown', function (e) {
+        var trigger;
+        if (e.button) { return; }
+        trigger = e.target.closest(TRIGGER);
+        if (!trigger || trigger.classList.contains('open')) { return; }   // closed entries only
+        if (!trigger.closest('.wrapper-content.is-left, .wrapper-content.is-right')) { return; }
+        drag = {
+            node: trigger.closest('.w-dyn-item') || trigger,
+            x0: e.clientX, y0: e.clientY, moved: false
+        };
+    });
+
+    document.addEventListener('pointermove', function (e) {
+        if (!drag) { return; }
+        if (!drag.moved) {
+            if (Math.abs(e.clientX - drag.x0) < THRESH && Math.abs(e.clientY - drag.y0) < THRESH) { return; }
+            begin();
+        }
+        e.preventDefault();
+        drag.node.style.left = (e.clientX - drag.dx) + 'px';
+        drag.node.style.top = (e.clientY - drag.dy) + 'px';
+        place(e.clientX, e.clientY);
+    });
+
+    document.addEventListener('pointerup', function () {
+        if (!drag) { return; }
+        if (drag.moved) { drop(); swallowClick(); }
+        drag = null;
+    });
+
+    function begin() {
+        drag.moved = true;
+        var node = drag.node, r = node.getBoundingClientRect();
+        drag.dx = drag.x0 - r.left;
+        drag.dy = drag.y0 - r.top;
+        placeholder = document.createElement('div');
+        placeholder.className = 'arrange-placeholder';
+        placeholder.style.height = r.height + 'px';
+        node.parentNode.insertBefore(placeholder, node);
+        node.classList.add('arrange-ghost');
+        node.style.width = r.width + 'px';
+        node.style.left = r.left + 'px';
+        node.style.top = r.top + 'px';
+        document.body.classList.add('arrange-dragging');
+    }
+
+    function place(x, y) {
+        var col = null;
+        cols.forEach(function (c) {
+            var r = c.getBoundingClientRect(),
+                over = x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+            c.classList.toggle('arrange-over', over);
+            if (over) { col = c; }
+        });
+        if (!col) { hint.style.opacity = 0; return; }
+        // conceptual label when crossing into the other column
+        var fromCol = placeholder.closest('.wrapper-content');
+        if (fromCol && fromCol !== col) {
+            hint.textContent = col.classList.contains('is-right') ? 'hiding away ↘' : 'giving away ↗';
+            hint.style.left = (x + 16) + 'px';
+            hint.style.top = (y + 16) + 'px';
+            hint.style.opacity = 1;
+        } else {
+            hint.style.opacity = 0;
+        }
+        // drop slot: first entry whose midpoint is below the pointer
+        var box = itemsBox(col),
+            kids = [].filter.call(box.children, function (n) {
+                return n !== drag.node && n !== placeholder && n.getBoundingClientRect().height > 0;
+            }),
+            after = null, i, ir;
+        for (i = 0; i < kids.length; i += 1) {
+            ir = kids[i].getBoundingClientRect();
+            if (y < ir.top + ir.height / 2) { after = kids[i]; break; }
+        }
+        if (after) { box.insertBefore(placeholder, after); }
+        else { box.appendChild(placeholder); }
+    }
+
+    function drop() {
+        var node = drag.node, first = node.getBoundingClientRect(), last, dx, dy;
+        placeholder.parentNode.insertBefore(node, placeholder);
+        placeholder.remove();
+        placeholder = null;
+        node.classList.remove('arrange-ghost');
+        node.style.left = node.style.top = node.style.width = '';
+        document.body.classList.remove('arrange-dragging');
+        cols.forEach(function (c) { c.classList.remove('arrange-over'); });
+        hint.style.opacity = 0;
+        last = node.getBoundingClientRect();
+        dx = first.left - last.left;
+        dy = first.top - last.top;
+        node.style.transition = 'none';
+        node.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+        requestAnimationFrame(function () {
+            node.style.transition = 'transform 450ms ' + SETTLE;
+            node.style.transform = '';
+            setTimeout(function () { node.style.transition = ''; node.style.transform = ''; }, 470);
+        });
+    }
+
+    // Swallow the click that fires right after a drag so it doesn't open the
+    // accordion; self-removes after the click or a short timeout (tap still opens).
+    function swallowClick() {
+        function once(ev) { ev.stopPropagation(); ev.preventDefault(); done(); }
+        function done() { document.removeEventListener('click', once, true); clearTimeout(t); }
+        document.addEventListener('click', once, true);
+        var t = setTimeout(done, 350);
+    }
+}());
+
+// ════════════════════════════════════════════════════════════════════════
+//  §Slideshow navigation (v15) — prev/next in fullscreen
+//
+//  Hover-reveal chevrons at the edges (desktop) + a haptic swipe (drag the
+//  image; it follows your finger, then slides to the neighbour and settles —
+//  feel proven on the gesture catalog). Single image, so the slide swaps
+//  off-screen: current eases out one side, the new one eases in from the other.
+//  Only fullscreen + multi-image + not zoomed (the body.is-fs / is-fs-zoom flags
+//  set by setImmersive + the zoom fns drive chevron visibility). Designer hooks:
+//  .fs-nav (edge zone) and .fs-chev (the revealed glyph).
+// ════════════════════════════════════════════════════════════════════════
+(function slideshowNav() {
+    var V = function (n) { return 'var(--_lungitz---' + n + ')'; },
+        css = [
+            // z 1000: above the portal'd modal (999, last body child) so the
+            // chevron zones stay clickable.
+            '.fs-nav{position:fixed;top:calc(4vh + 3rem);bottom:1.5rem;width:14%;',
+            '  z-index:1000;display:none;align-items:center;cursor:pointer;}',
+            'body.is-fs .fs-nav{display:flex;}',
+            'body.is-fs.is-fs-zoom .fs-nav{display:none;}',
+            '.fs-nav.is-prev{left:1.5rem;justify-content:flex-start;padding-left:' + V('space-4') + ';}',
+            '.fs-nav.is-next{right:1.5rem;justify-content:flex-end;padding-right:' + V('space-4') + ';}',
+            // .fs-chev glyph look migrated to the Designer; kept here: the reveal motion.
+            '.fs-chev{opacity:0;transition:opacity .2s,color .2s;}',
+            '.fs-nav:hover .fs-chev{opacity:1;color:' + V('color-ink-100') + ';}'
+        ].join('\n'),
+        styleEl = document.createElement('style');
+    styleEl.textContent = css;
+    document.head.appendChild(styleEl);
+
+    // Direct swap — no slide transition between images (Seth: the clear, direct
+    // swap "felt right"). The swipe still tracks the finger; the commit snaps.
+    function slideTo(dir) {
+        if (!fs || !detail || detail.images.length < 2 || zoom) { return; }
+        var img = fsImage();
+        if (!img) { return; }
+        detail.idx = (detail.idx + dir + detail.images.length) % detail.images.length;
+        paintDetail(fs.view);
+        img.style.transition = 'none';
+        img.style.transform = 'none';
+    }
+
+    function chevron(dir, cls, glyph) {
+        var z = document.createElement('div');
+        z.className = 'fs-nav ' + cls;
+        z.innerHTML = '<span class="fs-chev">' + glyph + '</span>';
+        z.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            slideTo(dir);
+        });
+        return z;
+    }
+    document.body.appendChild(chevron(-1, 'is-prev', '‹'));
+    document.body.appendChild(chevron(1, 'is-next', '›'));
+
+    // Haptic swipe — drag the fullscreen image; past a threshold it slides to the
+    // neighbour, otherwise it eases back. Fullscreen + multi-image + unzoomed only.
+    var swipe = null;
+    document.addEventListener('pointerdown', function (e) {
+        var img;
+        if (!fs || !detail || detail.images.length < 2 || zoom) { return; }
+        img = fsImage();
+        if (!img || img._sliding || !fs.view.contains(e.target) || e.target.closest('.fs-nav')) { return; }
+        swipe = { x0: e.clientX, img: img, dx: 0 };
+        img.style.transition = 'none';
+    });
+
+    document.addEventListener('pointermove', function (e) {
+        if (!swipe) { return; }
+        swipe.dx = e.clientX - swipe.x0;
+        if (Math.abs(swipe.dx) > 3) { dragMoved = true; }   // so the click after a swipe won't zoom-step
+        swipe.img.style.transform = 'translateX(' + swipe.dx + 'px)';
+    });
+
+    document.addEventListener('pointerup', function () {
+        if (!swipe) { return; }
+        var dx = swipe.dx, img = swipe.img, W = img.clientWidth || 1;
+        swipe = null;
+        img.style.transition = 'none';
+        img.style.transform = 'none';                                  // direct: clear the drag offset
+        if (Math.abs(dx) > Math.min(90, W * 0.18)) {
+            slideTo(dx < 0 ? 1 : -1);                                   // swiped left → next (direct swap)
+        }
+    });
+}());
+
+// ════════════════════════════════════════════════════════════════════════
+//  §Durability promotion (Thread B) — folded from sandbox v18→v25.
+//  Mobile masthead (≤767: scrollbar-safe nav width, size cap, symmetric column
+//  padding, custom page scrollbar), immersive HIDEAWAYS hard-right, fullscreen
+//  close = LUNGITZ + backdrop + Esc (✕ hidden → becomes a cursor over exit
+//  targets), and the bulky fullscreen/entry chevrons reborn as the state-3
+//  .button arrows (+ directional ←/→ cursors over the nav zones). Phase 2 fluid
+//  SPACE lives in the Webflow Variables (space-5..24 clamps), not here.
+//  ✓ RESOLVED (2026-06-12): the .author / Rich Text Block / .type / .number-list /
+//  .button / .button-copy line-heights are now fixed-px ON THE CLASS in the Designer
+//  (unbound from the space tokens), verified live — so the px-pins below were removed.
+// ════════════════════════════════════════════════════════════════════════
+(function durabilityPolish() {
+    var INK   = 'var(--_lungitz---color-ink-900)',
+        TRACK = 'color-mix(in srgb,' + INK + ',#000 20%)',
+        ACC   = 'var(--_lungitz---color-accent-a-500)',
+        RUST  = 'var(--_lungitz---color-accent-b-500)',
+        F4    = 'var(--_lungitz---font-size-4)',
+        SP3   = 'var(--_lungitz---space-3)';
+    var CUR = function (svg) { return "url(\"data:image/svg+xml," + svg + "\") 13 13, pointer"; };
+    // ✕ (exit), ← (prev), → (next) cursors — off-white, for the dark frame.
+    var XCUR = CUR("%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='26'%20height='26'%3E%3Cg%20stroke='%23e8e2da'%20stroke-width='2'%20stroke-linecap='round'%3E%3Cline%20x1='8'%20y1='8'%20x2='18'%20y2='18'/%3E%3Cline%20x1='18'%20y1='8'%20x2='8'%20y2='18'/%3E%3C/g%3E%3C/svg%3E"),
+        LCUR = CUR("%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='26'%20height='26'%3E%3Cg%20fill='none'%20stroke='%23e8e2da'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cline%20x1='19'%20y1='13'%20x2='7'%20y2='13'/%3E%3Cpolyline%20points='12,8%207,13%2012,18'/%3E%3C/g%3E%3C/svg%3E"),
+        RCUR = CUR("%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='26'%20height='26'%3E%3Cg%20fill='none'%20stroke='%23e8e2da'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cline%20x1='7'%20y1='13'%20x2='19'%20y2='13'/%3E%3Cpolyline%20points='14,8%2019,13%2014,18'/%3E%3C/g%3E%3C/svg%3E");
+    var css = [
+        // ★ The "author bounce" (state 1↔2). Diagnosed LIVE via the Chrome bridge:
+        // .author lives in a NESTED collection-list inside the entry header, and the
+        // header is a 2-row grid sitting in the trigger's animating `grid-template-rows`
+        // auto row. During the open/close the animation hands the header a transient
+        // sliver of extra height; default align-content distributed it INTO the rows,
+        // inflating row 1 (~+16px visible / +33px raw) and shoving the author's row
+        // down, then it settled — the drop-then-realign. Title HEIGHT stayed constant
+        // 71.3px the whole time; it was the grid TRACK thrashing (not padding/leading —
+        // those earlier fixes were red herrings, kept as harmless smoothing).
+        // align-content:start packs the rows to the top so row 1 can never inflate.
+        '.header-accordion{align-content:start;}',
+        '@media (max-width:767px){',
+        // mobile masthead stays put (was position:absolute → scrolled away as a
+        // block). Fixed + opaque ink bg + z-index so content scrolls behind it.
+        // (Immersive keeps its own z-index:1000 via the higher-specificity combo.)
+        '  .nav.wide{position:fixed;z-index:100;background:' + INK + ';width:auto;left:0;right:0;margin:0.75rem;}',
+        '  .h5-nav{font-size:clamp(0.875rem, 4.4vw, 1.375rem)!important;letter-spacing:-0.05rem;}',
+        '  .wrapper-content.is-left{padding-right:1rem!important;}',
+        '  .wrapper-content.is-right{padding-left:1rem!important;}',
+        '  html{scrollbar-width:thin;scrollbar-color:#000 ' + TRACK + ';}',
+        '  html::-webkit-scrollbar{width:8px;height:8px;}',
+        '  html::-webkit-scrollbar-track{background:' + TRACK + ';}',
+        '  html::-webkit-scrollbar-thumb{background:#000;border-radius:4px;}',
+        '  html::-webkit-scrollbar-thumb:hover{background:#1a1a1a;}',
+        '}',
+        // v32: the overlay backdrop reads as the exit (✕ cursor); its bar,
+        // caption, and image keep their own affordances. Legacy-path rules kept
+        // beneath for pages without the overlay.
+        '.immersive-overlay.is-open{cursor:' + XCUR + ';}',
+        '.immersive-overlay .immersive-bar,.immersive-overlay .caption-drawer,.immersive-overlay .immersive-image{cursor:auto;}',
+        '.detail-view.is-fullscreen{cursor:' + XCUR + ';}',
+        '.caption-drawer.is-fullscreen{cursor:auto;}',
+        // Slide counter: hidden at rest (paintDetail seeds it into every caption
+        // row), shown inside the overlay / legacy fullscreen caption.
+        '.fs-count{display:none;}',
+        '.immersive-overlay .fs-count,.caption-drawer.is-fullscreen .fs-count{display:inline-block;color:' + ACC + ';}',
+        // LEGACY fullscreen fill (fallback pages without the overlay only —
+        // the overlay path never touches these; layout there is Seth's).
+        '.detail-view.is-fullscreen{inset:0;margin:0;display:flex;flex-direction:column;z-index:999;padding:calc(4vh + 3rem) 1.5rem 1.5rem;}',
+        '.detail-bar.is-fullscreen{display:none;}',
+        '.detail-image.is-fullscreen{flex:1 1 auto;min-height:0;height:auto;}',
+        '.caption-drawer.is-fullscreen{flex:0 0 auto;grid-template-rows:auto 1fr;}',
+        '.fs-nav.is-prev{cursor:' + LCUR + ';}',
+        '.fs-nav.is-next{cursor:' + RCUR + ';}',
+        '.fs-chev{font-size:0!important;text-shadow:none!important;font-family:inherit!important;padding:' + SP3 + '!important;color:' + ACC + '!important;line-height:1!important;}',
+        '.fs-chev::before{font-size:' + F4 + ';line-height:1;}',
+        '.fs-nav.is-prev .fs-chev::before,[data-entry-nav="prev"] .fs-chev::before,[data-entry-nav="prev"].fs-chev::before{content:"\\2190";}',
+        '.fs-nav.is-next .fs-chev::before,[data-entry-nav="next"] .fs-chev::before,[data-entry-nav="next"].fs-chev::before{content:"\\2192";}',
+        '.fs-nav:hover .fs-chev,[data-entry-nav]:hover .fs-chev{color:' + RUST + '!important;}'
+        // RESOLVED 2026-06-12 — the line-height px-pins that used to live here are
+        // gone: leading is now fixed-px ON THE CLASS in the Designer (.author / .type /
+        // Rich Text Block 20px · .number-list 16px · .button / .button-copy 32px),
+        // unbound from the fluid space tokens and verified live. The canvas now matches
+        // live, so the script no longer needs to mask it. (See MASTHEAD-CONTRACT.md §5.)
+    ].join('\n');
+    var st = document.createElement('style');
+    st.textContent = css;
+    document.head.appendChild(st);
+
+    // Fullscreen close = ✕ (data-detail) + backdrop + Back + Esc. The
+    // LUNGITZ-closes shortcut survives only on the LEGACY path (with the
+    // overlay, LUNGITZ means "menu" and sits beneath it anyway).
+    document.addEventListener('click', function (e) {
+        if (!fs || OVERLAY) { return; }
+        if (e.target.closest('.nav-lungitz')) {
+            e.preventDefault();
+            e.stopPropagation();
+            closeFullscreen();
+        }
+    }, true);
+    document.addEventListener('click', function (e) {
+        if (!fs || zoom) { return; }
+        var view = fs.view;
+        if (!view || !view.contains(e.target)) { return; }
+        if (e.target.closest('.detail-image, .immersive-image, .immersive-bar, .caption-drawer, .fs-nav, .nav, [data-detail]')) { return; }
+        closeFullscreen();
+    }, false);
+}());
+
+// ════════════════════════════════════════════════════════════════════════
+//  §Landing modal (v32) — Seth's container-landing modal IS the landing AND
+//  the menu. It greets on arrival at the index and dismisses IN PLACE on any
+//  click outside its links ("click anywhere → the index"); LUNGITZ re-opens it
+//  (see §masthead). Every visual knob — BOTH states — is Seth's in the
+//  Designer (.container-landing base + .is-dismissed combo); code owns only
+//  the gate, the click routing, and the dismiss motion. Deep links (?entry=)
+//  and #anchor arrivals skip the landing and land on the index directly.
+//  Wireframe-first: dormant until the modal is instanced on the page.
+//  ?veil=0 suppresses it for testing.
+// ════════════════════════════════════════════════════════════════════════
+(function landingModal() {
+    var onIndex = !!document.querySelector('.wrapper-content.is-left, .wrapper-content.is-right');
+    if (!onIndex) { return; }                       // menu pages carry their own static modal
+    var modal = document.querySelector('.container-landing, .container-landing-modal');
+    if (!modal) { return; }
+
+    // Code-owned: dismiss/reopen MOTION only (the look of both states is Seth's).
+    var st = document.createElement('style');
+    st.textContent =
+        '.container-landing,.container-landing-modal{transition:opacity .5s ease,transform .6s ' + SETTLE + ';}'
+      + '.container-landing.is-dismissed,.container-landing-modal.is-dismissed{'
+      + 'opacity:0;transform:translateY(-1.25%);pointer-events:none;}';
+    document.head.appendChild(st);
+
+    var prevOverflow = document.documentElement.style.overflow;
+    function lock(on) {
+        document.documentElement.style.overflow = on ? 'hidden' : prevOverflow;
+    }
+    function shown() { return !modal.classList.contains('is-dismissed'); }
+    function dismiss() {
+        modal.classList.add('is-dismissed');
+        lock(false);
+    }
+    function show() {
+        modal.classList.remove('is-dismissed');
+        lock(true);
+    }
+    modalToggle = function () { if (shown()) { dismiss(); } else { show(); } };
+
+    if (/[?&]entry=/.test(location.search) || /[?&]veil=0\b/.test(location.search) || location.hash) {
+        // deep link / anchor arrival: land on the index directly, no flash
+        modal.style.transition = 'none';
+        modal.classList.add('is-dismissed');
+        void modal.offsetHeight;
+        modal.style.transition = '';
+    } else {
+        lock(true);
+    }
+
+    // Click routing while the modal holds: its links act (the realm anchors
+    // dismiss first, then glide); anywhere else = enter the index. Capture, so
+    // the dismissing click never reaches the ladder beneath.
+    document.addEventListener('click', function (e) {
+        if (!shown()) { return; }
+        var a = e.target.closest('a[href]');
+        if (a && modal.contains(a)) {
+            var href = a.getAttribute('href') || '';
+            if (href.charAt(0) === '#' || href.indexOf('/#') === 0) {
+                e.preventDefault();
+                e.stopPropagation();
+                dismiss();
+                var side = /giveaways/.test(href) ? 'giveaways'
+                         : /hideaways/.test(href) ? 'hideaways' : null;
+                if (side && typeof goInfo === 'function') { goInfo(side); }
+                else {
+                    var el = document.getElementById(href.replace(/^\/?#/, ''));
+                    if (el) { el.scrollIntoView({ block: 'start' }); }
+                }
+                return;
+            }
+            return;                                  // real link → navigate
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        dismiss();
+    }, true);
+
+    // Esc / ⏎ / space enter the index too (capture — the ladder never sees it).
+    document.addEventListener('keydown', function (e) {
+        if (!shown()) { return; }
+        if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            e.stopPropagation();
+            dismiss();
+        }
+    }, true);
+}());
+
+// ── External links → new tab (v31, 17.6 "links should open to a new tab") ──
+// Just-in-time on click (capture) so it also covers CMS bodies the menu moves
+// around: any http(s) anchor pointing off-host opens in a new tab, noopener.
+(function externalNewTab() {
+    document.addEventListener('click', function (e) {
+        var a = e.target.closest('a[href]');
+        if (!a || !a.host || a.host === location.host) { return; }
+        if (!/^https?:$/.test(a.protocol)) { return; }
+        a.target = '_blank';
+        if (!/\bnoopener\b/.test(a.rel || '')) { a.rel = (a.rel ? a.rel + ' ' : '') + 'noopener'; }
+    }, true);
+}());
+
+// ── Participants → index arrival (v32) ── The Designer binds each contributor
+// name to their Featured work's template page (/giveaways/<slug> — the no-JS
+// fallback). Landing IN THE INDEX with the rust arrival highlight reads better
+// (Seth), so rewrite those hrefs to the ?entry= flag the wayfinding module
+// already understands. Progressive enhancement — content and curation stay in
+// the CMS.
+(function participantsToIndex() {
+    var wrap = document.querySelector('.content-participants');
+    if (!wrap) { return; }
+    wrap.querySelectorAll('a[href^="/giveaways/"], a[href^="/hideaways/"]').forEach(function (a) {
+        var m = /^\/(giveaways|hideaways)\/([^\/?#]+)/.exec(a.getAttribute('href'));
+        if (m) { a.setAttribute('href', '/?entry=' + m[1] + '/' + m[2]); }
+    });
+}());
+
+// ════════════════════════════════════════════════════════════════════════
+//  §Keyboard navigation (arc 3 — promoted from sandbox v27→v30) — drive the state ladder from
+//  the keys. Spine: ⏎ drills IN · Esc drills OUT (the existing ladder) · arrows
+//  move laterally at the current level · +/− zoom in fullscreen. A quiet hint
+//  chip surfaces the current level's keys. Additive + a11y-minded:
+//    · never preventDefault while typing in a field, or with ⌘/Ctrl/Alt held;
+//    · never traps focus — native Tab still works; if a real link/button holds
+//      focus, ⏎ falls through to its native activation (no double-fire);
+//    · the index/thumbnail focus ring reuses the rust hover tokens (nothing new
+//      to style) and scrolls with {block:'nearest'} so it never yanks the page;
+//    · a mouse press clears the keyboard ring — the two coexist, mouse wins;
+//    · hint chip is aria-hidden + hidden on touch / no-hover pointers.
+//  ?ring gate: v1 (full, default) lets the arrows focus the index from a cold
+//  start; ?ring=0 (v2) turns that off — the mouse opens the first entry and the
+//  keys take over from state 2 onward.
+// ════════════════════════════════════════════════════════════════════════
+(function keyboardNav() {
+    // INDEX_RING also gates on the index columns existing, so on entry pages
+    // (no columns) the arrows aren't swallowed and the index hint stays quiet.
+    var HAS_INDEX = !!(document.querySelector('.wrapper-content.is-left') || document.querySelector('.wrapper-content.is-right')),
+        INDEX_RING = HAS_INDEX && new URLSearchParams(location.search).get('ring') !== '0',
+        RUST = 'var(--_lungitz---color-accent-b-500)';
+
+    function typing(e) {
+        var t = e.target;
+        return !!(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable));
+    }
+    function nativeFocused() {
+        var a = document.activeElement;
+        return !!(a && a !== document.body && a.matches &&
+                  a.matches('a[href],button,[role="button"],input,select,textarea,[tabindex]:not([tabindex="-1"])'));
+    }
+    function col(side) { return document.querySelector('.wrapper-content.is-' + side); }
+    function trigsIn(c) { return c ? [].slice.call(c.querySelectorAll(TRIGGER)) : []; }
+    function openTrig() { return document.querySelector(TRIGGER + '.open'); }
+    function thumbsOf(t) { return t ? [].slice.call(t.querySelectorAll(W_THUMB)) : []; }
+
+    // ── index focus ring (state 1) — reuses the rust hover-highlight tokens ──
+    var kbEntry = null, lastEntry = null;
+    function ring(el, on) {
+        if (!el) { return; }
+        el.style.borderColor  = on ? RUST : '';
+        el.style.color        = on ? RUST : '';
+        el.style.borderRadius = on ? '8px' : '';
+    }
+    function focusEntry(el, scroll) {
+        if (kbEntry && kbEntry !== el) { ring(kbEntry, false); }
+        kbEntry = el || null;
+        if (!kbEntry) { if (typeof lightRealm === 'function') { lightRealm(null); } return; }
+        ring(kbEntry, true);
+        lastEntry = kbEntry;
+        if (typeof lightRealm === 'function') {
+            lightRealm(kbEntry.closest('.wrapper-content.is-right') ? 'hideaways'
+                     : kbEntry.closest('.wrapper-content.is-left') ? 'giveaways' : null);
+        }
+        if (scroll !== false) { kbEntry.scrollIntoView({ block: 'nearest' }); }
+    }
+    function blurEntry() {
+        ring(kbEntry, false); kbEntry = null;
+        if (typeof lightRealm === 'function') { lightRealm(null); }
+    }
+    function nearestTop(list) {
+        var best = null, bestD = Infinity;
+        list.forEach(function (t) {
+            var d = Math.abs(t.getBoundingClientRect().top - 88);
+            if (d < bestD) { bestD = d; best = t; }
+        });
+        return best;
+    }
+    function seed() {
+        if (kbEntry) { return true; }
+        var all = trigsIn(col('left')).concat(trigsIn(col('right')));
+        focusEntry((lastEntry && all.indexOf(lastEntry) !== -1) ? lastEntry : nearestTop(all));
+        return !!kbEntry;
+    }
+    function moveEntry(d) {
+        if (!seed()) { return; }
+        var list = trigsIn(kbEntry.closest('.wrapper-content')), i = list.indexOf(kbEntry);
+        if (i === -1) { return; }
+        focusEntry(list[Math.max(0, Math.min(list.length - 1, i + d))]);
+    }
+    function switchCol() {
+        if (!seed()) { return; }
+        var list = trigsIn(col(kbEntry.closest('.wrapper-content.is-left') ? 'right' : 'left'));
+        if (!list.length) { return; }
+        var y = kbEntry.getBoundingClientRect().top, best = list[0], bD = Infinity;
+        list.forEach(function (t) {
+            var dd = Math.abs(t.getBoundingClientRect().top - y);
+            if (dd < bD) { bD = dd; best = t; }
+        });
+        focusEntry(best);
+    }
+
+    // ── thumbnail focus ring (state 2) ──
+    var kbThumb = -1;
+    function ringThumb(t, idx) {
+        thumbsOf(t).forEach(function (th, k) {
+            th.style.outline = (k === idx) ? '2px solid ' + RUST : '';
+            th.style.outlineOffset = (k === idx) ? '2px' : '';
+            var hov = th.querySelector('.thumb-hover');   // lift the veil on the focused thumb (matches hover)
+            if (hov) { hov.classList.toggle('is-revealed', k === idx); }
+        });
+    }
+    function focusThumb(t, idx) {
+        var th = thumbsOf(t);
+        if (!th.length) { return; }
+        kbThumb = Math.max(0, Math.min(th.length - 1, idx));
+        ringThumb(t, kbThumb);
+        th[kbThumb].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+    function clearThumb() { var t = openTrig(); if (t) { ringThumb(t, -1); } kbThumb = -1; }
+
+    // ── hint chip ──
+    var hint = document.createElement('div');
+    hint.className = 'kb-hint';
+    hint.setAttribute('aria-hidden', 'true');
+    var hs = document.createElement('style');
+    hs.textContent =
+        '.kb-hint{position:fixed;right:1.5rem;bottom:1.5rem;z-index:1200;font-family:inherit;'
+      + 'font-size:12px;letter-spacing:.02em;line-height:1;color:color-mix(in srgb,var(--_lungitz---color-accent-a-500),#fff 30%);'
+      + 'background:color-mix(in srgb,var(--_lungitz---color-ink-900),#000 8%);'
+      + 'padding:.4rem .6rem;border-radius:6px;pointer-events:none;white-space:nowrap;'
+      + 'border:1px solid transparent;opacity:0;transition:opacity .25s,border-color .25s;}'
+      + '.kb-hint.is-on{opacity:.8;border-color:color-mix(in srgb,var(--_lungitz---color-accent-a-500),transparent 50%);}'
+      + '@media (hover:none),(pointer:coarse){.kb-hint{display:none!important;}}';
+    document.head.appendChild(hs);
+    (document.body || document.documentElement).appendChild(hint);
+
+    var kbMode = false;   // true once the keyboard is in use; a mouse press exits
+    // Browser-fullscreen steals Esc (the Antoine case) — advertise the paths
+    // that always work there instead. Back genuinely closes (history state).
+    function browserFs() {
+        return !!document.fullscreenElement || Math.abs(window.innerHeight - screen.height) < 6;
+    }
+    function levelText() {
+        var esc = browserFs() ? '✕ / back' : 'esc';
+        if (fs) { return zoom ? '←→ pan · +/− zoom · ' + esc + ' reset' : '←→ image · +/− zoom · ⏎ zoom · ' + esc + ' exit'; }
+        if (detail) { return '←→ image · ⏎ fullscreen · esc back'; }
+        if (openTrig()) { return '←→ thumbnails · ⏎ view · esc close'; }
+        return INDEX_RING ? '↑↓ browse · ←→ switch side · ⏎ open' : '';
+    }
+    function paintHint() {
+        var txt = kbMode ? levelText() : '';
+        if (txt) { hint.textContent = txt; hint.classList.add('is-on'); }
+        else { hint.classList.remove('is-on'); }
+    }
+    function reconcile() {            // after a step-out, restore the ring to where you were
+        if (INDEX_RING && kbMode && !fs && !detail && !openTrig() && lastEntry) {
+            focusEntry(lastEntry, false);
+        }
+        paintHint();
+    }
+
+    // ── zoom via keys (state 4) ──
+    function kbZoom(dir) {
+        if (!fs) { return; }
+        var img = fsImage();
+        if (!img) { return; }
+        var r = img.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        if (dir > 0) { zoomSet(img, (zoom ? zoom.scale : 1) * 1.6, cx, cy); }
+        else if (zoom) {
+            var s = zoom.scale / 1.6;
+            if (s <= 1.05) { zoomOut(img); } else { zoomSet(img, s, cx, cy); }
+        }
+    }
+
+    // ── the handler ──
+    document.addEventListener('keydown', function (e) {
+        if (typing(e) || e.metaKey || e.ctrlKey || e.altKey) { return; }
+        var k = e.key;
+
+        if (k === 'Escape') { kbMode = true; setTimeout(reconcile, 0); return; }   // step-out is the main handler's
+
+        if (k === 'Enter') {                       // ⏎ — drill IN
+            if (nativeFocused()) { return; }       // a real control owns ⏎ → let it fire
+            kbMode = true;
+            if (fs) {                          // ⏎ in fullscreen → toggle zoom
+                e.preventDefault();
+                var fimg = fsImage();
+                if (zoom) { zoomOut(fimg); }
+                else if (fimg) { var fr = fimg.getBoundingClientRect(); zoomSet(fimg, 2, fr.left + fr.width / 2, fr.top + fr.height / 2); }
+                paintHint(); return;
+            }
+            if (detail) { e.preventDefault(); if (typeof openFullscreen === 'function') { openFullscreen(); } paintHint(); return; }
+            var ot = openTrig();
+            if (ot) {
+                var th = thumbsOf(ot);
+                if (kbThumb < 0) { kbThumb = 0; }
+                if (th[kbThumb]) { e.preventDefault(); th[kbThumb].click(); }
+                paintHint(); return;
+            }
+            if (INDEX_RING && seed()) {
+                e.preventDefault();
+                var header = kbEntry.querySelector(HEADER);
+                if (header) { ring(kbEntry, false); header.click(); }
+                paintHint();
+            }
+            return;
+        }
+
+        if (fs && (k === '+' || k === '=' || k === '-' || k === '_')) {   // +/− zoom
+            e.preventDefault(); kbMode = true;
+            kbZoom((k === '-' || k === '_') ? -1 : +1);
+            paintHint(); return;
+        }
+        if (fs && k === '0' && zoom) {
+            e.preventDefault(); kbMode = true;
+            zoomOut(fsImage()); paintHint(); return;
+        }
+
+        if (k === 'ArrowUp' || k === 'ArrowDown' || k === 'ArrowLeft' || k === 'ArrowRight') {
+            if (fs || detail) { kbMode = true; setTimeout(paintHint, 0); return; }   // existing handler does image nav
+            var ot2 = openTrig();
+            if (ot2) {                              // state 2 — thumbnails
+                if (k === 'ArrowLeft' || k === 'ArrowRight') {
+                    e.preventDefault(); kbMode = true;
+                    focusThumb(ot2, kbThumb < 0 ? 0 : kbThumb + (k === 'ArrowRight' ? 1 : -1));
+                    paintHint();
+                }
+                return;
+            }
+            if (!INDEX_RING) { return; }            // state 1 ring off (v2) → page scrolls normally
+            e.preventDefault(); kbMode = true;
+            if (k === 'ArrowUp') { moveEntry(-1); }
+            else if (k === 'ArrowDown') { moveEntry(+1); }
+            else { switchCol(); }
+            paintHint();
+        }
+    });
+
+    // Mouse takes over → drop the keyboard rings + hint (mouse wins).
+    document.addEventListener('mousedown', function () {
+        if (kbEntry) { blurEntry(); }
+        clearThumb();
+        if (kbMode) { kbMode = false; paintHint(); }
+    });
+}());
+
+}());
