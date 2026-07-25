@@ -403,7 +403,7 @@ function openFullscreen() {
             srcRect = srcEl && srcEl.getBoundingClientRect();
         }
         fs = { view: OVERLAY };
-        OVERLAY.classList.add('is-open');    // both states styled in the Designer
+        OVERLAY.classList.add('is-viewing'); // Seth's curtain: base = clipped+transparent, combo flips it
         paintDetail(OVERLAY);
         setImmersive(true, detail.trigger);
         pushFsState();
@@ -494,7 +494,7 @@ function closeFullscreenNow() {
     if (view === OVERLAY) {
         var oImg = OVERLAY.querySelector('.immersive-image');
         if (oImg) { oImg.style.transition = ''; oImg.style.transform = ''; }
-        OVERLAY.classList.remove('is-open');
+        OVERLAY.classList.remove('is-viewing');
         if (wasSingle && trigger) { closeDetail(trigger); }
         return;
     }
@@ -1444,7 +1444,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         // v32: the overlay backdrop reads as the exit (✕ cursor); its bar,
         // caption, and image keep their own affordances. Legacy-path rules kept
         // beneath for pages without the overlay.
-        '.immersive-overlay.is-open{cursor:' + XCUR + ';}',
+        '.immersive-overlay.is-viewing{cursor:' + XCUR + ';}',
         '.immersive-overlay .immersive-bar,.immersive-overlay .caption-drawer,.immersive-overlay .immersive-image{cursor:auto;}',
         '.detail-view.is-fullscreen{cursor:' + XCUR + ';}',
         '.caption-drawer.is-fullscreen{cursor:auto;}',
@@ -1500,8 +1500,8 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
 //  the menu. It greets on arrival at the index and dismisses IN PLACE on any
 //  click outside its links ("click anywhere → the index"); LUNGITZ re-opens it
 //  (see §masthead). Every visual knob — BOTH states — is Seth's in the
-//  Designer (.container-landing base + .is-dismissed combo); code owns only
-//  the gate, the click routing, and the dismiss motion. Deep links (?entry=)
+//  Designer (.container-landing rest + .is-active shown, HIS class pair);
+//  code owns only the gate, the click routing, and motion. Deep links (?entry=)
 //  and #anchor arrivals skip the landing and land on the index directly.
 //  Wireframe-first: dormant until the modal is instanced on the page.
 //  ?veil=0 suppresses it for testing.
@@ -1512,13 +1512,12 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     var modal = document.querySelector('.container-landing, .container-landing-modal');
     if (!modal) { return; }
 
-    // Code-owned: MOTION ONLY. What "dismissed" LOOKS like is entirely Seth's
-    // .is-dismissed combo in the Designer — e.g. the drawer move: collapse to
-    // just the top word row (grid-rows), which then IS the persistent masthead.
-    // The transition list covers whichever channel he styles (grid-rows can't
-    // carry a Designer transition — the audit blocks it — so it rides here).
-    // NOTE: if the dismissed state hides the whole modal instead, add
-    // pointer-events:none to the combo so the index beneath is clickable.
+    // The modal's states are SETH'S OWN class pair: .container-landing (rest —
+    // currently display:none) + .is-active (shown — display:block). Code just
+    // toggles is-active; restyling either state in the Designer restyles the
+    // behavior for free (e.g. evolving "rest" into a collapsed word-row bar).
+    // Code contributes MOTION only — a transition list covering the channels
+    // the Designer can't carry (grid-rows) or may reach for later.
     var st = document.createElement('style');
     st.textContent =
         '.container-landing,.container-landing-modal{'
@@ -1529,25 +1528,21 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     function lock(on) {
         document.documentElement.style.overflow = on ? 'hidden' : prevOverflow;
     }
-    function shown() { return !modal.classList.contains('is-dismissed'); }
+    function shown() { return modal.classList.contains('is-active'); }
     function dismiss() {
-        modal.classList.add('is-dismissed');
+        modal.classList.remove('is-active');
         lock(false);
     }
     function show() {
-        modal.classList.remove('is-dismissed');
+        modal.classList.add('is-active');
         lock(true);
     }
     modalToggle = function () { if (shown()) { dismiss(); } else { show(); } };
 
     if (/[?&]entry=/.test(location.search) || /[?&]veil=0\b/.test(location.search) || location.hash) {
-        // deep link / anchor arrival: land on the index directly, no flash
-        modal.style.transition = 'none';
-        modal.classList.add('is-dismissed');
-        void modal.offsetHeight;
-        modal.style.transition = '';
+        dismiss();          // deep link / anchor arrival: land on the index directly
     } else {
-        lock(true);
+        show();             // the landing greets
     }
 
     // Click routing while the modal holds: its links act (the realm anchors
