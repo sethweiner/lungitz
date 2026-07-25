@@ -110,3 +110,30 @@ in the navMenu transition.
 ---
 
 _Maintained by Seth + Claude. Edit freely — this file is the agreement._
+
+---
+
+## ★ v32 — THE LANDING/MENU MODAL ERA (promoted 2026-07-25)
+
+**The "Landing Modal" component IS the masthead.** Everything above this line
+describing the drawer menu, the `.nav-body` reveal, `?realm=`, the landing
+veil, and the `.is-immersive` fullscreen frame is HISTORICAL — retired in v32.
+
+Designer-owned (Seth): `.container-landing` (rest = the word-row masthead)
+· `.is-active` (expanded landing/menu) · `.immersive-overlay` (rest) ·
+`.is-viewing` (open fullscreen) · `.category-content` / `.is-expanded` ·
+all mode blocks, rows, type, color.
+
+Code-owned (the script): toggling those class names · the rest-collapse
+descendant rules (`.container-landing:not(.is-active) …{display:none}`) ·
+session greet gate (`lz-landing-seen`) + `?menu=1` arrival · LUNGITZ is
+BEHAVIORAL everywhere (menu in place on the index, `/?menu=1` elsewhere —
+overrides Designer links) · realm words → `#info-*` per page (href-gated
+delegation) · fullscreen growth in/out FLIP + history-back close + gestures
++ runtime painting (title/counter/captions) · index detection ignores hidden
+duplicated columns (offsetParent) · external links → new tab · `/sandbox`
+bail + `window.__lzLoaded` double-load guard.
+
+Old Masthead component: still instanced ONLY on the entry templates (their
+legacy fullscreen frame). Swap → Landing Modal + Immersive Overlay instances
+there = the last retirement step.
