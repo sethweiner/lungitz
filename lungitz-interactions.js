@@ -6,10 +6,9 @@
 // zoom/pan, arrangement). Loaded by the Home page — bail on /sandbox so it doesn't
 // double-bind with the loader's sandbox/vN.js. The injected CSS scaffold below is
 // being migrated to Designer combos; motion + grid-rows transitions stay here.
-// ★ v76 PROMOTED TO PRODUCTION 2026-07-26 — the navigation-pending cue candidates,
-// HELD behind ?ni=N (1 clicked-link rust · 2 page dim · 3 rust + LUNGITZ pulse;
-// ?ni=0 clears). Instant at click on the outgoing page, real document navigations
-// only. Default sessions are bit-identical to v75. Carries v71–v75.
+// ★ v77 PROMOTED TO PRODUCTION 2026-07-26 — ni=2 menu-page fix (dim falls back to
+// body where .container-content doesn't exist). Carries v76 (nav-cue candidates,
+// held behind ?ni=N) and v71–v75. Default sessions unchanged.
 // Loaded per-page via <script src="https://sethweiner.github.io/lungitz/lungitz-interactions.js">
 // (Home + the menu pages; paste the same tag into any new page's custom code).
 // Bail on /sandbox (its loader runs sandbox/vN.js) and guard against double loads
@@ -469,7 +468,7 @@ var TRIGGER    = '.trigger-accordion',
 // A few lines of flight recorder. Always on, costs nothing, and it is the only way
 // to see what a real phone actually did — this pane and a device disagree, and
 // guessing across that gap has cost more time than the bugs. Rendered by ?lzdebug=1.
-var LZ_VERSION = 'v76';
+var LZ_VERSION = 'v77';
 window.__lzTrace = window.__lzTrace || [];
 function lzLog(what, data) {
     try {
@@ -2372,7 +2371,9 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         cueOn = true;
         if ((mode === '1' || mode === '3') && link) { tintLink(link); }
         if (mode === '2') {
-            var cc = document.querySelector('.container-content');
+            // menu pages have no .container-content (their content lives in the
+            // permanently-open modal) — dim the body there instead (v77).
+            var cc = document.querySelector('.container-content') || document.body;
             if (cc) {
                 var po = cc.style.opacity, pt2 = cc.style.transition;
                 cc.style.transition = 'opacity 500ms ' + CLOSE_EASE;
