@@ -46,14 +46,21 @@ behavior layer. Violating this is the #1 recurring failure — do not repeat it.
 - Script: `lungitz-interactions.js` (repo root) ← promoted from
   `sandbox/v34.js`. Deploy = git push → GitHub Pages (~45s). Sandbox testing:
   `/sandbox?v=N`. Site publish via MCP to the webflow.io staging subdomain.
-- **Custom code lives in two places.** The production script tag is SITE footer
-  code (loads everywhere). The sandbox loader is PAGE footer code on `/sandbox`
-  ONLY — never copy it onto a real page: sandbox builds carry no `__lzLoaded`
-  guard, so alongside production they double-bind every handler. It had been
-  duplicated onto /participants /impressum /resources (they were duplicated from
-  a page that had it) and 404'd on every view; cleared 2026-07-26. **Duplicating
-  a page duplicates its custom code — check the footer block after any
-  duplicate.**
+- **Custom code lives in three places.** SITE **head** = the `html.lz-rest`
+  landing gate (v35) — the only code that runs before first paint; it mirrors
+  `landingModal`'s show/rest rule and **must be changed in lockstep with it**.
+  SITE **footer** = the production script tag (loads everywhere). PAGE footer =
+  the sandbox loader, on `/sandbox` ONLY — never copy it onto a real page:
+  sandbox builds carry no `__lzLoaded` guard, so alongside production they
+  double-bind every handler. It had been duplicated onto /participants
+  /impressum /resources (they were duplicated from a page that had it) and 404'd
+  on every view; cleared 2026-07-26. **Duplicating a page duplicates its custom
+  code — check the footer block after any duplicate.**
+- **Arrival state is a pre-paint problem, not a motion problem.** Webflow ships
+  `.container-landing` already `.is-active` everywhere; the script loads async,
+  after paint. Anything it has to *correct* is visible — animated it reads as a
+  jump, instant it reads as a flash. Fix the paint (the head gate), never the
+  timing of the correction. Learned the hard way 2026-07-26.
 - Ownership ledger: `MASTHEAD-CONTRACT.md` (v32 section; above it is
   historical). Site id `69e8e0cd2f30bc2f64a90a92`.
 
