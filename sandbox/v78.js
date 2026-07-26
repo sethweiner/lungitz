@@ -2275,6 +2275,11 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         // blue. The compound (0-2-0) settles it; same token as the Designer
         // class, the v37 hover-rule precedent.
         '.nav-lungitz.is-pending{animation:lz-pending-pulse 1.4s ' + CLOSE_EASE + ' infinite;color:var(--_lungitz---color-accent-b-500);}',
+        // …and the lamp's own word: the .h5-nav child is coloured by 0-2-0
+        // rules inside media blocks, which outrank the generic 0-1-1 reach
+        // above. 0-3-0 settles the lamp for good (measured: parent rust,
+        // child still blue without this).
+        '.nav-lungitz.is-pending .h5-nav{color:var(--_lungitz---color-accent-b-500);}',
         '.immersive-overlay .immersive-bar,.immersive-overlay .caption-drawer,.immersive-overlay .immersive-image{cursor:auto;}',
         // Caption collapse (v67) — DESCENDANT selector, Webflow can't author it
         // (contract §2 pattern). The Designer's .caption-drawer.is-collapsed
