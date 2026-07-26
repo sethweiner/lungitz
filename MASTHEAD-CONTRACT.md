@@ -150,3 +150,28 @@ there = the last retirement step.
 | override | why it is there, and what to do |
 |---|---|
 | `@media (max-width:767px){.wrapper-content.is-left,.is-right{overflow:visible}}` | At ≤767px the columns **stack** and the page scrolls — the column scrolls nothing (`scrollHeight === clientHeight`), yet the combo still carried `overflow:auto`. That leaves a composited scroll layer with no content to scroll, and **Android Chrome fails to invalidate it**, so scrolled entries leave ghost trails that accumulate. Desktop columns *are* real scrollers (verified at 991px: side-by-side, 709/3307) so the base rule must not change. It sits in head code only because the winning rule is a combo on `is-left`/`is-right`, which are **shared modifier names** (also on `.h5-nav`) — rewriting a shared-modifier combo over MCP is the recorded collapse hazard. **By hand in the Designer this is safe: set Overflow → Visible on `.wrapper-content.is-left` and `.is-right` at the Mobile landscape breakpoint, then delete the head block.** |
+
+---
+
+## 7. Touch vs the arrange (drag) feature — v46/v47
+
+**Arranging is mouse-only.** It does not arm on touch or pen, by design.
+
+On a touch screen a scroll *is* a `pointermove`: a swipe starting on a closed entry
+cleared the 6px threshold, so `begin()` lifted that entry into a `position: fixed`
+`.arrange-ghost`. The browser then fires **`pointercancel`, not `pointerup`**, when it
+takes the gesture over for scrolling — so `drop()` never ran and the ghost stayed
+welded to the viewport. Every entry swiped past piled up: *"each entry remains fixed
+and accumulates while scrolling, like a magnet."* It read exactly like a repaint bug
+and is not one.
+
+Two rules now hold, and both must survive any future edit to `arrange()`:
+
+1. `pointerdown` returns unless `e.pointerType === 'mouse'`.
+2. Cleanup can never depend on a callback that might not run — there is a
+   `pointercancel` handler, and `drop()`'s FLIP reset has a timer fallback because
+   `requestAnimationFrame` does not run in a backgrounded tab.
+
+Anchoring is also measured, not assumed: `anchorPad()` reads the fixed masthead's real
+bottom edge (+23px breathing room) instead of the old hard-coded 64px, which was a
+desktop constant from when the masthead was 41px tall and wrong at every other size.
