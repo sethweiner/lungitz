@@ -306,3 +306,26 @@ at 1-col). Two-part fix, same architecture as the landing gate:
 canvas is now safe to publish — leave `is-viewing` toggled in the Designer as long
 as you like. Note: sandbox builds < v72 never remove `lz-ov-rest`, so their
 fullscreen opens invisibly — test old builds only by removing the class by hand.
+
+## 14. `.is-pending` — the navigation cue state (v78, 2026-07-26, SETH-NAMED)
+
+Seth: "ni=3 is good, and call the state .is-pending." The class is a real Designer
+global (`color` = the rust accent-b token, collision-checked clean before creation)
+— restyle it on canvas any time; add it as a combo to preview the pending state.
+The script (§navCue) applies it to the CLICKED link and to the visible
+`.nav-lungitz` (the chrome lamp) at click, for real document navigations only, and
+removes it on pageshow/pagehide/12s-failsafe.
+
+Code-owned (contract §2, injected — Webflow cannot author these): the descendant
+colour reach (`.is-pending h1…h5/p/div{color:inherit}` — the v37 shortfall), two
+specificity backstops for the lamp (its own class colour and media-query rules
+outrank a bare state class), and the `lz-pending-pulse` keyframes.
+
+Flags: `?ni=0` cue off · `?ni=1` link only · `?ni=2` page dim (held, inline) ·
+`?ni=3` = the shipped default. Session-sticky; the lzdebug panel shows the mode.
+
+**Measurement trap, recorded twice now: backgrounded tabs freeze CSS transitions.**
+`.h5-nav` transitions colour over 200ms; in a `document.hidden` tab that transition
+never advances, so computed colour reads frame-zero forever — even inline
+`!important` writes appear to "not apply". Kill the transition
+(`el.style.transition='none'`) before measuring colour in a hidden tab.
