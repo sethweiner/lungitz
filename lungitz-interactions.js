@@ -6,13 +6,12 @@
 // zoom/pan, arrangement). Loaded by the Home page — bail on /sandbox so it doesn't
 // double-bind with the loader's sandbox/vN.js. The injected CSS scaffold below is
 // being migrated to Designer combos; motion + grid-rows transitions stay here.
-// ★ v80 PROMOTED TO PRODUCTION 2026-07-27 — the close flies again on un-warmed
-// thumbs. v79's landing fix exposed that the flight could target a ~8x5px wrapper
-// (lazy image never fetched, v62 stamp still pending) — animated, but imploding to
-// a dot: "the animation was stripped in the 1column" (Seth). The close now stamps a
-// degenerate landing pad synchronously from the overlay image's own natural ratio
-// (3/2 fallback while it loads), warms the thumb, reflows, re-measures. Both widths
-// fly; v79's scroll-restoration landing fix intact. Carries v71–v79.
+// ★ v81 PROMOTED TO PRODUCTION 2026-07-27 — the close flies on BOTH axes of the
+// un-warmed-thumb problem: a degenerate landing pad is stamped with the overlay
+// image's own ratio (3/2 while it loads) AND borrows a loaded sibling's width when
+// its grid track collapsed around the unloaded image (measured 19x14 live on v80).
+// Transient inline width clears when the real image loads. v79's landing fix and
+// v80's stamp intact. Carries v71–v80.
 // Loaded per-page via <script src="https://sethweiner.github.io/lungitz/lungitz-interactions.js">
 // (Home + the menu pages; paste the same tag into any new page's custom code).
 // Bail on /sandbox (its loader runs sandbox/vN.js) and guard against double loads
@@ -32,6 +31,12 @@ if (/\/sandbox\/?$/.test(location.pathname)) { return; }
 //   · browser BACK closes fullscreen (history state — the Antoine fix: Esc is never the only
 //     way out; the hint chip advertises "✕ / back" in browser-fullscreen)
 //   · participants links rewrite to /?entry=<coll>/<slug> — index arrival highlight
+// v81 (2026-07-27) — the landing pad gets a WIDTH too. Live check of v80: the
+//   ratio stamp ran but the pad measured 19x14 — the strip's grid track had
+//   collapsed around the unloaded image, so the width came from layout, not
+//   the ratio. A degenerate pad now borrows a loaded sibling wrapper's width
+//   (transient inline; the real image clears it on load), then the ratio
+//   gives the height and the flight has a true-sized target.
 // v80 (2026-07-27) — the close flies again on un-warmed thumbs. Seth on v79:
 //   "exit works now, but the animation was stripped in the 1column." Measured
 //   in a 470px repro: the flight branch RAN (transition string written) but
@@ -502,7 +507,7 @@ var TRIGGER    = '.trigger-accordion',
 // A few lines of flight recorder. Always on, costs nothing, and it is the only way
 // to see what a real phone actually did — this pane and a device disagree, and
 // guessing across that gap has cost more time than the bugs. Rendered by ?lzdebug=1.
-var LZ_VERSION = 'v80';
+var LZ_VERSION = 'v81';
 window.__lzTrace = window.__lzTrace || [];
 function lzLog(what, data) {
     try {
@@ -1227,6 +1232,24 @@ function closeFullscreenNow() {
         }
         var tImg = tEl.querySelector('img');
         if (tImg && tImg.loading === 'lazy') { tImg.loading = 'eager'; }
+        // v81: the ratio alone is not enough when the strip's track collapsed
+        // around the unloaded image (measured live: stamped pad still 19x14 —
+        // the WIDTH came from the grid, not the ratio). Borrow a loaded
+        // sibling's width as the pad's transient width; the real image clears
+        // it on load and takes over the sizing.
+        if (tRect.width < 20) {
+            var sibW = 0, sbi;
+            for (sbi = 0; sbi < thumbs.length; sbi += 1) {
+                var sbr = thumbs[sbi].getBoundingClientRect();
+                if (sbr.width >= 40) { sibW = sbr.width; break; }
+            }
+            if (sibW) {
+                tEl.style.width = Math.round(sibW) + 'px';
+                if (tImg) {
+                    tImg.addEventListener('load', function () { tEl.style.width = ''; }, { once: true });
+                }
+            }
+        }
         void tEl.offsetWidth;
         tRect = tEl.getBoundingClientRect();
     }
