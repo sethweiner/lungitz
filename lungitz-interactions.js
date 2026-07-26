@@ -6,12 +6,11 @@
 // zoom/pan, arrangement). Loaded by the Home page — bail on /sandbox so it doesn't
 // double-bind with the loader's sandbox/vN.js. The injected CSS scaffold below is
 // being migrated to Designer combos; motion + grid-rows transitions stay here.
-// ★ v72 PROMOTED TO PRODUCTION 2026-07-26 — the overlay's arrival state is code-owned.
-// A publish shipped the Immersive Overlay with .is-viewing toggled on the canvas and
-// every page arrived with the overlay open over its content (full-viewport at 1-col).
-// The script settles the overlay at init; the SITE HEAD gate hides it pre-paint via
-// html.lz-ov-rest — lockstep, change either only with the other (see CLAUDE.md).
-// Also carries v71 (entry pages never greet — T-04).
+// ★ v73 PROMOTED TO PRODUCTION 2026-07-26 — T-08 visibility: the ?lzdebug panel now
+// shows the armed page-transition candidate and the last transition it ran, fed by
+// the head gate's pagereveal recorder. The URL cleanup never disarmed the flag
+// (sessionStorage), but silence read as failure — now the panel answers.
+// Carries v72 (overlay arrival settle) and v71 (entry pages never greet).
 // Loaded per-page via <script src="https://sethweiner.github.io/lungitz/lungitz-interactions.js">
 // (Home + the menu pages; paste the same tag into any new page's custom code).
 // Bail on /sandbox (its loader runs sandbox/vN.js) and guard against double loads
@@ -31,6 +30,13 @@ if (/\/sandbox\/?$/.test(location.pathname)) { return; }
 //   · browser BACK closes fullscreen (history state — the Antoine fix: Esc is never the only
 //     way out; the hint chip advertises "✕ / back" in browser-fullscreen)
 //   · participants links rewrite to /?entry=<coll>/<slug> — index arrival highlight
+// v73 (2026-07-26) — T-08 candidates get a visible pulse. Seth: "I can't actually
+//   see them because of the URL shift away from the ?vt". The URL cleanup
+//   (arrive()'s bare-pathname rewrite on ?entry= flows) never disarms the flag —
+//   it lives in sessionStorage — but silence read as failure. Now the ?lzdebug
+//   panel shows "vt candidate N ARMED · last transition: <page> @<time>" (fed by
+//   the head gate's pagereveal recorder), and the head logs a console line when
+//   armed and on every transition. Trust the panel, not the address bar.
 // v72 (2026-07-26) — the overlay's arrival state is code-owned, like the modal's.
 //   A publish shipped the Immersive Overlay component with .is-viewing toggled on
 //   (canvas state-preview, contract §3) and every page arrived with the overlay
@@ -437,7 +443,7 @@ var TRIGGER    = '.trigger-accordion',
 // A few lines of flight recorder. Always on, costs nothing, and it is the only way
 // to see what a real phone actually did — this pane and a device disagree, and
 // guessing across that gap has cost more time than the bugs. Rendered by ?lzdebug=1.
-var LZ_VERSION = 'v72';
+var LZ_VERSION = 'v73';
 window.__lzTrace = window.__lzTrace || [];
 function lzLog(what, data) {
     try {
@@ -2648,6 +2654,18 @@ var lzSyncPad = null;
              + ' col=' + ((document.querySelector('.wrapper-content') || {}).style || {}).scrollPaddingTop);
         L.push('expand transition: ' + (trig ? getComputedStyle(trig).transitionProperty : '?'));
         L.push('hash=' + (location.hash || '-') + '  intercepted=' + (id || 'NO') );
+        // v73 (T-08): the armed page-transition candidate is visible here, so a
+        // cleaned URL never reads as a lost flag. The head gate arms/stores it
+        // (sessionStorage lz-vt) and records each transition (lz-vt-last).
+        try {
+            var vtFlag = sessionStorage.getItem('lz-vt');
+            if (vtFlag) {
+                L.push('vt candidate ' + vtFlag + ' ARMED  '
+                     + (sessionStorage.getItem('lz-vt-last')
+                        ? 'last transition: ' + sessionStorage.getItem('lz-vt-last')
+                        : '(no transition seen yet — navigate once)'));
+            }
+        } catch (evt) {}
         if (ir) {
             L.push('INFO top=' + Math.round(ir.top) + '  want=' + anchorPad()
                  + '  off_by=' + (Math.round(ir.top) - anchorPad()));
