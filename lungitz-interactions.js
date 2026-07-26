@@ -6,7 +6,7 @@
 // zoom/pan, arrangement). Loaded by the Home page — bail on /sandbox so it doesn't
 // double-bind with the loader's sandbox/vN.js. The injected CSS scaffold below is
 // being migrated to Designer combos; motion + grid-rows transitions stay here.
-// ★ v32 PROMOTED TO PRODUCTION 2026-07-25 — the landing/menu modal concept.
+// ★ v33 PROMOTED TO PRODUCTION 2026-07-26 — participants arrival opens the entry.
 // Loaded per-page via <script src="https://sethweiner.github.io/lungitz/lungitz-interactions.js">
 // (Home + the menu pages; paste the same tag into any new page's custom code).
 // Bail on /sandbox (its loader runs sandbox/vN.js) and guard against double loads
@@ -26,6 +26,16 @@ if (/\/sandbox\/?$/.test(location.pathname)) { return; }
 //   · browser BACK closes fullscreen (history state — the Antoine fix: Esc is never the only
 //     way out; the hint chip advertises "✕ / back" in browser-fullscreen)
 //   · participants links rewrite to /?entry=<coll>/<slug> — index arrival highlight
+// v33 (2026-07-26) — PARTICIPANTS ARRIVAL, two code-side halves of Seth's №1 ticket:
+//   · arrive() now OPENS the entry it lands on (state 2), not just scrolls + lights it —
+//     the target behavior for a contributor-name click. Deep links (/?entry=…) get it too.
+//   · a contributor name whose Designer link is still an empty "#" no longer yanks the page
+//     to the top of the list — a link with no destination now does nothing (code smooths a
+//     link that cannot act; it strips no meaning, there is none in "#").
+//   The other half is Seth's: bind each name in .content-participants to Featured work
+//   (Giveaway) → the item's page, so the href reads /giveaways/<slug>. The MCP cannot
+//   author a reference→collection-page link (tried: it publishes as "#"). Once bound,
+//   participantsToIndex() rewrites it and this arrival opens it — no further code needed.
 //   · RETIRED: the drawer menu (v8→v31), the landing veil, ?realm= wayfinding, the
 //     is-immersive masthead frame (the overlay carries its own bar/✕)
 //   · kept from v31: external links → new tab (noopener)
@@ -1185,6 +1195,15 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         }
         document.addEventListener('pointerdown', clearHighlight, true);
         window.addEventListener('wheel', clearHighlight, { capture: true, passive: true });
+        // Land with the entry OPEN (state 2) — Seth: a contributor's name should deliver you
+        // INTO their work, not merely next to it. Route through the header's own click so the
+        // whole open choreography (close-others stagger, .is-engaged, scrollToTrigger's
+        // settle) is the one the ladder already runs; nothing is reimplemented here.
+        // A synthetic click fires no pointerdown/wheel, so the rust arrival cue survives it.
+        if (!trigger.classList.contains('open')) {
+            var header = trigger.querySelector(HEADER);
+            if (header) { header.click(); }
+        }
         // one-shot: drop the flag so a refresh won't re-fire and the URL settles back to /
         if (history.replaceState) { history.replaceState({}, '', location.pathname); }
     }
@@ -1698,6 +1717,14 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     wrap.querySelectorAll('a[href^="/giveaways/"], a[href^="/hideaways/"]').forEach(function (a) {
         var m = /^\/(giveaways|hideaways)\/([^\/?#]+)/.exec(a.getAttribute('href'));
         if (m) { a.setAttribute('href', '/?entry=' + m[1] + '/' + m[2]); }
+    });
+    // Names whose Designer link is still unbound render href="#" — which, on a list this
+    // long, scrolls the reader back to the top: the click reads as a broken jump rather
+    // than as nothing happening. Until the binding lands, swallow the no-op. Only "#"
+    // exactly — every real href (an entry, an external site, a PDF) is left alone.
+    wrap.addEventListener('click', function (e) {
+        var a = e.target.closest('a[href="#"]');
+        if (a && wrap.contains(a)) { e.preventDefault(); }
     });
 }());
 
