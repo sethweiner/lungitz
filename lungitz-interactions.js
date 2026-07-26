@@ -6,12 +6,16 @@
 // zoom/pan, arrangement). Loaded by the Home page — bail on /sandbox so it doesn't
 // double-bind with the loader's sandbox/vN.js. The injected CSS scaffold below is
 // being migrated to Designer combos; motion + grid-rows transitions stay here.
-// ★ v82 PROMOTED TO PRODUCTION 2026-07-27 — the 1-col close flies onto a real pad.
-// The full arc of the fix: v79 stopped the browser's post-popstate scroll yank from
-// displacing the landing; v80 stamps an unsized landing thumb with the overlay
-// image's own ratio (3/2 while loading); v81 lends it a loaded sibling's width when
-// its grid track collapsed; v82 widens the degenerate threshold to 40px (healthy
-// thumbs are never under 62). Carries v71–v81.
+// ★ v84 PROMOTED TO PRODUCTION 2026-07-27 — DEFECT FIX, promoted on the
+// coordinator's call: v80-82's landing-pad stamp persisted with wrong data
+// (entries with empty image fields render Webflow's 180x180 placeholder; a close
+// stamped a square and the entry grew 464->845px permanently, reshaping the
+// column for every lightbox use). The stamp and borrowed width are flight props
+// now — applied for the 500ms flight, restored on landing. Rides along: the
+// <=767 caption-drawer transition kill is scoped to the ACCORDION drawers, so
+// the lightbox bar and drawer fade as one (the chrome-coming-apart fix).
+// Layout parity vs v82 verified byte-identical at 470/1000/1600, both columns.
+// Carries v71-v83.
 // Loaded per-page via <script src="https://sethweiner.github.io/lungitz/lungitz-interactions.js">
 // (Home + the menu pages; paste the same tag into any new page's custom code).
 // Bail on /sandbox (its loader runs sandbox/vN.js) and guard against double loads
@@ -31,6 +35,27 @@ if (/\/sandbox\/?$/.test(location.pathname)) { return; }
 //   · browser BACK closes fullscreen (history state — the Antoine fix: Esc is never the only
 //     way out; the hint chip advertises "✕ / back" in browser-fullscreen)
 //   · participants links rewrite to /?entry=<coll>/<slug> — index arrival highlight
+// v84 (2026-07-27) — the flight prop is transient. Seth on v83: "glitchier on
+//   all breakpoints... shifted the layout of the right-column". The v83 diff
+//   itself was clean (one media-scoped transition rule; layouts measured
+//   byte-identical v82 vs v83) — the shift was v80-82's landing-pad stamp
+//   PERSISTING with wrong data: entries with empty image fields render
+//   Webflow's 180x180 placeholder, the close stamped a square, and the entry
+//   grew 464 -> 845px for good. The pad stamp and borrowed width are flight
+//   props now: applied for the 500ms flight, restored on landing; the
+//   eager-flipped image then sizes the wrapper truthfully (v62's own path).
+// v83 (2026-07-27) — the lightbox chrome fades as one on every width. Seth:
+//   "why is the animation different than desktop?" — the measured answer has
+//   exactly one accidental piece: the <=767 rule .caption-drawer{transition:
+//   none!important} (v52's layout-cost guard for the ACCORDION drawers) also
+//   hit the overlay's caption drawer and outranked the chrome fade's inline
+//   transition — at 1-col the bar faded while the drawer POPPED. Scoped to
+//   .trigger-accordion .caption-drawer. Everything else that differs is
+//   deliberate or geometric: the expand tween is desktop-only (v52's measured
+//   full-page relayout ratchet at 1-col), and the flight's character follows
+//   thumb geometry (full-width singles barely travel, 15-thumb strips implode,
+//   desktop's ~110px thumbs sit in the expressive middle).
+// v82 (2026-07-27) — degenerate-pad threshold 40px (see promote header).
 // v81 (2026-07-27) — the landing pad gets a WIDTH too. Live check of v80: the
 //   ratio stamp ran but the pad measured 19x14 — the strip's grid track had
 //   collapsed around the unloaded image, so the width came from layout, not
@@ -507,7 +532,7 @@ var TRIGGER    = '.trigger-accordion',
 // A few lines of flight recorder. Always on, costs nothing, and it is the only way
 // to see what a real phone actually did — this pane and a device disagree, and
 // guessing across that gap has cost more time than the bugs. Rendered by ?lzdebug=1.
-var LZ_VERSION = 'v82';
+var LZ_VERSION = 'v84';
 window.__lzTrace = window.__lzTrace || [];
 function lzLog(what, data) {
     try {
@@ -678,7 +703,13 @@ function onRealIndex() {
             '  .trigger-accordion,.trigger-accordion.is-closing,.category-content{',
             '    transition:color .175s,border-color .25s ' + SETTLE + ',border-radius 75ms!important;',
             '  }',
-            '  .caption-drawer{transition:none!important;}',
+            // v83: SCOPED to the accordion drawers. The bare selector also hit
+            // the OVERLAY's caption drawer, and !important beats the chrome
+            // fade's inline transition — so at <=767px the lightbox bar faded
+            // while the caption drawer POPPED (measured: bar "opacity 0.5s",
+            // drawer "none 0s" against an inline 500ms request). One clock for
+            // the overlay chrome on every width.
+            '  .trigger-accordion .caption-drawer{transition:none!important;}',
             '}',
             // Caption-drawer collapse motion lives here in code, not the Designer:
             // Webflow's "invalid styles" audit rejects a transition on
@@ -1224,7 +1255,21 @@ function closeFullscreenNow() {
     // v82: threshold 40 — a 401x20 sliver (image failed outright) missed the
     // 20px check by equality; healthy thumbs measure >=62px on every width, so
     // 40 catches the whole degenerate family without touching real layout.
+    var lzPadRestore = null;   // v84: the flight prop is TRANSIENT (see below)
     if (tEl && tRect && (tRect.height < 40 || tRect.width < 40)) {
+        // v84 — THE FLIGHT PROP MUST NOT REDECORATE THE PAGE. Seth on v83:
+        // "glitchier on all breakpoints... shifted the layout of the
+        // right-column". Measured: an entry whose image field is empty renders
+        // Webflow's 180x180 placeholder, so the close stamped a SQUARE onto
+        // the wrapper (aspect-ratio 180/180 -> pad 401x401) and the ENTRY GREW
+        // 464 -> 845px, permanently. The stamp/width below exist so the flight
+        // has a real target; they are restored the moment the flight lands
+        // (and the eager-flipped image then sizes the wrapper truthfully).
+        var lzPadPrevAR = tEl.style.aspectRatio, lzPadPrevW = tEl.style.width;
+        lzPadRestore = function () {
+            tEl.style.aspectRatio = lzPadPrevAR;
+            tEl.style.width = lzPadPrevW;
+        };
         if (!tEl.style.aspectRatio) {
             tEl.style.aspectRatio = (oImg && oImg.naturalWidth && oImg.naturalHeight)
                 ? oImg.naturalWidth + ' / ' + oImg.naturalHeight
@@ -1246,12 +1291,7 @@ function closeFullscreenNow() {
                 var sbr = thumbs[sbi].getBoundingClientRect();
                 if (sbr.width >= 40) { sibW = sbr.width; break; }
             }
-            if (sibW) {
-                tEl.style.width = Math.round(sibW) + 'px';
-                if (tImg) {
-                    tImg.addEventListener('load', function () { tEl.style.width = ''; }, { once: true });
-                }
-            }
+            if (sibW) { tEl.style.width = Math.round(sibW) + 'px'; }
         }
         void tEl.offsetWidth;
         tRect = tEl.getBoundingClientRect();
@@ -1268,6 +1308,7 @@ function closeFullscreenNow() {
         view.classList.remove('is-viewing');
         lzFlightCleanup(oImg);
         release();
+        if (lzPadRestore) { lzPadRestore(); }   // v84: no leftover decoration
         fsRestoreScrollMode();          // v79: hand scroll policy back
         return;
     }
@@ -1301,6 +1342,7 @@ function closeFullscreenNow() {
     setTimeout(function () {
         view.classList.remove('is-viewing');            // rest state is static (opacity 0)
         lzFlightCleanup(oImg);
+        if (lzPadRestore) { lzPadRestore(); }   // v84: the prop comes down with the set
         fsRestoreScrollMode();          // v79: the flight has landed — hand scroll policy back
     }, FS_EASE.dur);
     release();          // veil-reveal on the viewed thumbnail; back to state 2
