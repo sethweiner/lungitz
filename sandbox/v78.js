@@ -2384,9 +2384,14 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         cueOn = true;
         if (mode === '3') {                           // SHIPPED (Seth's pick)
             pendLink(link);
-            var lz = document.querySelector('a.nav-lungitz')
-                  || document.querySelector('.nav-lungitz');
-            if (lz !== link) { pendLink(lz); }        // the chrome lamp
+            // The VISIBLE lamp only: pages duplicated from Home carry hidden
+            // index copies, and a hidden .nav-lungitz can precede the real one
+            // in DOM order (the onRealIndex doctrine — only visible counts).
+            var lz = null, lzs = document.querySelectorAll('a.nav-lungitz, .nav-lungitz'), zi;
+            for (zi = 0; zi < lzs.length; zi += 1) {
+                if (lzs[zi].getClientRects().length) { lz = lzs[zi]; break; }
+            }
+            if (lz && lz !== link) { pendLink(lz); }  // the chrome lamp
         }
         if (mode === '1' && link) { pendLink(link); } // held: link only
         if (mode === '2') {                           // held: the veil dim (inline)
