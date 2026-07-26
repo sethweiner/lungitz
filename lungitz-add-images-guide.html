@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lungitz — How to add images</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Vollkorn:wght@400;600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0d0e11; --surface:#15171d; --surface2:#1b1e25; --line:rgba(255,255,255,.10);
+    --line2:rgba(255,255,255,.18); --ink:#e9e7e1; --muted:#9b988f; --faint:#6f6d66;
+    --give:#7d93bd; --give-bg:rgba(125,147,189,.14); --give-line:rgba(125,147,189,.45);
+    --hide:#bd7a4f; --hide-bg:rgba(189,122,79,.15); --hide-line:rgba(189,122,79,.5);
+    --warn:#d8a657; --warn-bg:rgba(216,166,87,.12); --ok:#7fae71;
+    --serif:'Vollkorn',Georgia,serif; --sans:'Inter',system-ui,sans-serif; --mono:ui-monospace,'SF Mono',Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:820px;margin:0 auto;padding:48px 28px 80px}
+  h1{font-family:var(--serif);font-weight:600;font-size:34px;line-height:1.1;margin:0 0 6px;letter-spacing:-.01em}
+  h2{font-family:var(--serif);font-weight:600;font-size:21px;margin:44px 0 14px;display:flex;align-items:baseline;gap:10px}
+  h2 .n{font-family:var(--mono);font-size:13px;color:var(--faint);font-weight:400}
+  .lede{color:var(--muted);font-size:16px;margin:0 0 8px;max-width:64ch}
+  .kbd,code,.f{font-family:var(--mono);font-size:.88em}
+  code{background:var(--surface2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:#d9d6cf}
+  .give-t{color:var(--give)} .hide-t{color:var(--hide)}
+  .rule{height:1px;background:var(--line);border:0;margin:34px 0}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:18px 0}
+  @media(max-width:640px){.two{grid-template-columns:1fr}}
+  .col{border-radius:12px;padding:16px 18px;border:1px solid var(--line)}
+  .col.give{background:var(--give-bg);border-color:var(--give-line)}
+  .col.hide{background:var(--hide-bg);border-color:var(--hide-line)}
+  .col h3{margin:0 0 4px;font-family:var(--sans);font-size:15px;font-weight:500;letter-spacing:.04em;text-transform:uppercase}
+  .col.give h3{color:var(--give)} .col.hide h3{color:var(--hide)}
+  .col p{margin:0 0 10px;color:var(--muted);font-size:14px}
+  .col .pick{font-size:14px;color:var(--ink)}
+  .col .pill{display:inline-block;font-family:var(--mono);font-size:13px;padding:3px 9px;border-radius:6px;border:1px solid currentColor;margin-top:2px}
+  .col.give .pill{color:var(--give)} .col.hide .pill{color:var(--hide)}
+  ol.steps{list-style:none;counter-reset:s;margin:0;padding:0}
+  ol.steps>li{counter-increment:s;position:relative;padding:14px 0 14px 46px;border-top:1px solid var(--line)}
+  ol.steps>li:first-child{border-top:0}
+  ol.steps>li::before{content:counter(s);position:absolute;left:0;top:13px;width:28px;height:28px;border-radius:50%;background:var(--surface2);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;color:var(--muted)}
+  ol.steps>li.key::before{background:var(--warn-bg);border-color:var(--warn);color:var(--warn)}
+  ol.steps>li b{font-weight:500}
+  ol.steps>li .sub{display:block;color:var(--muted);font-size:13.5px;margin-top:2px}
+  .callout{display:flex;gap:12px;border-radius:12px;padding:14px 16px;margin:20px 0;border:1px solid var(--warn);background:var(--warn-bg)}
+  .callout .ico{font-size:20px;line-height:1.3}
+  .callout b{color:var(--warn)}
+  .callout p{margin:0;font-size:14px;color:var(--ink)}
+  .tip{border-color:var(--line);background:var(--surface);}
+  .tip b{color:var(--ink)}
+
+  /* Webflow CMS panel recreation */
+  .shotwrap{margin:16px 0 6px}
+  .shotcap{font-size:12.5px;color:var(--faint);margin:0 0 8px;font-family:var(--mono)}
+  .panel{background:var(--surface);border:1px solid var(--line2);border-radius:12px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  .panel .bar{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;background:var(--surface2);border-bottom:1px solid var(--line)}
+  .panel .bar .ttl{font-size:13px;color:var(--muted)} .panel .bar .ttl b{color:var(--ink);font-weight:500}
+  .panel .bar .btns{display:flex;gap:8px}
+  .btn{font-size:12.5px;padding:5px 12px;border-radius:7px;border:1px solid var(--line2);color:var(--muted);background:transparent}
+  .btn.pub{background:#2a6cf0;border-color:#2a6cf0;color:#fff;font-weight:500}
+  .panel .body{padding:14px 16px}
+  .field{margin:0 0 13px}
+  .field label{display:block;font-size:12.5px;color:var(--muted);margin:0 0 5px}
+  .field label .req{color:var(--hide)}
+  .inp{background:var(--bg);border:1px solid var(--line2);border-radius:8px;padding:9px 11px;font-size:13.5px;color:var(--ink);min-height:38px;display:flex;align-items:center}
+  .inp.ph{color:var(--faint)}
+  .inp.img{height:86px;flex-direction:column;justify-content:center;align-items:center;gap:5px;color:var(--faint);border-style:dashed}
+  .ref{display:flex;align-items:center;justify-content:space-between}
+  .ref .chev{color:var(--faint)}
+  .mark{position:relative}
+  .mark.give .inp{border-color:var(--give-line);box-shadow:0 0 0 2px var(--give-bg)}
+  .mark.hide .inp{border-color:var(--hide-line);box-shadow:0 0 0 2px var(--hide-bg)}
+  .mark.warn .inp{border-color:var(--warn);box-shadow:0 0 0 2px var(--warn-bg)}
+  .tag{display:inline-block;margin-top:8px;font-size:11.5px;font-family:var(--mono);padding:3px 9px;border-radius:6px}
+  .tag::before{content:'\2191  ';opacity:.65}
+  .tag.give{color:var(--give);border:1px solid var(--give-line);background:var(--bg)}
+  .tag.hide{color:var(--hide);border:1px solid var(--hide-line);background:var(--bg)}
+  .tag.warn{color:var(--warn);border:1px solid var(--warn);background:var(--bg)}
+  .swap{font-size:12px;color:var(--faint);font-style:italic;margin-top:7px}
+  footer{margin-top:46px;padding-top:18px;border-top:1px solid var(--line);color:var(--faint);font-size:12.5px}
+  @media print{
+    :root{--bg:#fff;--surface:#fff;--surface2:#f4f3ef;--ink:#1a1a1a;--muted:#555;--faint:#888;--line:#e2e0d8;--line2:#cfcdc4}
+    body{background:#fff}.panel{box-shadow:none}.wrap{padding:0}
+    h2{page-break-after:avoid}ol.steps>li,.col,.callout,.panel{page-break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Adding images to Lungitz</h1>
+  <p class="lede">A two-minute guide. Every image is its own item in the <code>Image&nbsp;Sets</code> collection that <b>points back</b> to its entry. You never edit the entry — you make an image and tell it where it belongs.</p>
+
+  <h2><span class="n">01</span> First: which column is the entry in?</h2>
+  <p class="lede">This is the only thing people get wrong. The image points back with a different field depending on the column.</p>
+  <div class="two">
+    <div class="col give">
+      <h3>Giveaways · left</h3>
+      <p>Artworks &amp; project pieces (Seed Bricks, Club Politics, Nordfassade…).</p>
+      <div class="pick">Set the field<br><span class="pill">Parent giveaway</span></div>
+    </div>
+    <div class="col hide">
+      <h3>Hideaways · right</h3>
+      <p>Documents &amp; archive (Aerial Photographs, Demolition, Ziegelwerk…).</p>
+      <div class="pick">Set the field<br><span class="pill">Parent</span></div>
+    </div>
+  </div>
+  <p class="lede" style="font-size:14px">Set <b>one</b> of these, never both. Leave the other blank.</p>
+
+  <h2><span class="n">02</span> Then: make the image</h2>
+  <ol class="steps">
+    <li><b>CMS → Image Sets → New Image Set</b><span class="sub">Open the CMS panel, choose the Image Sets collection, click the “New” button.</span></li>
+    <li><b>Name it</b><span class="sub">Something findable, e.g. <code>Seed Bricks · 06</code>. The slug fills in automatically.</span></li>
+    <li><b>Upload to <span class="f">Image (web)</span></b><span class="sub">Drag in the processed web-size photo. This is the picture that shows on the site.</span></li>
+    <li><b>Point it at the entry</b><span class="sub">Giveaway → set <span class="hide-t f">…</span><span class="give-t f">Parent giveaway</span>. Hideaway → set <span class="hide-t f">Parent</span>. (See step 01.)</span></li>
+    <li><b>Set <span class="f">Order</span></b><span class="sub">1, 2, 3… — the position this image takes in the entry’s slideshow.</span></li>
+    <li><b>Optional: <span class="f">Caption</span> + <span class="f">Credit (individual)</span></b><span class="sub">Shown under the image in the lightbox. Nice to have, not required.</span></li>
+    <li class="key"><b>Save, then <span style="color:var(--warn)">Publish the site</span></b><span class="sub">Important: a new image only appears after a <b>full Publish</b> — saving the item alone won’t show it. Allow a few minutes, then hard-refresh.</span></li>
+  </ol>
+
+  <div class="callout">
+    <div class="ico">✓</div>
+    <p>That’s it. The thumbnail appears in the entry’s gallery automatically, in the row, in Order. You never touch the entry itself — the image finds its home through the parent field.</p>
+  </div>
+
+  <h2><span class="n">03</span> What the panel looks like</h2>
+  <div class="shotwrap">
+    <p class="shotcap">Image Sets → new item — the fields that matter are flagged</p>
+    <div class="panel">
+      <div class="bar">
+        <div class="ttl">Create Item · <b>Image Sets</b></div>
+        <div class="btns"><span class="btn">Save</span><span class="btn pub">Publish</span></div>
+      </div>
+      <div class="body">
+        <div class="field"><label>Name <span class="req">*</span></label><div class="inp ph">Seed Bricks · 06</div></div>
+        <div class="field mark warn"><label>Image (web)</label><div class="inp img"><div style="font-size:18px">⬆</div><div>Drop the web-size photo here</div></div><span class="tag warn">upload the picture</span></div>
+        <div class="field mark give"><label>Parent giveaway</label><div class="inp ref"><span class="ph">Choose a Giveaway…</span><span class="chev">▾</span></div><span class="tag give">use for GIVEAWAYS</span></div>
+        <div class="field mark hide"><label>Parent</label><div class="inp ref"><span class="ph">Choose a Hideaway…</span><span class="chev">▾</span></div><span class="tag hide">use for HIDEAWAYS</span></div>
+        <div class="field mark warn"><label>Order</label><div class="inp ph">6</div><span class="tag warn">slideshow position</span></div>
+        <div class="field"><label>Caption</label><div class="inp ph" style="min-height:46px;align-items:flex-start">optional…</div></div>
+        <div class="field"><label>Credit (individual)</label><div class="inp ph">optional…</div></div>
+      </div>
+    </div>
+    <p class="swap">Annotated recreation of the real panel. Drop a screenshot in over this block to use the live UI instead.</p>
+  </div>
+
+  <h2><span class="n">04</span> If it doesn’t show up</h2>
+  <div class="callout tip"><div class="ico">›</div><p><b>You set the wrong parent.</b> A Giveaway image needs <code>Parent giveaway</code>; a Hideaway image needs <code>Parent</code>. If you fill the wrong one, the image attaches to nothing (or the wrong column) and stays hidden.</p></div>
+  <div class="callout tip"><div class="ico">›</div><p><b>You didn’t do a full Publish.</b> Saving the item is not enough — hit the site <b>Publish</b> button, wait a couple of minutes, then hard-refresh (⌘⇧R).</p></div>
+  <div class="callout tip"><div class="ico">›</div><p><b>No web image yet.</b> The gallery only shows items whose <code>Image (web)</code> is filled. An item with an empty image is skipped.</p></div>
+
+  <footer>
+    Lungitz / Giveaways &amp; Hideaways — internal editing guide. The image gallery reads every Image Set whose parent points at the entry, sorted by Order; there is no per-image limit. Generated 2026-06-16.
+  </footer>
+
+</div>
+</body>
+</html>

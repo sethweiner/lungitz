@@ -6,7 +6,7 @@
 // zoom/pan, arrangement). Loaded by the Home page — bail on /sandbox so it doesn't
 // double-bind with the loader's sandbox/vN.js. The injected CSS scaffold below is
 // being migrated to Designer combos; motion + grid-rows transitions stay here.
-// ★ v33 PROMOTED TO PRODUCTION 2026-07-26 — participants arrival opens the entry.
+// ★ v34 PROMOTED TO PRODUCTION 2026-07-26 — arrival opens the entry; no collapse-on-arrival.
 // Loaded per-page via <script src="https://sethweiner.github.io/lungitz/lungitz-interactions.js">
 // (Home + the menu pages; paste the same tag into any new page's custom code).
 // Bail on /sandbox (its loader runs sandbox/vN.js) and guard against double loads
@@ -14,18 +14,11 @@
 if (window.__lzLoaded) { return; }
 window.__lzLoaded = true;
 if (/\/sandbox\/?$/.test(location.pathname)) { return; }
-// v32 — LANDING/MENU MODAL CONCEPT (Seth's wireframes, 2026-07-25):
-//   · §landingModal: Seth's container-landing modal IS the landing + the menu — greets on
-//     arrival at the index, dismisses on any click outside its links, LUNGITZ re-opens it
-//     (dormant until the modal is instanced on the page — wireframe-first)
-//   · §masthead (focused): GIVEAWAYS/HIDEAWAYS → #info-giveaways / #info-hideaways anchors
-//     (+ rust cue); LUNGITZ → the modal / home; .category-content "+" toggles .is-expanded
-//   · fullscreen: Seth's .immersive-overlay becomes the state-4 view when present (paint,
-//     .is-open, light FLIP in); the proven gesture layer retargets; legacy portal path is the
-//     fallback until the overlay exists on the index
-//   · browser BACK closes fullscreen (history state — the Antoine fix: Esc is never the only
-//     way out; the hint chip advertises "✕ / back" in browser-fullscreen)
-//   · participants links rewrite to /?entry=<coll>/<slug> — index arrival highlight
+// v34 (2026-07-26) — PAGE-TRANSITION JUMP: the modal's motion is armed only after the
+//   arrival state has painted. Webflow ships .container-landing .is-active in every
+//   page's HTML; the async script strips it on Home, and with motion armed from the
+//   start that played a 450-600ms collapse of the whole menu as the page appeared.
+//   Back/forward looked perfect because bfcache restores the settled DOM. See §landingModal.
 // v33 (2026-07-26) — PARTICIPANTS ARRIVAL, two code-side halves of Seth's №1 ticket:
 //   · arrive() now OPENS the entry it lands on (state 2), not just scrolls + lights it —
 //     the target behavior for a contributor-name click. Deep links (/?entry=…) get it too.
@@ -1602,15 +1595,40 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     // PERSISTENCE: it greets expanded ONCE per browser session on arriving at
     // the index; after any dismissal (or a deep link) it rests as the word-row
     // masthead. LUNGITZ re-expands it any time — it is the menu.
+    // Structure only — no motion yet. The transition list is armed further down,
+    // after the arrival state has painted (see armMotion), because every page ships
+    // .is-active in its server HTML.
     var st = document.createElement('style');
     st.textContent =
-        '.container-landing,.container-landing-modal{'
-      + 'transition:grid-template-rows .45s ' + SETTLE + ',opacity .5s ease,transform .6s ' + SETTLE + ',padding .3s;}'
         // rest = word row only (code-owned descendant hides; contract §2)
-      + '.container-landing:not(.is-active) .landing-content,'
+        '.container-landing:not(.is-active) .landing-content,'
       + '.container-landing:not(.is-active) .nav-content.bottom,'
       + '.container-landing:not(.is-active) .frame-close{display:none;}';
     document.head.appendChild(st);
+
+    // Arm the modal's motion only once the arrival state is on screen.
+    // WHY (v34 — the "page transitions are jumpy on click" ticket): Webflow ships
+    // .container-landing ALREADY .is-active in every page's HTML, so a returning
+    // visitor's Home paints with the whole landing/menu open, and the script — which
+    // loads async, after first paint — then strips the class. With the transition
+    // armed from the start that strip played as a 450-600ms collapse of the full
+    // menu down to the word row, right as the page appeared. That is the jump, and
+    // it is exactly why back/forward looked perfect: bfcache restores the already
+    // settled DOM, so nothing collapses. Deferring the arm by two frames makes the
+    // arrival state instant (at worst a single-frame flash) while every later
+    // open/close — the ones the reader actually triggers — still animates.
+    // rAF is throttled to a standstill in a background tab, so pair it with a timer:
+    // whichever lands first arms the motion, the flag keeps it to one stylesheet.
+    var armed = false;
+    function armMotion() {
+        if (armed) { return; }
+        armed = true;
+        var motion = document.createElement('style');
+        motion.textContent =
+            '.container-landing,.container-landing-modal{'
+          + 'transition:grid-template-rows .45s ' + SETTLE + ',opacity .5s ease,transform .6s ' + SETTLE + ',padding .3s;}';
+        document.head.appendChild(motion);
+    }
 
     var SEEN = 'lz-landing-seen';
 
@@ -1644,6 +1662,11 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     } else {
         show();             // first arrival of the session: the landing greets
     }
+
+    // The arrival state is now set. Let it paint, THEN arm the motion, so the
+    // settle above is instant and every reader-triggered open/close still glides.
+    requestAnimationFrame(function () { requestAnimationFrame(armMotion); });
+    setTimeout(armMotion, 500);
 
     // Click routing while the modal holds: its links act (the realm anchors
     // dismiss first, then glide); anywhere else = enter the index. Capture, so

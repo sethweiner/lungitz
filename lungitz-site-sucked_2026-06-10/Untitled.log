@@ -1,0 +1,7 @@
+
+11.06.26, 10:01:50 - ERROR: Download of “https://fonts.gstatic.com”, referred from “/Users/sethweiner/Downloads/us.sitesucker.mac.sitesucker/lungitz.webflow.io/index.html”, failed with error code 404 (not found)
+11.06.26, 10:01:50 - ERROR: Download of “https://fonts.googleapis.com”, referred from “/Users/sethweiner/Downloads/us.sitesucker.mac.sitesucker/lungitz.webflow.io/index.html”, failed with error code 404 (not found)
+11.06.26, 10:01:50 - ERROR: Download of “https://cdn.prod.website-files.com”, referred from “/Users/sethweiner/Downloads/us.sitesucker.mac.sitesucker/lungitz.webflow.io/index.html”, failed with error code 403 (forbidden)
+11.06.26, 10:01:50 - ERROR: Download of “https://cdn.prod.website-files.com/plugins/Basic/assets/placeholder.60f9b1840c.svg”, referred from “/Users/sethweiner/Downloads/us.sitesucker.mac.sitesucker/lungitz.webflow.io/index.html”, failed with error code 403 (forbidden)
+
+---------------------

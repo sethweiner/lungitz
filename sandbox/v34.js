@@ -1622,7 +1622,12 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     // settled DOM, so nothing collapses. Deferring the arm by two frames makes the
     // arrival state instant (at worst a single-frame flash) while every later
     // open/close — the ones the reader actually triggers — still animates.
+    // rAF is throttled to a standstill in a background tab, so pair it with a timer:
+    // whichever lands first arms the motion, the flag keeps it to one stylesheet.
+    var armed = false;
     function armMotion() {
+        if (armed) { return; }
+        armed = true;
         var motion = document.createElement('style');
         motion.textContent =
             '.container-landing,.container-landing-modal{'
@@ -1666,6 +1671,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     // The arrival state is now set. Let it paint, THEN arm the motion, so the
     // settle above is instant and every reader-triggered open/close still glides.
     requestAnimationFrame(function () { requestAnimationFrame(armMotion); });
+    setTimeout(armMotion, 500);
 
     // Click routing while the modal holds: its links act (the realm anchors
     // dismiss first, then glide); anywhere else = enter the index. Capture, so
