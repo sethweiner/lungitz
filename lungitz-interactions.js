@@ -6,12 +6,13 @@
 // zoom/pan, arrangement). Loaded by the Home page — bail on /sandbox so it doesn't
 // double-bind with the loader's sandbox/vN.js. The injected CSS scaffold below is
 // being migrated to Designer combos; motion + grid-rows transitions stay here.
-// ★ v79 PROMOTED TO PRODUCTION 2026-07-26 — the 1-col lightbox close lands on its
-// thumb again. The close is a history traversal and scrollRestoration 'auto' let
-// Chrome re-scroll the document AFTER the flight target was fixed (measured 700px
-// yank) — 1-col only, because only there the document scrolls; hideaways showed it
-// because they sit deepest. The fullscreen round-trip now runs scrollRestoration
-// 'manual' and hands the prior policy back after landing. Carries v71–v78.
+// ★ v80 PROMOTED TO PRODUCTION 2026-07-27 — the close flies again on un-warmed
+// thumbs. v79's landing fix exposed that the flight could target a ~8x5px wrapper
+// (lazy image never fetched, v62 stamp still pending) — animated, but imploding to
+// a dot: "the animation was stripped in the 1column" (Seth). The close now stamps a
+// degenerate landing pad synchronously from the overlay image's own natural ratio
+// (3/2 fallback while it loads), warms the thumb, reflows, re-measures. Both widths
+// fly; v79's scroll-restoration landing fix intact. Carries v71–v79.
 // Loaded per-page via <script src="https://sethweiner.github.io/lungitz/lungitz-interactions.js">
 // (Home + the menu pages; paste the same tag into any new page's custom code).
 // Bail on /sandbox (its loader runs sandbox/vN.js) and guard against double loads
@@ -31,6 +32,18 @@ if (/\/sandbox\/?$/.test(location.pathname)) { return; }
 //   · browser BACK closes fullscreen (history state — the Antoine fix: Esc is never the only
 //     way out; the hint chip advertises "✕ / back" in browser-fullscreen)
 //   · participants links rewrite to /?entry=<coll>/<slug> — index arrival highlight
+// v80 (2026-07-27) — the close flies again on un-warmed thumbs. Seth on v79:
+//   "exit works now, but the animation was stripped in the 1column." Measured
+//   in a 470px repro: the flight branch RAN (transition string written) but
+//   its target was scale(0.018) — a ~8x5px landing pad. After swiping, the
+//   landing thumb can be one whose lazy image never fetched: v62's ratio
+//   stamp waits for naturalWidth, and those fetches queue behind the
+//   fullscreen image, so the wrapper has ~no height and the flight implodes
+//   to a dot — perceptually a snap, in exactly the right place (v79's landing
+//   fix intact). The close now stamps a degenerate landing pad synchronously
+//   from the overlay image's OWN natural ratio (same asset, identical layout
+//   by construction), warms the thumb, reflows, and re-measures before the
+//   out-of-view settle. Both widths fly; landing exactness unchanged.
 // v79 (2026-07-26) — the 1-col lightbox close lands on its thumb again. Seth:
 //   "the hideaways exit down the page from the lightbox... seems to be a 2 to
 //   1 column issue." Root cause, measured: the close is a history traversal,
@@ -489,7 +502,7 @@ var TRIGGER    = '.trigger-accordion',
 // A few lines of flight recorder. Always on, costs nothing, and it is the only way
 // to see what a real phone actually did — this pane and a device disagree, and
 // guessing across that gap has cost more time than the bugs. Rendered by ?lzdebug=1.
-var LZ_VERSION = 'v79';
+var LZ_VERSION = 'v80';
 window.__lzTrace = window.__lzTrace || [];
 function lzLog(what, data) {
     try {
@@ -1194,6 +1207,29 @@ function closeFullscreenNow() {
     var thumbs = trigger ? trigger.querySelectorAll(W_THUMB) : [],
         tEl = detail ? thumbs[detail.idx] : null,
         tRect = tEl && tEl.getBoundingClientRect();
+    // UN-WARMED LANDING PAD (v80). Seth: "the animation was stripped in the
+    // 1column." The flight RAN — to a ~8x5px rect: after swiping, the landing
+    // thumb can be one whose lazy image never fetched, so its wrapper has no
+    // height (v62 stamps ratios only when naturalWidth appears, and those
+    // fetches queue behind the fullscreen image). A flight to a near-zero rect
+    // implodes in the first frames — reads as a snap. But at close time the
+    // ratio is already known FOR FREE: the overlay image IS the same asset.
+    // Stamp the wrapper synchronously (v62's own property, identical layout by
+    // construction), warm the thumb, reflow, re-measure — a real rect to fly to.
+    if (tEl && tRect && (tRect.height < 20 || tRect.width < 20)) {
+        if (!tEl.style.aspectRatio) {
+            tEl.style.aspectRatio = (oImg && oImg.naturalWidth && oImg.naturalHeight)
+                ? oImg.naturalWidth + ' / ' + oImg.naturalHeight
+                // The overlay image can itself still be loading (slow network,
+                // fast close): T-01's dominant source ratio — a real-sized pad
+                // beats a dot, and beats the static hide.
+                : '3 / 2';
+        }
+        var tImg = tEl.querySelector('img');
+        if (tImg && tImg.loading === 'lazy') { tImg.loading = 'eager'; }
+        void tEl.offsetWidth;
+        tRect = tEl.getBoundingClientRect();
+    }
     // Off-screen landing pad: the page behind may have scrolled (or the entry
     // sits far away after a deep arrival). Settle it instantly — invisible
     // behind the full-frame overlay — and aim at the re-measured rect.
