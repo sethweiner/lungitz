@@ -47,7 +47,22 @@ remaining half is one Designer value (T-01).
 
 ### Blocking / functional
 
-**T-01 — Entry expand animation — FIXED (verify on your machine)**
+**T-01 — Entry expand animation — PARTLY REVERSED 2026-07-26 (late)**
+> **Seth overruled the Designer half**: "you clobbered the thumbnail heights, it
+> totally fucks up the layout." The ragged 73/62/73 heights ARE the design.
+> `aspect-ratio: 3/2` is REMOVED from `.wrapper-thumbnail` (via MCP, snapshot-verified,
+> published; ragged heights confirmed on staging). Never re-impose a uniform ratio.
+> Measured consequence of the revert: 0/3 vs 3/3 images = 238 → 402px (`entryGrewBy 164`)
+> — the cold-cache jump is structurally back; v60's warming only wins on fast networks.
+> Replacement candidate: **sandbox/v62.js** stamps each `.wrapper-thumbnail` with its own
+> image's natural ratio (inline, per image) at warm time — reservation without uniformity,
+> ragged heights preserved exactly. Verified at 1-col (stamps `2400/1598, 2400/1350,
+> 5616/3744`; heights identical with 0/N and N/N loaded; cold click grew 0). NOT yet
+> verified at 2-col (the Chrome window went `document.hidden` mid-session — same rAF
+> trap as the pane, it starves the glide too) and NOT promoted — Seth should see it
+> first. Original T-01 record below, for the diagnosis.
+
+**T-01 (original record) — Entry expand animation — FIXED (verify on your machine)**
 Cause, confirmed by measurement: `.wrapper-thumbnail` had **no width or height of its
 own**, so the strip was sized entirely by whatever the image turned out to be — and every
 thumbnail is `loading="lazy"` with no height attribute. Until each image decoded it
