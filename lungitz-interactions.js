@@ -6,12 +6,11 @@
 // zoom/pan, arrangement). Loaded by the Home page — bail on /sandbox so it doesn't
 // double-bind with the loader's sandbox/vN.js. The injected CSS scaffold below is
 // being migrated to Designer combos; motion + grid-rows transitions stay here.
-// ★ v70 PROMOTED TO PRODUCTION 2026-07-26 — the ladder-cut arc ships (v66–v69: state 3
-// removed, the picture flies between thumbnail and fullscreen on CLOSE_EASE 500ms,
-// per-image reservation, caption collapse rule) plus the two Designer-requested
-// overlay leaves (caption-name / caption-edition, painted from the entry's own
-// bound author/edition text). This build is also the left/right column symmetry
-// fix: v65's single-image special-case is gone — one arc for every entry.
+// ★ v71 PROMOTED TO PRODUCTION 2026-07-26 — T-04: entry pages arrive at the entry.
+// The CMS templates' visible columns made landingModal run its index arrival rule,
+// so a cold session greeted the reader over the entry they navigated to. Entry
+// paths now always rest (?menu=1 still wins); the SITE HEAD gate carries the same
+// rule pre-paint — change either only with the other (lockstep, see CLAUDE.md).
 // Loaded per-page via <script src="https://sethweiner.github.io/lungitz/lungitz-interactions.js">
 // (Home + the menu pages; paste the same tag into any new page's custom code).
 // Bail on /sandbox (its loader runs sandbox/vN.js) and guard against double loads
@@ -31,6 +30,13 @@ if (/\/sandbox\/?$/.test(location.pathname)) { return; }
 //   · browser BACK closes fullscreen (history state — the Antoine fix: Esc is never the only
 //     way out; the hint chip advertises "✕ / back" in browser-fullscreen)
 //   · participants links rewrite to /?entry=<coll>/<slug> — index arrival highlight
+// v71 (2026-07-26) — T-04: entry pages arrive at the entry, never the greeting.
+//   The CMS templates carry visible columns, so onRealIndex() is true there and
+//   landingModal used to run its full arrival rule — a cold session fell through
+//   to show() and greeted the reader over the entry they came for. New branch:
+//   /giveaways/* and /hideaways/* paths always rest on arrival (?menu=1 still
+//   wins). LOCKSTEP: the SITE HEAD gate now sets lz-rest on those paths too, so
+//   the wrong state is never painted — change either rule only with the other.
 // v70 (2026-07-26) — two Designer-requested overlay leaves, nothing else.
 //   Seth: "there's an overlay (the lightbox), I just want to add a couple of
 //   things there... mainly a name element, an editions element... very simple."
@@ -423,7 +429,7 @@ var TRIGGER    = '.trigger-accordion',
 // A few lines of flight recorder. Always on, costs nothing, and it is the only way
 // to see what a real phone actually did — this pane and a device disagree, and
 // guessing across that gap has cost more time than the bugs. Rendered by ?lzdebug=1.
-var LZ_VERSION = 'v70';
+var LZ_VERSION = 'v71';
 window.__lzTrace = window.__lzTrace || [];
 function lzLog(what, data) {
     try {
@@ -2348,6 +2354,15 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
                 + location.search.replace(/([?&])menu=1&?/, '$1').replace(/[?&]$/, '')
                 + location.hash);
         } catch (e) {}
+    } else if (/^\/(giveaways|hideaways)\//.test(location.pathname)) {
+        // v71 (T-04): ENTRY PAGES NEVER GREET. The CMS templates carry visible
+        // columns, so onRealIndex() is true and this module runs — and a cold
+        // session used to fall through to show(), greeting the reader over the
+        // entry they navigated to. Seth: arrival goes straight to CMS content.
+        // The SITE HEAD gate carries the same rule pre-paint (lockstep — see
+        // CLAUDE.md): entry paths get lz-rest unless ?menu=1, so the open modal
+        // is never painted at all. LUNGITZ still opens the menu via the toggle.
+        dismiss();
     } else if (/[?&]entry=/.test(INITIAL_SEARCH) || /[?&]veil=0\b/.test(INITIAL_SEARCH) || INITIAL_HASH || seen) {
         dismiss();          // deep link / already greeted this session → the word-row masthead
     } else {
