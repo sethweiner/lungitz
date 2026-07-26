@@ -6,11 +6,12 @@
 // zoom/pan, arrangement). Loaded by the Home page — bail on /sandbox so it doesn't
 // double-bind with the loader's sandbox/vN.js. The injected CSS scaffold below is
 // being migrated to Designer combos; motion + grid-rows transitions stay here.
-// ★ v71 PROMOTED TO PRODUCTION 2026-07-26 — T-04: entry pages arrive at the entry.
-// The CMS templates' visible columns made landingModal run its index arrival rule,
-// so a cold session greeted the reader over the entry they navigated to. Entry
-// paths now always rest (?menu=1 still wins); the SITE HEAD gate carries the same
-// rule pre-paint — change either only with the other (lockstep, see CLAUDE.md).
+// ★ v72 PROMOTED TO PRODUCTION 2026-07-26 — the overlay's arrival state is code-owned.
+// A publish shipped the Immersive Overlay with .is-viewing toggled on the canvas and
+// every page arrived with the overlay open over its content (full-viewport at 1-col).
+// The script settles the overlay at init; the SITE HEAD gate hides it pre-paint via
+// html.lz-ov-rest — lockstep, change either only with the other (see CLAUDE.md).
+// Also carries v71 (entry pages never greet — T-04).
 // Loaded per-page via <script src="https://sethweiner.github.io/lungitz/lungitz-interactions.js">
 // (Home + the menu pages; paste the same tag into any new page's custom code).
 // Bail on /sandbox (its loader runs sandbox/vN.js) and guard against double loads
@@ -30,6 +31,13 @@ if (/\/sandbox\/?$/.test(location.pathname)) { return; }
 //   · browser BACK closes fullscreen (history state — the Antoine fix: Esc is never the only
 //     way out; the hint chip advertises "✕ / back" in browser-fullscreen)
 //   · participants links rewrite to /?entry=<coll>/<slug> — index arrival highlight
+// v72 (2026-07-26) — the overlay's arrival state is code-owned, like the modal's.
+//   A publish shipped the Immersive Overlay component with .is-viewing toggled on
+//   (canvas state-preview, contract §3) and every page arrived with the overlay
+//   open over its content — full-viewport at 1-col. The script now settles the
+//   overlay at init (strips is-viewing/is-open/is-fullscreen from the element);
+//   the SITE HEAD gate hides it pre-paint via html.lz-ov-rest (lockstep). The
+//   Designer canvas keeps whatever state is toggled — publishes can't leak it.
 // v71 (2026-07-26) — T-04: entry pages arrive at the entry, never the greeting.
 //   The CMS templates carry visible columns, so onRealIndex() is true there and
 //   landingModal used to run its full arrival rule — a cold session fell through
@@ -429,7 +437,7 @@ var TRIGGER    = '.trigger-accordion',
 // A few lines of flight recorder. Always on, costs nothing, and it is the only way
 // to see what a real phone actually did — this pane and a device disagree, and
 // guessing across that gap has cost more time than the bugs. Rendered by ?lzdebug=1.
-var LZ_VERSION = 'v71';
+var LZ_VERSION = 'v72';
 window.__lzTrace = window.__lzTrace || [];
 function lzLog(what, data) {
     try {
@@ -458,6 +466,24 @@ var detail      = null,
 // (wireframe-first find-or-reuse); the legacy promoted detail-view otherwise.
 var OVERLAY = document.querySelector('.immersive-overlay');
 var FS_IMG  = '.immersive-image';   // v66: the overlay's image is the only fullscreen image
+
+// v72 — SETTLE THE SERVER-SHIPPED OVERLAY STATE. Webflow publishes whatever
+// state classes are toggled on the canvas (contract §3's own preview-the-state
+// workflow), and a 2026-07-26 publish shipped the component root with
+// .is-viewing — every page arrived with the fullscreen overlay OPEN over its
+// content, covering the whole viewport at 1-col. Same lesson as the landing
+// modal: arrival code owns state classes; server HTML is never trusted. No
+// arrival flow opens fullscreen, so the overlay ALWAYS starts closed —
+// openFullscreen() re-adds the class for real opens, so styling the state on
+// canvas stays safe to publish. LOCKSTEP: the SITE HEAD gate hides the overlay
+// pre-paint via html.lz-ov-rest; dropping that class here reveals the element
+// in its settled rest state. Change either half only with the other.
+if (OVERLAY) {
+    OVERLAY.classList.remove('is-viewing');
+    OVERLAY.classList.remove('is-open');
+    OVERLAY.classList.remove('is-fullscreen');
+}
+document.documentElement.classList.remove('lz-ov-rest');
 function fsImage() { return fs ? fs.view.querySelector(FS_IMG) : null; }
 
 // "Am I on the index?" — only VISIBLE columns count. Menu pages built by
