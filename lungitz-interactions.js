@@ -6,11 +6,10 @@
 // zoom/pan, arrangement). Loaded by the Home page — bail on /sandbox so it doesn't
 // double-bind with the loader's sandbox/vN.js. The injected CSS scaffold below is
 // being migrated to Designer combos; motion + grid-rows transitions stay here.
-// ★ v75 PROMOTED TO PRODUCTION 2026-07-26 — T-08 SHIPPED (Seth: "vt=1 is the best
-// so far"): the CLOSE_EASE 500ms crossfade is every visitor's page transition, the
-// opt-in and rules live parse-time in the SITE HEAD, softNav's async 300ms copy is
-// retired, and the menu modal runs the same family clock by default. ?vt=0 = no
-// transitions (comparison); ?vt=2/3 remain held candidates. Carries v71–v74.
+// ★ v76 PROMOTED TO PRODUCTION 2026-07-26 — the navigation-pending cue candidates,
+// HELD behind ?ni=N (1 clicked-link rust · 2 page dim · 3 rust + LUNGITZ pulse;
+// ?ni=0 clears). Instant at click on the outgoing page, real document navigations
+// only. Default sessions are bit-identical to v75. Carries v71–v75.
 // Loaded per-page via <script src="https://sethweiner.github.io/lungitz/lungitz-interactions.js">
 // (Home + the menu pages; paste the same tag into any new page's custom code).
 // Bail on /sandbox (its loader runs sandbox/vN.js) and guard against double loads
@@ -30,6 +29,16 @@ if (/\/sandbox\/?$/.test(location.pathname)) { return; }
 //   · browser BACK closes fullscreen (history state — the Antoine fix: Esc is never the only
 //     way out; the hint chip advertises "✕ / back" in browser-fullscreen)
 //   · participants links rewrite to /?entry=<coll>/<slug> — index arrival highlight
+// v76 (2026-07-26) — the navigation-pending cue, HELD behind ?ni=N. Seth: "if
+//   the link from participants to the entry is going to be so slow we're gonna
+//   need some visual indicator." §navCue: instant at click on the OUTGOING
+//   page (which view transitions hold on screen through the slow fetch), real
+//   document navigations only (bubble-phase after every router; the
+//   participants-name route explicitly included), color/opacity only, existing
+//   tokens. ?ni=1 clicked link rust · ?ni=2 page dims (veil gesture) · ?ni=3
+//   rust link + LUNGITZ pulses. Inline-styled INTERIM — the "navigation
+//   pending" state class is Seth's to name (T-12 territory), then this becomes
+//   classList and both states style on canvas.
 // v75 (2026-07-26) — T-08 SHIPPED. Seth: "vt=1 is the best so far" — the
 //   re-eased crossfade (CLOSE_EASE 500ms) is the site DEFAULT for every
 //   visitor: the head carries the parse-time @view-transition opt-in and the
@@ -460,7 +469,7 @@ var TRIGGER    = '.trigger-accordion',
 // A few lines of flight recorder. Always on, costs nothing, and it is the only way
 // to see what a real phone actually did — this pane and a device disagree, and
 // guessing across that gap has cost more time than the bugs. Rendered by ?lzdebug=1.
-var LZ_VERSION = 'v75';
+var LZ_VERSION = 'v76';
 window.__lzTrace = window.__lzTrace || [];
 function lzLog(what, data) {
     try {
@@ -2307,6 +2316,109 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
 //  Wireframe-first: dormant until the modal is instanced on the page.
 //  ?veil=0 suppresses it for testing.
 // ════════════════════════════════════════════════════════════════════════
+// ── §navCue — "this click is going somewhere" (v76, HELD behind ?ni=N) ──
+// Seth: "if the link from participants to the entry is going to be so slow
+// we're gonna need some visual indicator." With view transitions the OLD page
+// holds during the ~2s staging HTML fetch, so the cue lives on the outgoing
+// page, instantly at click. Only REAL document navigations cue: this listener
+// is bubble-phase and registered by the async script, so every smoothed link
+// (glide, modal toggle) has already preventDefault'd and is skipped — except
+// the participants-name route, whose head-gate router preventDefaults and then
+// navigates, so it is explicitly included. Color/opacity only — zero layout
+// shift; eased on existing tokens so a fast (~200ms) navigation shows a brief
+// soft cue, never a strobe. INTERIM STYLING NOTE: the cue is set inline because
+// "navigation pending" has no state class yet — that name is Seth's to create
+// (same territory as T-12); once named, these inline writes become
+// classList.add and both states are stylable on canvas.
+// Candidates (session-sticky, ?ni=0 clears): ?ni=1 clicked link goes rust;
+// ?ni=2 the page dims to 0.55 on CLOSE_EASE (the veil gesture); ?ni=3 clicked
+// link goes rust + LUNGITZ pulses rust as a chrome-level lamp.
+(function navCue() {
+    var mode = '';
+    try {
+        var m = /[?&]ni=(\d)/.exec(INITIAL_SEARCH);
+        if (m) { sessionStorage.setItem('lz-ni', m[1]); }
+        mode = sessionStorage.getItem('lz-ni') || '';
+    } catch (eni) {}
+    if (!mode || mode === '0') { return; }
+    var RUSTC = 'var(--_lungitz---color-accent-b-500)';
+    var cueOn = false, undo = [], failsafe = null;
+    function clear() {
+        if (!cueOn) { return; }
+        cueOn = false;
+        if (failsafe) { clearTimeout(failsafe); failsafe = null; }
+        for (var i = 0; i < undo.length; i += 1) { try { undo[i](); } catch (ec) {} }
+        undo = [];
+    }
+    function tintLink(link) {
+        var pc = link.style.color, pt = link.style.transition;
+        link.style.transition = 'color 150ms ease';
+        link.style.color = RUSTC;
+        // the h4 children carry the bare tag colour (the v37/v39 shortfall) —
+        // tint them too so the whole clicked element answers
+        var kids = link.querySelectorAll('h1,h2,h3,h4,h5,p,div');
+        var prev = [];
+        for (var k = 0; k < kids.length; k += 1) {
+            prev.push([kids[k], kids[k].style.color]);
+            kids[k].style.color = RUSTC;
+        }
+        undo.push(function () {
+            link.style.color = pc; link.style.transition = pt;
+            for (var j = 0; j < prev.length; j += 1) { prev[j][0].style.color = prev[j][1]; }
+        });
+    }
+    function show(link) {
+        if (cueOn) { return; }
+        cueOn = true;
+        if ((mode === '1' || mode === '3') && link) { tintLink(link); }
+        if (mode === '2') {
+            var cc = document.querySelector('.container-content');
+            if (cc) {
+                var po = cc.style.opacity, pt2 = cc.style.transition;
+                cc.style.transition = 'opacity 500ms ' + CLOSE_EASE;
+                cc.style.opacity = '0.55';
+                undo.push(function () { cc.style.opacity = po; cc.style.transition = pt2; });
+            }
+        }
+        if (mode === '3') {
+            var lz = null, links = document.querySelectorAll('.nav.wide a'), li;
+            for (li = 0; li < links.length; li += 1) {
+                if (/LUNGITZ/i.test(links[li].textContent)) { lz = links[li]; break; }
+            }
+            if (lz) {
+                var p1 = lz.style.color, p2 = lz.style.transition, p3 = lz.style.opacity;
+                lz.style.transition = 'color 150ms ease, opacity 700ms ' + CLOSE_EASE;
+                lz.style.color = RUSTC;
+                var dimmed = false;
+                var pulse = setInterval(function () {
+                    dimmed = !dimmed;
+                    lz.style.opacity = dimmed ? '0.4' : '1';
+                }, 700);
+                undo.push(function () {
+                    clearInterval(pulse);
+                    lz.style.color = p1; lz.style.transition = p2; lz.style.opacity = p3;
+                });
+            }
+        }
+        // aborted navigation (Esc mid-fetch): the page never unloads — restore
+        failsafe = setTimeout(clear, 12000);
+    }
+    document.addEventListener('click', function (e) {
+        try {
+            var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+            if (!a || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) { return; }
+            if (a.target && a.target !== '_self') { return; }
+            if (a.origin && a.origin !== location.origin) { return; }
+            var participantsRoute = !!a.closest('.content-participants');
+            if (e.defaultPrevented && !participantsRoute) { return; }  // smoothed in place — no navigation
+            if (!e.defaultPrevented && a.pathname === location.pathname && a.hash) { return; }  // native same-page jump
+            show(a);
+        } catch (ecl) {}
+    });  // bubble phase: runs AFTER every capture router has decided
+    window.addEventListener('pageshow', clear);   // bfcache return shows this page again
+    window.addEventListener('pagehide', clear);   // leave a clean snapshot behind
+}());
+
 (function landingModal() {
     var onIndex = onRealIndex();
     if (!onIndex) { return; }                       // menu pages carry their own static modal
@@ -2684,6 +2796,10 @@ var lzSyncPad = null;
                      + (sessionStorage.getItem('lz-vt-last')
                         ? 'last transition: ' + sessionStorage.getItem('lz-vt-last')
                         : '(no transition seen yet — navigate once)'));
+            }
+            var niFlag = sessionStorage.getItem('lz-ni');
+            if (niFlag && niFlag !== '0') {
+                L.push('nav-cue candidate ' + niFlag + ' ARMED (click an internal link)');
             }
         } catch (evt) {}
         if (ir) {
