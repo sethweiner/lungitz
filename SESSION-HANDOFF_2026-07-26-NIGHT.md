@@ -1,7 +1,7 @@
 # Lungitz — handoff, 2026-07-26 NIGHT (session end)
 
 Read `CLAUDE.md` first, then `MASTHEAD-CONTRACT.md` (§2 code-owned rules; §11–§14 added
-today). Script: `lungitz-interactions.js` = **v78**, footer pin **`?v=78`**.
+today). Script: `lungitz-interactions.js` = **v82**, footer pin **`?v=82`**.
 Site `69e8e0cd2f30bc2f64a90a92` · staging `lungitz.webflow.io`.
 Previous handoff (`SESSION-HANDOFF_2026-07-26.md`) is historical — every ticket in it is
 resolved or re-listed below.
@@ -38,6 +38,8 @@ pin bump serves stale script to every visitor.
 | Publishes shipped the overlay OPEN | canvas-toggled `is-viewing` leaks via publish — script + head gate (`lz-ov-rest`, §13) settle it; Seth may style with states toggled |
 | Page transitions (T-07/T-08) | `@view-transition` unconditional + parse-time in head (async injection never fired reliably); vt=1 default; Firefox gets an arrival-fade (intro only, `navigate` type only); menu modal on the same 500ms CLOSE_EASE — one curve, one clock site-wide |
 | Slow links (participants→entry) | `.is-pending` (Seth's name): clicked link + visible LUNGITZ lamp, rust token, pulse until the new page lands; only real document navigations cue (glides skip); bfcache-safe clear + 12s failsafe |
+| 1-col lightbox close exited down-page (v79) | the close is a `history.back()` traversal and Chrome's `scrollRestoration:'auto'` re-scrolled the document ~1s AFTER the flight locked its target — `manual` during the fullscreen round-trip, restored on landing |
+| 1-col close then "snapped" (v82) | flight ran but into an ~8×5px landing pad — the thumb's lazy image had never fetched so its wrapper had no size; close now stamps the wrapper with the overlay image's own ratio (dimensions known for free — same asset), borrows a sibling width if the grid track collapsed, re-measures, then flies. Degenerate threshold 40px |
 
 ## Ownership split settled today (do not re-litigate)
 
@@ -68,6 +70,12 @@ pin bump serves stale script to every visitor.
 - **T-05**: one final eye-check that phantom slivers are gone (none observed since the
   per-image reservation; Seth half-confirmed).
 
+### Design question for Seth (surfaced by the v82 work, not a bug)
+Entries with many images (e.g. 15) lay the whole thumbnail strip in ONE row at phone
+width, so each thumb is genuinely ~19px wide — a lightbox close into such an entry will
+always read as shrink-to-a-sliver because that is truthfully where the image lives. Only
+a layout decision changes it (e.g. wrap the strip at small widths). Seth's call.
+
 ### Launch (beyond code)
 - Client texts (landing blurb, impressum/resources bodies), Ziegelwerk transparent-PNG
   flag, findability go-live steps (domain-gated — see FINDABILITY-GO-LIVE.md).
@@ -83,9 +91,12 @@ pin bump serves stale script to every visitor.
 - **Same-frame start+target writes silently kill CSS transitions** — force a reflow
   (`offsetWidth`) between them. This is why grows "snapped" for three builds.
 - **Backgrounded/non-frontmost tabs**: rAF and ResizeObserver dead (known), view
-  transitions silently skip (render-gated), and **CSS transitions freeze at frame zero —
-  computed reads never change** (kill the transition before measuring color). An MCP tab
-  that isn't its window's ACTIVE tab is `document.hidden` even if the window shows.
+  transitions silently skip (render-gated), **CSS transitions freeze at frame zero —
+  computed reads never change** (kill the transition before measuring color), timers
+  throttle (a probe froze 45s), and on a locked Mac **lazy/srcset images refuse to
+  decode** (`complete && naturalWidth 0` while the asset 200s) — geometry read there is
+  an artifact. An MCP tab that isn't its window's ACTIVE tab is `document.hidden` even
+  if the window shows.
 - **Webflow publishes canvas-toggled state** (the overlay shipped open). Gates now absorb
   it, but remember it when adding any new stateful component.
 - **MCP**: attribute `value_binding` writes fail server-side; collection lists cap at 100
