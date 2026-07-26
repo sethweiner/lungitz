@@ -6,13 +6,12 @@
 // zoom/pan, arrangement). Loaded by the Home page — bail on /sandbox so it doesn't
 // double-bind with the loader's sandbox/vN.js. The injected CSS scaffold below is
 // being migrated to Designer combos; motion + grid-rows transitions stay here.
-// ★ v78 PROMOTED TO PRODUCTION 2026-07-26 — THE CUE SHIPS AS .is-pending (Seth:
-// "ni=3 is good, and call the state .is-pending"). Default for every visitor: the
-// clicked link and the visible LUNGITZ link take Seth's .is-pending Designer class
-// (rust token — both states stylable on canvas); code keeps only the un-authorable
-// half (contract §2): descendant colour reach, specificity backstops, and the pulse
-// keyframes. ?ni=0 off · ?ni=1 link only · ?ni=2 dim (held) · ?ni=3 = the default.
-// Carries v71–v77.
+// ★ v79 PROMOTED TO PRODUCTION 2026-07-26 — the 1-col lightbox close lands on its
+// thumb again. The close is a history traversal and scrollRestoration 'auto' let
+// Chrome re-scroll the document AFTER the flight target was fixed (measured 700px
+// yank) — 1-col only, because only there the document scrolls; hideaways showed it
+// because they sit deepest. The fullscreen round-trip now runs scrollRestoration
+// 'manual' and hands the prior policy back after landing. Carries v71–v78.
 // Loaded per-page via <script src="https://sethweiner.github.io/lungitz/lungitz-interactions.js">
 // (Home + the menu pages; paste the same tag into any new page's custom code).
 // Bail on /sandbox (its loader runs sandbox/vN.js) and guard against double loads
@@ -32,6 +31,16 @@ if (/\/sandbox\/?$/.test(location.pathname)) { return; }
 //   · browser BACK closes fullscreen (history state — the Antoine fix: Esc is never the only
 //     way out; the hint chip advertises "✕ / back" in browser-fullscreen)
 //   · participants links rewrite to /?entry=<coll>/<slug> — index arrival highlight
+// v79 (2026-07-26) — the 1-col lightbox close lands on its thumb again. Seth:
+//   "the hideaways exit down the page from the lightbox... seems to be a 2 to
+//   1 column issue." Root cause, measured: the close is a history traversal,
+//   and scrollRestoration 'auto' let Chrome re-scroll the DOCUMENT after
+//   popstate — after closeFullscreenNow had fixed the flight target (probe:
+//   stored 2500 → drift 3200 → popstate at 3200 → browser yank to 2500). Only
+//   1-col shows it because only there the document is the scroller, and only
+//   hideaways showed it because they sit thousands of px deep in the stack.
+//   pushFsState now sets scrollRestoration 'manual' for the fullscreen
+//   round-trip and the close hands the prior policy back after landing.
 // v78 (2026-07-26) — THE CUE SHIPS AS .is-pending (Seth: "ni=3 is good, and
 //   call the state .is-pending"). Default for every visitor: the clicked link
 //   and the LUNGITZ link take Seth's .is-pending Designer class (rust token,
@@ -480,7 +489,7 @@ var TRIGGER    = '.trigger-accordion',
 // A few lines of flight recorder. Always on, costs nothing, and it is the only way
 // to see what a real phone actually did — this pane and a device disagree, and
 // guessing across that gap has cost more time than the bugs. Rendered by ?lzdebug=1.
-var LZ_VERSION = 'v78';
+var LZ_VERSION = 'v79';
 window.__lzTrace = window.__lzTrace || [];
 function lzLog(what, data) {
     try {
@@ -1017,8 +1026,31 @@ function setImmersive(on, trigger) {
 // so browser BACK closes fullscreen — Esc is never the only way out (in
 // browser-fullscreen the browser eats Esc). UI closes route through
 // history.back() so the history stays consistent.
+var fsPrevScrollRestoration = null;
 function pushFsState() {
+    // v79 — THE CLOSE OWNS ITS GEOMETRY. The close is a history traversal
+    // (Back / Esc / ✕ all route through history.back()), and with
+    // scrollRestoration 'auto' Chrome re-scrolls the DOCUMENT after popstate —
+    // i.e. AFTER closeFullscreenNow has measured its landing rect and fixed
+    // the flight target. Measured: stored 2500 at push, page drifted to 3200
+    // while fullscreen (swipes scroll-chain through the fixed overlay at
+    // 1-col), popstate fired at 3200, the browser yanked back to 2500 ~1s
+    // later — displacing the landed image by 700px. "The hideaways exit down
+    // the page" (Seth): 1-col only in practice, because there the DOCUMENT is
+    // the scroller; at 2-col the columns scroll and the restore is a no-op.
+    // Manual for the fullscreen round-trip; the prior policy is restored when
+    // the close completes (fsRestoreScrollMode).
+    try {
+        fsPrevScrollRestoration = history.scrollRestoration || null;
+        history.scrollRestoration = 'manual';
+    } catch (esr) {}
     try { history.pushState({ lzFs: 1 }, ''); fsPushed = true; } catch (e) {}
+}
+function fsRestoreScrollMode() {
+    if (fsPrevScrollRestoration) {
+        try { history.scrollRestoration = fsPrevScrollRestoration; } catch (e) {}
+        fsPrevScrollRestoration = null;
+    }
 }
 window.addEventListener('popstate', function () {
     if (fs) { fsPushed = false; closeFullscreenNow(); }
@@ -1174,6 +1206,7 @@ function closeFullscreenNow() {
         view.classList.remove('is-viewing');
         lzFlightCleanup(oImg);
         release();
+        fsRestoreScrollMode();          // v79: hand scroll policy back
         return;
     }
     // GROWTH OUT, v68: the picture flies home. The image FLIP-shrinks from its
@@ -1206,6 +1239,7 @@ function closeFullscreenNow() {
     setTimeout(function () {
         view.classList.remove('is-viewing');            // rest state is static (opacity 0)
         lzFlightCleanup(oImg);
+        fsRestoreScrollMode();          // v79: the flight has landed — hand scroll policy back
     }, FS_EASE.dur);
     release();          // veil-reveal on the viewed thumbnail; back to state 2
 }
