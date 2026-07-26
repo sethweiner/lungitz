@@ -6,8 +6,8 @@
 // zoom/pan, arrangement). Loaded by the Home page — bail on /sandbox so it doesn't
 // double-bind with the loader's sandbox/vN.js. The injected CSS scaffold below is
 // being migrated to Designer combos; motion + grid-rows transitions stay here.
-// ★ v61 PROMOTED TO PRODUCTION 2026-07-26 — webflow.js's own smooth scroll unbound; it was
-// the second scroll mechanism, re-landing every single-column anchor 68px under the masthead.
+// ★ v62 PROMOTED TO PRODUCTION 2026-07-26 — thumbnails reserve their own footprint:
+// per-image natural ratio stamped at warm time, ragged heights kept (Seth-approved).
 // Loaded per-page via <script src="https://sethweiner.github.io/lungitz/lungitz-interactions.js">
 // (Home + the menu pages; paste the same tag into any new page's custom code).
 // Bail on /sandbox (its loader runs sandbox/vN.js) and guard against double loads
@@ -15,6 +15,20 @@
 if (window.__lzLoaded) { return; }
 window.__lzLoaded = true;
 if (/\/sandbox\/?$/.test(location.pathname)) { return; }
+// v62 (2026-07-26) — thumbnails reserve their OWN footprint, not a uniform one.
+//   T-01's Designer aspect-ratio:3/2 reserved space but flattened the strip into a
+//   uniform row; Seth: the ragged natural heights ARE the design. Reverted in the
+//   Designer (only aspect-ratio removed from .wrapper-thumbnail; verified in the
+//   published CSS). Measured with the revert: an entry with 0/3 thumbnails loaded
+//   is 238px tall vs 402px loaded (each empty wrapper collapses to 20px), so on a
+//   cold cache the expand jump is structurally back — v60's warming only wins the
+//   race on fast connections. Reservation and uniformity were never the same
+//   thing: an image's DIMENSIONS parse from its first bytes, long before its
+//   pixels decode, so the warm routine now stamps each .wrapper-thumbnail with
+//   its own image's natural ratio (inline, per image) the moment naturalWidth
+//   exists. Every ragged height is preserved exactly — the box just stops
+//   growing late. Also: keyboard ⏎ opens via header.click(), which fires no
+//   pointer events, so warm() now runs on capture-phase click too.
 // v61 (2026-07-26) — webflow.js was the SECOND scroll mechanism. Its own `scroll`
 //   module delegates click.wf-scroll on every a[href*="#"], ignores our
 //   preventDefault, pushState's the hash, and tweens window.scroll to the target's
@@ -258,7 +272,7 @@ var TRIGGER    = '.trigger-accordion',
 // A few lines of flight recorder. Always on, costs nothing, and it is the only way
 // to see what a real phone actually did — this pane and a device disagree, and
 // guessing across that gap has cost more time than the bugs. Rendered by ?lzdebug=1.
-var LZ_VERSION = 'v61';
+var LZ_VERSION = 'v62';
 window.__lzTrace = window.__lzTrace || [];
 function lzLog(what, data) {
     try {
@@ -1127,16 +1141,49 @@ document.addEventListener('click', function (e) {
 // which buys the whole gesture's worth of time before the entry opens. Cheap, idempotent
 // and invisible; it changes when bytes arrive, not what anything looks like.
 (function warmEntryImages() {
+    // v62 — and reserve each thumbnail's OWN footprint the moment its dimensions
+    // are known. T-01's aspect-ratio:3/2 reserved space but flattened the strip
+    // into a uniform row — the ragged natural heights are Seth's design, and that
+    // property is reverted. Reservation and uniformity were never the same thing:
+    // an image's dimensions parse from its first bytes, long before the pixels
+    // decode, so stamp the wrapper with the image's own natural ratio as soon as
+    // naturalWidth exists. Identical to the loaded layout by construction (the
+    // ratio IS the image's), it only changes WHEN the height appears, not what it
+    // is. Polls with setInterval, not rAF — rAF never fires in a hidden tab.
+    function reserve(img) {
+        var wrap = img.closest('.wrapper-thumbnail');
+        if (!wrap || wrap.style.aspectRatio) { return; }
+        function stamp() {
+            if (img.naturalWidth && img.naturalHeight) {
+                wrap.style.aspectRatio = img.naturalWidth + ' / ' + img.naturalHeight;
+                return true;
+            }
+            return false;
+        }
+        if (stamp()) { return; }
+        var tries = 0, iv = setInterval(function () {
+            if (stamp() || ++tries > 100) { clearInterval(iv); }
+        }, 50);
+    }
     function warm(e) {
         var trigger = e.target.closest && e.target.closest(TRIGGER);
-        if (!trigger || trigger.classList.contains('open')) { return; }
-        trigger.querySelectorAll('img[loading="lazy"]').forEach(function (img) {
-            img.loading = 'eager';
-            if (img.decode) { img.decode().catch(function () {}); }
+        if (!trigger || trigger.__lzWarmed) { return; }
+        var pending = false;
+        trigger.querySelectorAll('.wrapper-thumbnail img').forEach(function (img) {
+            if (img.loading === 'lazy') {
+                img.loading = 'eager';
+                if (img.decode) { img.decode().catch(function () {}); }
+            }
+            reserve(img);
+            if (!img.complete) { pending = true; }
         });
+        if (!pending) { trigger.__lzWarmed = true; }   // stop re-walking settled strips
     }
     document.addEventListener('pointerover', warm, { passive: true });
     document.addEventListener('pointerdown', warm, { passive: true });
+    // Keyboard ⏎ opens an entry via header.click() — a synthetic click fires no
+    // pointerover/pointerdown, so without this the keyboard path never warmed.
+    document.addEventListener('click', warm, true);
 }());
 
 // State 2 -> 3 : Thumbnail click
