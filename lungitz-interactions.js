@@ -6,11 +6,12 @@
 // zoom/pan, arrangement). Loaded by the Home page — bail on /sandbox so it doesn't
 // double-bind with the loader's sandbox/vN.js. The injected CSS scaffold below is
 // being migrated to Designer combos; motion + grid-rows transitions stay here.
-// ★ v73 PROMOTED TO PRODUCTION 2026-07-26 — T-08 visibility: the ?lzdebug panel now
-// shows the armed page-transition candidate and the last transition it ran, fed by
-// the head gate's pagereveal recorder. The URL cleanup never disarmed the flag
-// (sessionStorage), but silence read as failure — now the panel answers.
-// Carries v72 (overlay arrival settle) and v71 (entry pages never greet).
+// ★ v74 PROMOTED TO PRODUCTION 2026-07-26 — T-08 additions, all held behind ?vt=N:
+// armed sessions run the menu modal on CLOSE_EASE 500ms (one piece of chrome with
+// the entry expand, fullscreen morph, and page transitions); the head carries the
+// arrival-fade fallback for browsers without cross-document view transitions and
+// the vt=2 persistent element is the invariant top word row. Default sessions are
+// bit-identical to v73 behavior. Carries v73 (panel vt line), v72, v71.
 // Loaded per-page via <script src="https://sethweiner.github.io/lungitz/lungitz-interactions.js">
 // (Home + the menu pages; paste the same tag into any new page's custom code).
 // Bail on /sandbox (its loader runs sandbox/vN.js) and guard against double loads
@@ -30,6 +31,13 @@ if (/\/sandbox\/?$/.test(location.pathname)) { return; }
 //   · browser BACK closes fullscreen (history state — the Antoine fix: Esc is never the only
 //     way out; the hint chip advertises "✕ / back" in browser-fullscreen)
 //   · participants links rewrite to /?entry=<coll>/<slug> — index arrival highlight
+// v74 (2026-07-26) — the menu modal joins the gesture family (held with the vt
+//   candidates). Seth: "make sure the menu modal also has the same animations so
+//   it all feels like one piece of chrome." In an ARMED session (?vt=N)
+//   armMotion runs every modal property — grid-rows, opacity, transform,
+//   padding — on CLOSE_EASE at the 500ms clock, matching the entry expand, the
+//   fullscreen morph, and the vt page transitions. Default sessions keep the
+//   legacy mix (.45s/.5s/.6s/.3s) untouched until Seth picks.
 // v73 (2026-07-26) — T-08 candidates get a visible pulse. Seth: "I can't actually
 //   see them because of the URL shift away from the ?vt". The URL cleanup
 //   (arrive()'s bare-pathname rewrite on ?entry= flows) never disarms the flag —
@@ -443,7 +451,7 @@ var TRIGGER    = '.trigger-accordion',
 // A few lines of flight recorder. Always on, costs nothing, and it is the only way
 // to see what a real phone actually did — this pane and a device disagree, and
 // guessing across that gap has cost more time than the bugs. Rendered by ?lzdebug=1.
-var LZ_VERSION = 'v73';
+var LZ_VERSION = 'v74';
 window.__lzTrace = window.__lzTrace || [];
 function lzLog(what, data) {
     try {
@@ -2347,10 +2355,19 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     function armMotion() {
         if (armed) { return; }
         armed = true;
+        var vtArmed = false;
+        try { vtArmed = !!sessionStorage.getItem('lz-vt'); } catch (evta) {}
         var motion = document.createElement('style');
         motion.textContent =
             '.container-landing,.container-landing-modal{'
-          + 'transition:grid-template-rows .45s ' + SETTLE + ',opacity .5s ease,transform .6s ' + SETTLE + ',padding .3s;}';
+          + (vtArmed
+                // v74 (T-08, held with the vt candidates): the menu modal joins the
+                // gesture family — every property on CLOSE_EASE at the 500ms clock,
+                // the same curve as the entry expand and the fullscreen morph, so
+                // masthead, menu, page transitions, expand and flight read as one
+                // piece of chrome. Armed sessions only; default keeps the legacy mix.
+             ? 'transition:grid-template-rows 500ms ' + CLOSE_EASE + ',opacity 500ms ' + CLOSE_EASE + ',transform 500ms ' + CLOSE_EASE + ',padding 500ms ' + CLOSE_EASE + ';}'
+             : 'transition:grid-template-rows .45s ' + SETTLE + ',opacity .5s ease,transform .6s ' + SETTLE + ',padding .3s;}');
         document.head.appendChild(motion);
     }
 
