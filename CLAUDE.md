@@ -44,8 +44,16 @@ behavior layer. Violating this is the #1 recurring failure — do not repeat it.
 - Both instanced on: Home, Giveaways/Hideaways templates, menu pages.
   The old Masthead + container-landing-modal components are unregistered.
 - Script: `lungitz-interactions.js` (repo root) ← promoted from
-  `sandbox/v32.js`. Deploy = git push → GitHub Pages (~45s). Sandbox testing:
+  `sandbox/v34.js`. Deploy = git push → GitHub Pages (~45s). Sandbox testing:
   `/sandbox?v=N`. Site publish via MCP to the webflow.io staging subdomain.
+- **Custom code lives in two places.** The production script tag is SITE footer
+  code (loads everywhere). The sandbox loader is PAGE footer code on `/sandbox`
+  ONLY — never copy it onto a real page: sandbox builds carry no `__lzLoaded`
+  guard, so alongside production they double-bind every handler. It had been
+  duplicated onto /participants /impressum /resources (they were duplicated from
+  a page that had it) and 404'd on every view; cleared 2026-07-26. **Duplicating
+  a page duplicates its custom code — check the footer block after any
+  duplicate.**
 - Ownership ledger: `MASTHEAD-CONTRACT.md` (v32 section; above it is
   historical). Site id `69e8e0cd2f30bc2f64a90a92`.
 
