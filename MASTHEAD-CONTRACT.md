@@ -246,3 +246,31 @@ suspends rendering: `requestAnimationFrame` and `ResizeObserver` callbacks never
 there, so load-time scroll and animation behaviour cannot be verified in it. Inferring
 across that gap cost far more time than the bugs did. One screenshot from a real device
 settles more than an afternoon of reasoning.
+
+---
+
+## 11. webflow.js's own smooth scroll is UNBOUND (v61) — do not re-enable
+
+webflow.js ships a `scroll` module that delegates `click.wf-scroll` on every
+`a[href*="#"]`. It does not check `defaultPrevented`, `pushState`s the hash itself, and
+tweens `window.scroll` to the target's **raw** `offset().top` over `472·ln(dist)−2000` ms
+(≈1.4–1.6s at index distances). Its fixed-header selector is `header, .header, .w-nav` —
+the `.nav.wide` masthead is none of those — so its offset is 0, and it ignores
+`scroll-padding`/`scroll-margin` entirely.
+
+That made it a **second scroll mechanism** fighting the script's glide on the very same
+click: the 620ms error-paydown walk landed at pad and then Webflow's longer tween
+re-landed the block at raw top — measured at 470px: click GIVEAWAYS from y=1500 → the
+walk lands y=12 (`gTop=68=pad`), then the tween drags it to y=80 (`gTop=0`), the intro
+decapitated under the masthead. This is why 2026-07-26's "verified off_by 0" was true at
+walk-end and false two seconds later, and why only single column showed it: at 2 columns
+the document doesn't scroll, so the tween's `window.scroll` writes were no-ops.
+
+The script unbinds it once, the Webflow-sanctioned way:
+`Webflow.push(function(){ jQuery(document).off('click.wf-scroll') })` (§masthead, v61).
+`click.wf-empty-link` (the `href="#"` no-op guard) **stays bound**. Links keep their
+meaning: clicks the script doesn't smooth fall through to the browser's **native** anchor
+jump, which *does* honour the synced scroll-padding — strictly better than the tween.
+The smoothed glide now records the hash itself (`replaceState`) so the URL stays honest.
+Verified 1-col click/arrival `off_by=0`, 2-col `off_by=−1`, wide 2-col `off_by=−3`
+(the §9 first-in-column geometry, not a scroll bug).
