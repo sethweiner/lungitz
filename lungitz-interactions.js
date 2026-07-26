@@ -6,8 +6,8 @@
 // zoom/pan, arrangement). Loaded by the Home page — bail on /sandbox so it doesn't
 // double-bind with the loader's sandbox/vN.js. The injected CSS scaffold below is
 // being migrated to Designer combos; motion + grid-rows transitions stay here.
-// ★ v64 PROMOTED TO PRODUCTION 2026-07-26 — the 1-col ratchet retired: time-eased glide on
-// the site's own SETTLE token, immediate expand-follow, realm scroll-spy (Seth-approved).
+// ★ v65 PROMOTED TO PRODUCTION 2026-07-26 — T-03: the way out of zoom restored (the click
+// cycle's cap is 4× again, the v17 decision verbatim — pure restore of proven behavior).
 // Loaded per-page via <script src="https://sethweiner.github.io/lungitz/lungitz-interactions.js">
 // (Home + the menu pages; paste the same tag into any new page's custom code).
 // Bail on /sandbox (its loader runs sandbox/vN.js) and guard against double loads
@@ -15,6 +15,15 @@
 if (window.__lzLoaded) { return; }
 window.__lzLoaded = true;
 if (/\/sandbox\/?$/.test(location.pathname)) { return; }
+// v65 (2026-07-26) — T-03: the way out of zoom is back. zoomSet's init had revived
+//   the natural-resolution cap (Math.min(naturalScale, 4)) that v17 removed from
+//   the click cycle: wherever the image renders larger than quarter-natural (any
+//   desktop fullscreen) the cap sat below the cycle's own last step, so every
+//   click clamped to the same scale and the exit branch never fired — you could
+//   only leave zoom by closing the modal. Measured stuck at 3.23× on staging.
+//   The cap is now the v17 decision verbatim: 4×, floored, full stop. Cycle
+//   restored: 1× → 2× → 4× → exit, toward the click point; pinch, keyboard +/-
+//   (which already capped at 4), Esc → unzoom, and Back → close all unchanged.
 // v64 (2026-07-26) — the glide speaks the site's own easing token. Seth on v63:
 //   "just use the same animation/easing tokens from the desktop" — so the
 //   easeInOutCubic candidate is gone and the glide's curve IS the SETTLE constant
@@ -297,7 +306,7 @@ var TRIGGER    = '.trigger-accordion',
 // A few lines of flight recorder. Always on, costs nothing, and it is the only way
 // to see what a real phone actually did — this pane and a device disagree, and
 // guessing across that gap has cost more time than the bugs. Rendered by ?lzdebug=1.
-var LZ_VERSION = 'v64';
+var LZ_VERSION = 'v65';
 window.__lzTrace = window.__lzTrace || [];
 function lzLog(what, data) {
     try {
@@ -1061,10 +1070,20 @@ function zoomApply(img, animate) {
 // Set the zoom scale (native model). Entering from 1× anchors the origin at the
 // cursor; dropping back to 1× exits zoom. Used by pinch + scroll-enter.
 function zoomSet(img, s, clientX, clientY) {
-    var rect = img.getBoundingClientRect(), natS;
+    var rect = img.getBoundingClientRect();
     if (!zoom) {
-        natS = Math.max(img.naturalWidth / rect.width, img.naturalHeight / rect.height);
-        zoom = { scale: 1, ox: 50, oy: 50, panX: 0, panY: 0, max: Math.max(1.5, Math.min(natS, 4)) };
+        // THE CAP IS 4×, FULL STOP (v65 — this was T-03). It used to be
+        // Math.min(naturalScale, 4): the natural-resolution cap that v17 removed
+        // from the click cycle (2026-06-09, "collapsed to 2× on these ~screen-res
+        // scans — floored at 4×, per Seth") had crept back in through this init.
+        // Wherever the image renders LARGER than ~quarter natural (any desktop
+        // fullscreen), naturalScale < 4, so zoomStepClick's [2, 4] cycle clamped
+        // to a value below its own last step — every click re-set the same scale,
+        // the "past the last step → exit" branch was unreachable, and the only way
+        // out of zoom was closing the modal. Measured on staging at 1600px: stuck
+        // at scale 3.23 (= the clamp) for every click after the second. A cap the
+        // cycle cannot pass is a door that cannot close.
+        zoom = { scale: 1, ox: 50, oy: 50, panX: 0, panY: 0, max: 4 };
     }
     if (zoom.scale <= 1.001 && s > 1) {
         zoom.ox = Math.max(0, Math.min(100, (clientX - rect.left) / rect.width * 100));
