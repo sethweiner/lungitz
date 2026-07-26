@@ -1,7 +1,12 @@
 # Lungitz — handoff, 2026-07-26 NIGHT (session end)
 
 Read `CLAUDE.md` first, then `MASTHEAD-CONTRACT.md` (§2 code-owned rules; §11–§14 added
-today). Script: `lungitz-interactions.js` = **v82**, footer pin **`?v=82`**.
+today). Script: `lungitz-interactions.js` = **v84**, footer pin **`?v=84`**.
+(v84, morning 07-27: the v80–82 landing-pad stamp PERSISTED with wrong data — closing
+onto a placeholder/unloaded thumb stamped its shape permanently, growing entries for
+good; v84 restores the stamp when the flight lands. Also: the lightbox caption drawer
+now fades with the bar at ≤767 — the transition-kill is scoped to the accordion's
+drawers only. Revert of that feel = one rule in injectCSS, see contract.)
 Site `69e8e0cd2f30bc2f64a90a92` · staging `lungitz.webflow.io`.
 Previous handoff (`SESSION-HANDOFF_2026-07-26.md`) is historical — every ticket in it is
 resolved or re-listed below.
