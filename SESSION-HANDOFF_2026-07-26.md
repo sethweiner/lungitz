@@ -47,23 +47,24 @@ remaining half is one Designer value (T-01).
 
 ### Blocking / functional
 
-**T-01 — Entry expand animation (TOP PRIORITY) — cause confirmed, one half left**
-**Confirmed:** `.wrapper-thumbnail` has **no width or height of its own** — the strip is
-sized entirely by whatever the image turns out to be, and every thumbnail is
-`loading="lazy"` with **no height attribute** (`width="Auto"`). Until each image decodes
-it occupies nothing, so the entry's height jumps as they arrive, during and after the
-transition. Animating a box whose contents keep resizing is exactly "ratchet and lag" —
-no easing can smooth it.
+**T-01 — Entry expand animation — FIXED (verify on your machine)**
+Cause, confirmed by measurement: `.wrapper-thumbnail` had **no width or height of its
+own**, so the strip was sized entirely by whatever the image turned out to be — and every
+thumbnail is `loading="lazy"` with no height attribute. Until each image decoded it
+occupied nothing, so the entry's height jumped as they arrived, during and after the
+transition. No easing can smooth a box whose contents keep resizing, which is why every
+attempt at the animation itself failed.
 
-Done (v60): images are fetched on hover and on press, buying a whole gesture's worth of
-time so they are far less likely to land mid-expand. Invisible; changes *when* bytes
-arrive, not what anything looks like.
+Two changes:
+- `.wrapper-thumbnail { aspect-ratio: 3/2 }` (Designer) — reserves the space before the
+  image exists. Chosen from measurement: thumbnails are a fixed 110px wide, and 3:2 is the
+  dominant source ratio, so this is exactly the size they already occupied. Side effect:
+  the strip is now a uniform row rather than ragged 73/62/73 heights — tidier, and change
+  the ratio if you want it otherwise.
+- v60: images fetch on hover and on press, so they are rarely still arriving at all.
 
-**Remaining, and it is a design decision — yours:** reserve space on the thumbnails so
-the strip has a size before it fills. Give `.wrapper-thumbnail` (or `.image-thumbnail`) a
-height, or an `aspect-ratio`. That sets what the strip looks like empty, which is why I
-have not picked a value. Once it is reserved, the expand animates a stable box and this
-class of jank cannot recur — it is also almost certainly the same root as T-05.
+**Verified:** an entry's height with images 0/5 loaded vs 5/5 loaded — `entryGrewBy: 0`.
+The box no longer changes size as images land.
 
 **T-02 — Fullscreen collapse targets the wrong image, and skews**
 Collapsing from fullscreen returns to the *trigger* image, not the one being viewed, and
@@ -81,10 +82,11 @@ zoom step handler (`Click-step zoom`, around the `zoom` state).
 script settles it. Accent/hover colours also wrong on these pages. Wants arrival straight
 to CMS content.
 
-**T-05 — Image sliver, Chrome only, clears on hover**
-Parked twice. Not reproducible in Firefox. Clearing *on hover* is the tell: hover both
-triggers a repaint and (since v60) starts the fetch. Almost certainly the same
-unreserved-lazy-image root as T-01 — fix that first and re-check this.
+**T-05 — Image sliver, Chrome only, clears on hover — LIKELY FIXED BY T-01, re-check**
+Clearing *on hover* was the tell: hover triggered both a repaint and (since v60) the
+fetch. With the space now reserved (T-01) a partly-decoded image can no longer show a
+sliver of a box that has not been sized yet. Re-check in Chrome; if it survives, it is a
+genuine paint bug and needs its own look.
 
 **T-06 — Participant → open index entry loads slowly**
 Full page navigation plus `@view-transition` holding the old page. Staging HTML measured
