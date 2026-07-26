@@ -6,8 +6,12 @@
 // zoom/pan, arrangement). Loaded by the Home page — bail on /sandbox so it doesn't
 // double-bind with the loader's sandbox/vN.js. The injected CSS scaffold below is
 // being migrated to Designer combos; motion + grid-rows transitions stay here.
-// ★ v65 PROMOTED TO PRODUCTION 2026-07-26 — T-03: the way out of zoom restored (the click
-// cycle's cap is 4× again, the v17 decision verbatim — pure restore of proven behavior).
+// ★ v70 PROMOTED TO PRODUCTION 2026-07-26 — the ladder-cut arc ships (v66–v69: state 3
+// removed, the picture flies between thumbnail and fullscreen on CLOSE_EASE 500ms,
+// per-image reservation, caption collapse rule) plus the two Designer-requested
+// overlay leaves (caption-name / caption-edition, painted from the entry's own
+// bound author/edition text). This build is also the left/right column symmetry
+// fix: v65's single-image special-case is gone — one arc for every entry.
 // Loaded per-page via <script src="https://sethweiner.github.io/lungitz/lungitz-interactions.js">
 // (Home + the menu pages; paste the same tag into any new page's custom code).
 // Bail on /sandbox (its loader runs sandbox/vN.js) and guard against double loads
@@ -15,6 +19,120 @@
 if (window.__lzLoaded) { return; }
 window.__lzLoaded = true;
 if (/\/sandbox\/?$/.test(location.pathname)) { return; }
+// v32 — LANDING/MENU MODAL CONCEPT (Seth's wireframes, 2026-07-25):
+//   · §landingModal: Seth's container-landing modal IS the landing + the menu — greets on
+//     arrival at the index, dismisses on any click outside its links, LUNGITZ re-opens it
+//     (dormant until the modal is instanced on the page — wireframe-first)
+//   · §masthead (focused): GIVEAWAYS/HIDEAWAYS → #info-giveaways / #info-hideaways anchors
+//     (+ rust cue); LUNGITZ → the modal / home; .category-content "+" toggles .is-expanded
+//   · fullscreen: Seth's .immersive-overlay becomes the state-4 view when present (paint,
+//     .is-open, light FLIP in); the proven gesture layer retargets; legacy portal path is the
+//     fallback until the overlay exists on the index
+//   · browser BACK closes fullscreen (history state — the Antoine fix: Esc is never the only
+//     way out; the hint chip advertises "✕ / back" in browser-fullscreen)
+//   · participants links rewrite to /?entry=<coll>/<slug> — index arrival highlight
+// v70 (2026-07-26) — two Designer-requested overlay leaves, nothing else.
+//   Seth: "there's an overlay (the lightbox), I just want to add a couple of
+//   things there... mainly a name element, an editions element... very simple."
+//   The Immersive Overlay's caption-content now carries p.caption-name and
+//   p.caption-edition (added via MCP, visible, unstyled — Seth lays them out).
+//   paintDetail fills them per entry from the accordion's own CMS-bound leaves:
+//   caption-name ← the entry's .author names joined ", " (nested Contributors
+//   list), caption-edition ← the entry's .edition text. Empty renders empty.
+//   Also: .thumb-caption/.thumb-credit are display:none again (Designer class
+//   values) — they remain the overlay's per-image caption/credit data source;
+//   the visible-veil experiment is withdrawn as overcomplicated.
+// v69 (2026-07-26) — SHIPPED ARC. Two closes in one build:
+//   · The fullscreen morphs default to CLOSE_EASE 500ms (Seth: "ease=2 is good");
+//     ?ease=1/3 stay as a cheap debug override. Everything structural from
+//     v66-v68 ships: ladder cut, picture-flight morphs, per-image reservation,
+//     caption collapse rule, CMS caption leaves.
+//   · THE COLUMN ASYMMETRY, explained: Seth: "the right column is different than
+//     the left in terms of animation". Measured on this build: expand, collapse,
+//     and flight traces are IDENTICAL left/right at both widths — the difference
+//     lives in PRODUCTION v65, whose single-image entries special-case (straight
+//     to overlay on open, Option-C snap on close) while multi-image entries run
+//     the detail-view arc. That correlates with the columns because hideaways
+//     are mostly single-image (13/20 single on the right vs 5/25 on the left).
+//     The ladder cut removed the special-casing — one arc for every entry — so
+//     promoting THIS build is the symmetry fix.
+//   · Shape (c) as-built (Designer, via MCP): .thumb-caption/.thumb-credit now
+//     live INSIDE .thumb-hover, visible, echoing .type's own values (same
+//     font-size variable, 20px leading). getImages() reads them wherever they
+//     sit in the wrapper (descendant query — unchanged).
+// v68 (2026-07-26) — THE PICTURE FLIES, the frame fades. Seth on v67: "the squeeze
+//   is not dead … the animation is a spring into place, why?" Frozen mid-flight
+//   frames diagnosed both percepts at once. The transform and the clip DID share
+//   one timeline exactly (both 84% complete at 30% of the clock — measured) — and
+//   that is the problem: with the SETTLE token, everything visual happens in the
+//   first ~100ms (the clip window crushing 757px→~100px tall reads as the SQUEEZE
+//   even over undistorted content) and the remaining ~350ms is a sub-pixel drift
+//   into the thumbnail (the SPRING — a visible second landing). Fixing the token
+//   alone would not fix the window-crush, so the morph is redesigned: the
+//   .immersive-image ITSELF flies between the thumbnail rect and its fullscreen
+//   contain-fit content rect — both endpoints are the whole picture at natural
+//   aspect (v62's per-image ratio stamps guarantee the thumbnail is), so the
+//   flight is one uniform translate+scale with NO clip animation and nothing to
+//   squash, ever. The overlay's chrome (backdrop colour, bar, caption) fades on
+//   the same clock. FEEL CANDIDATES for Seth (existing tokens only), morphs only:
+//     (default)   SETTLE, 500ms — the current token, front-loaded, long tail
+//     ?ease=2     CLOSE_EASE, 500ms — the site's closing token, symmetric in/out
+//     ?ease=3     CLOSE_EASE, 350ms — same curve, shorter and more decisive
+//   Read from INITIAL_SEARCH (never live search — the rule).
+// v67 (2026-07-26) — three finishes on the cut ladder (Seth on v66: "the image
+//   squeezes before landing … the caption button doesn't work … CMS wiring should
+//   echo the classes that exist").
+//   (1) NO MORE SQUEEZE. The FLIP scaled the overlay non-uniformly (frame aspect →
+//   thumbnail aspect: close ran scale(0.23, 0.083) — a 2.75× distortion); on the
+//   single-image path it was invisible only because that one thumbnail spans the
+//   strip. Now the overlay scales UNIFORMLY (the factor that covers the thumbnail
+//   rect) and an animated clip-path inset crops the remainder — the aspect change
+//   is absorbed by cropping, exactly how the thumbnail itself crops its image, and
+//   the picture never distorts. Same both directions, same SETTLE token and
+//   TRANSITION ms — the settle-into-place feel is untouched.
+//   (2) THE CAPTION TOGGLE ACTUALLY COLLAPSES. Measured broken in v65 too — not
+//   sweep collateral: the Designer's .caption-drawer.is-collapsed collapses a
+//   second grid row (rows "50px 0px") but the whole caption lives in row one, so
+//   the class flipped and nothing moved. Code adds the descendant rule Webflow
+//   can't author (contract §2 pattern): inside the overlay, .is-collapsed hides
+//   .caption-content and the ◉ stays. Restyle the state on the class any time.
+//   (3) CMS CAPTIONS, NO CUSTOM PROPS. Each .wrapper-thumbnail now carries two
+//   hidden CMS-bound leaves, .thumb-caption (← the image item's Name — the same
+//   field the old data-caption attribute bound) and .thumb-credit (← Credit
+//   (individual)) — named to read like their sibling .thumb-hover, display:none
+//   on the class, wired in the Designer via MCP on Home, /sandbox and both CMS
+//   templates, verified in the published HTML of all four. getImages() reads the
+//   nodes' textContent and falls back to the old data-caption/data-credit
+//   attributes wherever the nodes don't exist (items with an empty bound field
+//   render no node at all). The attribute bindings are now obsolete — listed for
+//   Seth to unwire in the Designer.
+// v66 (2026-07-26) — THE LADDER CUT (Seth: "shorter 2→4 … using it as an
+//   opportunity to fully clean the ladder and detail it to a finish", and:
+//   "the ladder cut is already wired, see the way any entry w one image works").
+//   State 3 (the in-entry detail view) is CUT. A thumbnail click in an open
+//   entry goes STRAIGHT to fullscreen the way single-image entries always did:
+//   the whole overlay FLIP-grows from the clicked thumbnail's rect (the proven
+//   path — openFullscreen's thumbnail fallback is now the primary and only
+//   source). The collapse is the same gesture reversed: the overlay FLIP-shrinks
+//   to the thumbnail of the image being VIEWED (thumbs[detail.idx] — this alone
+//   retires T-02's wrong-target bug), easing back into place on the SETTLE token
+//   over TRANSITION ms — the same token/duration as the grow, per Seth's
+//   "shrinking needs some easing back into place … this relation to the easing
+//   tokens". Option-C's single-image snap is retired with it: the thumbnail is
+//   always an in-flow target now (v62 reserves its footprint), so every close
+//   settles. If the viewed thumbnail is off-screen at close (page scrolled
+//   behind the overlay), the page is settled instantly to the entry first —
+//   invisible behind the full-frame overlay — then the shrink aims at the
+//   re-measured rect; only a target that has genuinely vanished falls back to
+//   the static hide. `detail` remains the ENGAGEMENT state {trigger, idx,
+//   images} — no view attached; it exists only while fullscreen is open, and
+//   closing reveals the viewed thumbnail's veil (.thumb-hover.is-revealed) and
+//   releases it. Swept dead: openDetail/closeDetail, the legacy no-overlay
+//   promote path (portal, propagateFs, fsHome — the Immersive Overlay is
+//   instanced on every page with entries), the state-3 control branch
+//   ([data-detail] outside fs, incl. the `expand` action), the keyboard
+//   detail branches + hint line, the .detail-view appear/fullscreen CSS.
+//   The Designer's detail-view elements are untouched — listed for Seth.
 // v65 (2026-07-26) — T-03: the way out of zoom is back. zoomSet's init had revived
 //   the natural-resolution cap (Math.min(naturalScale, 4)) that v17 removed from
 //   the click cycle: wherever the image renders larger than quarter-natural (any
@@ -287,8 +405,7 @@ var TRIGGER    = '.trigger-accordion',
     CONTENT    = '.content-accordion',
     W_THUMB    = '.wrapper-thumbnail',
     IMG_THUMB  = '.image-thumbnail',
-    DETAIL     = '.detail-view',
-    DETAIL_IMG = '.detail-image',
+    DETAIL     = '.detail-view',   // v66: only for clearing design-time .is-active; the view is retired
     CAPTION    = '.caption-drawer',
     CAP_BODY   = '.caption-content',
     TRANSITION = 500,
@@ -306,7 +423,7 @@ var TRIGGER    = '.trigger-accordion',
 // A few lines of flight recorder. Always on, costs nothing, and it is the only way
 // to see what a real phone actually did — this pane and a device disagree, and
 // guessing across that gap has cost more time than the bugs. Rendered by ?lzdebug=1.
-var LZ_VERSION = 'v65';
+var LZ_VERSION = 'v70';
 window.__lzTrace = window.__lzTrace || [];
 function lzLog(what, data) {
     try {
@@ -323,7 +440,6 @@ var INITIAL_SEARCH = location.search,
 
 var detail      = null,
     fs          = null,
-    fsHome      = null,
     zoom        = null,
     panState    = null,
     dragMoved   = false,
@@ -335,7 +451,7 @@ var detail      = null,
 // State-4 view (v32): Seth's Designer-owned overlay when it exists on the page
 // (wireframe-first find-or-reuse); the legacy promoted detail-view otherwise.
 var OVERLAY = document.querySelector('.immersive-overlay');
-var FS_IMG  = '.immersive-image, .detail-image';
+var FS_IMG  = '.immersive-image';   // v66: the overlay's image is the only fullscreen image
 function fsImage() { return fs ? fs.view.querySelector(FS_IMG) : null; }
 
 // "Am I on the index?" — only VISIBLE columns count. Menu pages built by
@@ -428,13 +544,7 @@ function onRealIndex() {
             // Also in the site HEAD, because the browser performs the hash scroll
             // during load — before this async script exists. Keep the two in step.
             'html,.wrapper-content{scroll-padding-top:64px;}',
-            '.detail-view{',
-            '  transform:scale(0.95);opacity:0;',
-            '  transition:transform 400ms ' + SETTLE + ',opacity 300ms ease;',
-            '}',
-            '.detail-view.is-active{transform:scale(1);opacity:1}',
-            '.is-left .detail-view{transform-origin:left top}',
-            '.is-right .detail-view{transform-origin:right top}',
+            // (v66: the .detail-view appear/active rules left with state 3.)
             '.content-accordion{',
             '  transition:opacity 120ms ease;',
             '}',
@@ -502,11 +612,19 @@ function getImages(trigger) {
     var thumbs = trigger.querySelectorAll(W_THUMB),
         out = [];
     thumbs.forEach(function (t) {
-        var img = t.querySelector(IMG_THUMB);
+        var img = t.querySelector(IMG_THUMB),
+            // v67: caption/credit are CMS-bound hidden leaves inside the wrapper
+            // (.thumb-caption ← Name, .thumb-credit ← Credit (individual)) — the
+            // same fields the old data-* attributes bound, now visible, ordinary
+            // Designer bindings. An empty bound field renders NO node, and older
+            // copies of the list may predate the wiring, so fall back to the
+            // attributes; when both are gone the strings are simply empty.
+            capEl = t.querySelector('.thumb-caption'),
+            credEl = t.querySelector('.thumb-credit');
         out.push({
             src:     img ? (img.src || img.getAttribute('src')) : '',
-            caption: t.getAttribute('data-caption') || '',
-            credit:  t.getAttribute('data-credit')  || ''
+            caption: (capEl && capEl.textContent.trim()) || t.getAttribute('data-caption') || '',
+            credit:  (credEl && credEl.textContent.trim()) || t.getAttribute('data-credit') || ''
         });
     });
     return out;
@@ -738,6 +856,27 @@ function paintDetail(view) {
         caps[1].textContent = img.credit;
     }
 
+    // v70 — the two Designer-requested leaves. NAME = the entry's author /
+    // contributor names, read from the accordion's own CMS-bound .author
+    // leaves (nested Contributors list; DynamoEmpty renders none). EDITION =
+    // the accordion's bound .edition leaf. Both live in .caption-content for
+    // Seth to rearrange and style; an empty field renders empty, never stale.
+    var nameEl = view.querySelector('.caption-name');
+    if (nameEl) {
+        var authorEls = detail.trigger.querySelectorAll('.author'),
+            names = [], ai;
+        for (ai = 0; ai < authorEls.length; ai += 1) {
+            var an = authorEls[ai].textContent.trim();
+            if (an) { names.push(an); }
+        }
+        nameEl.textContent = names.join(', ');
+    }
+    var edEl = view.querySelector('.caption-edition');
+    if (edEl) {
+        var edSrc = detail.trigger.querySelector('.edition');
+        edEl.textContent = edSrc ? edSrc.textContent.trim() : '';
+    }
+
     prev = view.querySelector('[data-detail="prev"]');
     next = view.querySelector('[data-detail="next"]');
     if (prev) {
@@ -748,95 +887,28 @@ function paintDetail(view) {
     }
 }
 
-function openDetail(trigger, idx, images) {
-    var content    = trigger.querySelector(CONTENT),
-        detailView = content ? content.querySelector(DETAIL) : null,
-        thumb, thumbRect, contentRect, originX, originY;
-    if (!detailView) {
-        return;
-    }
-
-    // Engaged state: clear any previously-revealed thumbnail veil in this entry.
+// ── Engagement (v66 — state 3 is cut; this is all that remains of it) ──
+// `detail` = { trigger, idx, images }: which entry and which image the reader
+// is viewing in fullscreen. No view attaches to it any more — it exists only
+// while the overlay is open, and release() reveals the viewed thumbnail's veil
+// (.thumb-hover.is-revealed, Seth's Designer state) as the "you were here" mark.
+function engage(trigger, idx, images) {
     trigger.querySelectorAll(W_THUMB).forEach(function (t) {
         var th = t.querySelector('.thumb-hover');
         if (th) { th.classList.remove('is-revealed'); }
     });
-
-    thumb = trigger.querySelectorAll(W_THUMB)[idx];
-    if (thumb && content) {
-        thumbRect   = thumb.getBoundingClientRect();
-        contentRect = content.getBoundingClientRect();
-        originX = (thumbRect.left + thumbRect.width / 2 - contentRect.left) + 'px';
-        originY = (thumbRect.top + thumbRect.height / 2 - contentRect.top) + 'px';
-        detailView.style.transformOrigin = originX + ' ' + originY;
-    }
-
-    var imgWrap = content.querySelector('.wrapper-images');
-    if (imgWrap) {
-        imgWrap.style.display = 'none';
-    }
-
-    detailView.style.opacity = '0';
-    detailView.style.transform = 'scale(0.95)';
-    detailView.classList.add('is-active');
-    void detailView.offsetHeight;
-    detailView.style.opacity = '';
-    detailView.style.transform = '';
-
     detail = { trigger: trigger, idx: idx, images: images };
-    paintDetail(detailView);
 }
 
-function closeDetail(trigger) {
-    var content = trigger.querySelector(CONTENT),
-        detailView;
-    if (!content) {
-        return;
-    }
-    detailView = content.querySelector(DETAIL);
-
-    if (detailView) {
-        detailView.classList.remove('is-active');
-    }
-
-    var imgWrap = content.querySelector('.wrapper-images');
-    if (imgWrap) {
-        imgWrap.style.display = '';
-    }
-
-    if (detail && detail.trigger === trigger) {
-        // Engaged state: keep the thumbnail you were viewing revealed (veil
-        // lifted) on return — styled in Designer via .thumb-hover.is-revealed.
-        var thumbs = trigger.querySelectorAll(W_THUMB);
-        if (thumbs[detail.idx]) {
-            var th = thumbs[detail.idx].querySelector('.thumb-hover');
-            if (th) { th.classList.add('is-revealed'); }
-        }
-        detail = null;
-    }
+function release() {
+    if (!detail) { return; }
+    var thumbs = detail.trigger.querySelectorAll(W_THUMB),
+        th = thumbs[detail.idx] && thumbs[detail.idx].querySelector('.thumb-hover');
+    if (th) { th.classList.add('is-revealed'); }
+    detail = null;
 }
 
-// ── State 4 : Fullscreen (FLIP — same element promotes to fixed) ──
-
-// Propagate the .is-fullscreen state to every descendant so children can be
-// styled per-element in the Designer via `.child.is-fullscreen` combos (which
-// revert on close). Webflow can't author `.detail-view.is-fullscreen .child`
-// descendant rules, so the state class cascades instead.
-function propagateFs(view, on) {
-    var els = view.querySelectorAll('*'), i;
-    for (i = 0; i < els.length; i += 1) {
-        if (on) { els[i].classList.add('is-fullscreen'); }
-        else { els[i].classList.remove('is-fullscreen'); }
-    }
-}
-
-// Return the portal'd modal to its home slot in the entry (see openFullscreen).
-function fsRestore(view) {
-    if (fsHome && fsHome.parent) {
-        fsHome.parent.insertBefore(view, fsHome.next);
-    }
-    fsHome = null;
-}
+// ── State 4 : Fullscreen (the whole overlay FLIPs from/to a thumbnail rect) ──
 
 // Realm highlight: light a masthead word in the rust accent. Shared by the
 // hover cue (states 1–3) and the fullscreen lock (state 4).
@@ -880,81 +952,108 @@ window.addEventListener('popstate', function () {
 });
 
 function openFullscreen() {
-    var view, first, last, dx, dy, sx, sy;
-    if (!detail) {
+    if (!detail || !OVERLAY) {
+        // v66: the legacy no-overlay promote path (portal to <body>, propagateFs,
+        // fsHome) is RETIRED — the Immersive Overlay component is instanced on
+        // every page that renders entries (Home, both CMS templates, menu pages).
         return;
     }
 
-    // ── v32 overlay path: GROWTH IN (Seth, 2026-07-25: "growth in, growth
-    // out — restore the old feel"): the WHOLE overlay FLIP-morphs from the
-    // source image's rect to the full frame — the same math and easing as the
-    // old promoted detail-view. The curtain transition is retired from the
-    // Designer base; the rest state is a static hide (opacity 0, clipped).
-    if (OVERLAY) {
-        var srcEl = detail.trigger.querySelector(DETAIL_IMG),
-            srcRect = srcEl && srcEl.getBoundingClientRect();
-        if (!srcRect || !srcRect.width) {
-            srcEl = detail.trigger.querySelectorAll(W_THUMB)[detail.idx];
-            srcRect = srcEl && srcEl.getBoundingClientRect();
-        }
-        fs = { view: OVERLAY };
-        OVERLAY.classList.add('is-viewing');
-        paintDetail(OVERLAY);
-        setImmersive(true, detail.trigger);
-        pushFsState();
-        if (srcRect && srcRect.width) {
-            var oLast = OVERLAY.getBoundingClientRect(),
-                oDx = srcRect.left + srcRect.width / 2 - (oLast.left + oLast.width / 2),
-                oDy = srcRect.top + srcRect.height / 2 - (oLast.top + oLast.height / 2),
-                oSx = srcRect.width / oLast.width,
-                oSy = srcRect.height / oLast.height;
-            OVERLAY.style.transition = 'none';
-            OVERLAY.style.transform = 'translate(' + oDx + 'px,' + oDy + 'px) scale(' + oSx + ',' + oSy + ')';
-            requestAnimationFrame(function () {
-                OVERLAY.style.transition = 'transform ' + TRANSITION + 'ms ' + SETTLE;
-                OVERLAY.style.transform = 'none';
-                setTimeout(function () {
-                    OVERLAY.style.transition = '';
-                    OVERLAY.style.transform = '';
-                }, TRANSITION);
-            });
-        }
-        return;
-    }
-
-    // ── legacy path (no overlay on this page): promote the detail view ──
-    view = detail.trigger.querySelector(DETAIL);
-    if (!view) {
-        return;
-    }
-
-    first = view.getBoundingClientRect();
-    view.classList.add('is-fullscreen');
-    propagateFs(view, true);
-    // PORTAL: re-home the modal to <body> for the fullscreen run. Inside the
-    // columns, any styled ancestor (position+z-index, transform, filter) traps
-    // its stacking context — entry text bled through the frame exactly that
-    // way. At body level the D5 stack is law: columns < modal 999 < nav 1000.
-    fsHome = { parent: view.parentNode, next: view.nextSibling };
-    document.body.appendChild(view);
-    last = view.getBoundingClientRect();
-
-    dx = first.left + first.width / 2 - (last.left + last.width / 2);
-    dy = first.top + first.height / 2 - (last.top + last.height / 2);
-    sx = first.width / last.width;
-    sy = first.height / last.height;
-
-    view.style.transition = 'none';
-    view.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + sx + ',' + sy + ')';
-
-    fs = { view: view };
+    // GROWTH IN, v68: THE PICTURE FLIES, THE FRAME FADES. The .immersive-image
+    // itself FLIP-morphs from the clicked thumbnail's rect to its own contain-fit
+    // content rect — both endpoints are the whole picture at natural aspect
+    // (v62's per-image ratio stamps make the thumbnail so), so the flight is one
+    // uniform translate+scale: nothing crops mid-air, nothing can squash. The
+    // overlay's backdrop colour and chrome fade in on the same clock. (v67's
+    // whole-overlay clip morph measured "correct" and still read as a squeeze +
+    // a spring — the visible window crushed shut in the first 100ms and the
+    // SETTLE tail drifted for 350 more. The window is gone; only the picture
+    // moves.)
+    var srcEl = detail.trigger.querySelectorAll(W_THUMB)[detail.idx],
+        srcRect = srcEl && srcEl.getBoundingClientRect();
+    fs = { view: OVERLAY };
+    OVERLAY.classList.add('is-viewing');
+    paintDetail(OVERLAY);
     setImmersive(true, detail.trigger);
     pushFsState();
+    var img = OVERLAY.querySelector('.immersive-image');
+    if (srcRect && srcRect.width && srcRect.height && img) {
+        // The thumbnail's rect IS the picture's aspect (v62 stamps the wrapper
+        // with the image's own ratio), so the flight geometry never has to wait
+        // for the full-size file to decode (naturalWidth is 0 until it does —
+        // gating on it silently skipped the whole morph on first open).
+        var content = fsContentRect(img, srcRect.width / srcRect.height),
+            chrome = lzOverlayChrome(),
+            bg = getComputedStyle(OVERLAY).backgroundColor;
+        img.style.transition = 'none';
+        img.style.transformOrigin = '50% 50%';
+        img.style.transform = lzFlight(content, srcRect);
+        OVERLAY.style.transition = 'none';
+        OVERLAY.style.backgroundColor = 'transparent';
+        chrome.forEach(function (el) { el.style.transition = 'none'; el.style.opacity = '0'; });
+        // FORCED FLUSH, not rAF (v68): a rAF callback can run in the same frame
+        // as the start-state writes — measured: both landed in the same
+        // millisecond, no style recalc between, so the transition saw no change
+        // and the grow SNAPPED. offsetWidth commits the start state
+        // deterministically (and unlike rAF it also works in a hidden tab).
+        void OVERLAY.offsetWidth;
+        img.style.transition = 'transform ' + FS_EASE.dur + 'ms ' + FS_EASE.curve;
+        img.style.transform = 'none';
+        OVERLAY.style.transition = 'background-color ' + FS_EASE.dur + 'ms ' + FS_EASE.curve;
+        OVERLAY.style.backgroundColor = bg;
+        chrome.forEach(function (el) {
+            el.style.transition = 'opacity ' + FS_EASE.dur + 'ms ' + FS_EASE.curve;
+            el.style.opacity = '1';
+        });
+        setTimeout(function () { lzFlightCleanup(img); }, FS_EASE.dur);
+    }
+}
 
-    requestAnimationFrame(function () {
-        view.style.transition = 'transform ' + TRANSITION + 'ms ' + SETTLE;
-        view.style.transform = 'none';
-    });
+// The fullscreen morphs run on CLOSE_EASE at 500ms — Seth's pick from the v68
+// candidates ("okay ease=2 is good"): the site's own closing token, symmetric,
+// no front-loaded tail. Kept as a five-line debug override (?ease=1 → SETTLE,
+// ?ease=3 → CLOSE_EASE 350ms) for future feel comparisons; read from the
+// ARRIVAL url (INITIAL_SEARCH — never the live one).
+var FS_EASE = (function () {
+    var m = /[?&]ease=([13])\b/.exec(INITIAL_SEARCH);
+    if (m && m[1] === '1') { return { dur: TRANSITION, curve: SETTLE }; }
+    if (m && m[1] === '3') { return { dur: 350, curve: CLOSE_EASE }; }
+    return { dur: TRANSITION, curve: CLOSE_EASE };
+}());
+
+// The contain-fit CONTENT rect of the fullscreen image — where the pixels
+// actually render inside the element's box (object-fit: contain math). The
+// aspect comes in from the caller (the thumbnail rect carries the picture's
+// own ratio via v62), with naturalWidth as the fallback once decoded.
+function fsContentRect(img, aspect) {
+    var r = img.getBoundingClientRect(), a, w, h;
+    a = aspect || (img.naturalHeight ? img.naturalWidth / img.naturalHeight : 0);
+    if (!a || !r.width || !r.height) { return r; }
+    w = Math.min(r.width, r.height * a);
+    h = w / a;
+    return { left: r.left + (r.width - w) / 2, top: r.top + (r.height - h) / 2, width: w, height: h };
+}
+
+// One uniform translate+scale mapping `from` onto `to` (same aspect by
+// construction — the thumbnail carries the image's own ratio since v62).
+function lzFlight(from, to) {
+    var s = to.width / from.width,
+        dx = to.left + to.width / 2 - (from.left + from.width / 2),
+        dy = to.top + to.height / 2 - (from.top + from.height / 2);
+    return 'translate(' + dx + 'px,' + dy + 'px) scale(' + s + ')';
+}
+
+function lzOverlayChrome() {
+    return [].slice.call(OVERLAY.querySelectorAll('.immersive-bar, .caption-drawer'));
+}
+
+function lzFlightCleanup(img) {
+    // Never clear the image's transform while a zoom owns it (zoomApply writes
+    // the same inline property; the pinch can begin before this timer fires).
+    if (img && !zoom) { img.style.transition = ''; img.style.transform = ''; img.style.transformOrigin = ''; }
+    OVERLAY.style.transition = '';
+    OVERLAY.style.backgroundColor = '';
+    lzOverlayChrome().forEach(function (el) { el.style.transition = ''; el.style.opacity = ''; });
 }
 
 // Public close: route through history when we pushed (Back and ✕ behave the
@@ -966,14 +1065,13 @@ function closeFullscreen() {
 }
 
 function closeFullscreenNow() {
-    var view, trigger, wasSingle, first, last, dx, dy, sx, sy;
+    var view, trigger;
     if (!fs) {
         return;
     }
     fsPushed = false;
     view = fs.view;
     trigger = detail ? detail.trigger : null;
-    wasSingle = detail && detail.images.length === 1;
 
     if (zoom) {
         resetZoom();
@@ -982,74 +1080,61 @@ function closeFullscreenNow() {
     fs = null;
     setImmersive(false);
 
-    // ── v32 overlay path: GROWTH OUT — the overlay FLIP-shrinks back to the
-    // state-3 detail image beneath (still engaged). Single-image entries keep
-    // the Option-C snap (no in-flow view to land on; the snap is bulletproof).
-    if (view === OVERLAY) {
-        var oImg = OVERLAY.querySelector('.immersive-image');
-        if (oImg) { oImg.style.transition = ''; oImg.style.transform = ''; }
-        var tEl = !wasSingle && trigger && trigger.querySelector(DETAIL_IMG),
-            tRect = tEl && tEl.getBoundingClientRect();
-        if (!tRect || !tRect.width) {                       // snap (single-image / no target)
-            OVERLAY.classList.remove('is-viewing');
-            OVERLAY.style.transition = '';
-            OVERLAY.style.transform = '';
-            if (wasSingle && trigger) { closeDetail(trigger); }
-            return;
-        }
-        var cFirst = OVERLAY.getBoundingClientRect(),
-            cDx = tRect.left + tRect.width / 2 - (cFirst.left + cFirst.width / 2),
-            cDy = tRect.top + tRect.height / 2 - (cFirst.top + cFirst.height / 2),
-            cSx = tRect.width / cFirst.width,
-            cSy = tRect.height / cFirst.height;
-        OVERLAY.style.transition = 'transform ' + TRANSITION + 'ms ' + SETTLE;
-        OVERLAY.style.transform = 'translate(' + cDx + 'px,' + cDy + 'px) scale(' + cSx + ',' + cSy + ')';
-        setTimeout(function () {
-            OVERLAY.style.transition = 'none';
-            OVERLAY.classList.remove('is-viewing');         // rest state is static (opacity 0)
-            OVERLAY.style.transform = '';
-            void OVERLAY.offsetHeight;
-            OVERLAY.style.transition = '';
-        }, TRANSITION);
+    // The landing pad is the thumbnail of the image being VIEWED
+    // (thumbs[detail.idx]) — not the one that opened it (T-02's fix). Option-C's
+    // snap stays retired: v62 reserves every thumbnail's footprint, so there is
+    // always a stable in-flow rect to settle into.
+    var oImg = view.querySelector('.immersive-image');
+    if (oImg) { oImg.style.transition = ''; oImg.style.transform = ''; }
+    var thumbs = trigger ? trigger.querySelectorAll(W_THUMB) : [],
+        tEl = detail ? thumbs[detail.idx] : null,
+        tRect = tEl && tEl.getBoundingClientRect();
+    // Off-screen landing pad: the page behind may have scrolled (or the entry
+    // sits far away after a deep arrival). Settle it instantly — invisible
+    // behind the full-frame overlay — and aim at the re-measured rect.
+    if (tEl && tRect && tRect.width &&
+            (tRect.bottom < 0 || tRect.top > innerHeight)) {
+        settleExactly(trigger, anchorPad());
+        tRect = tEl.getBoundingClientRect();
+    }
+    if (!tRect || !tRect.width || !tRect.height || !oImg) {   // no landing pad → static hide
+        view.classList.remove('is-viewing');
+        lzFlightCleanup(oImg);
+        release();
         return;
     }
-
-    // OPTION C (adopted): single-image close snaps instantly, no motion.
-    // The fullscreen-to-thumbnail morph was flash-prone; a clean snap back to
-    // the preview is bulletproof, and the entry stays engaged (rust + revealed
-    // thumbnail) so it doesn't feel abrupt.
-    if (wasSingle) {
-        view.style.transition = 'none';
-        view.style.transform = '';
-        view.classList.remove('is-fullscreen');
-        propagateFs(view, false);
-        fsRestore(view);
-        if (trigger) { closeDetail(trigger); }
-        return;
-    }
-
-    first = view.getBoundingClientRect();
-    view.classList.remove('is-fullscreen');
-    propagateFs(view, false);
-    fsRestore(view);
-    last = view.getBoundingClientRect();
-
-    dx = first.left + first.width / 2 - (last.left + last.width / 2);
-    dy = first.top + first.height / 2 - (last.top + last.height / 2);
-    sx = first.width / last.width;
-    sy = first.height / last.height;
-
+    // GROWTH OUT, v68: the picture flies home. The image FLIP-shrinks from its
+    // contain-fit content rect onto the viewed thumbnail — one uniform
+    // translate+scale, whole picture at natural aspect both ends, nothing to
+    // squash — while the backdrop colour and chrome fade out on the same clock.
+    var content = fsContentRect(oImg, tRect.width / tRect.height),
+        chrome = lzOverlayChrome(),
+        bg = getComputedStyle(view).backgroundColor;
+    // Pin every start state, commit them in ONE forced flush, then write the
+    // targets — the exact pattern the grow uses. (Writing the img's transition
+    // and target in the same recalc measured as a SNAP while the backdrop —
+    // which had its own pin+flush — animated: scale was at its final 0.163 at
+    // 50ms. One discipline for every animated property, no exceptions.)
+    oImg.style.transition = 'none';
+    oImg.style.transformOrigin = '50% 50%';
+    oImg.style.transform = 'none';
     view.style.transition = 'none';
-    view.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + sx + ',' + sy + ')';
-
-    requestAnimationFrame(function () {
-        view.style.transition = 'transform ' + TRANSITION + 'ms ' + SETTLE;
-        view.style.transform = 'none';
-        setTimeout(function () {
-            view.style.transition = '';
-            view.style.transform = '';
-        }, TRANSITION);
+    view.style.backgroundColor = bg;
+    chrome.forEach(function (el) { el.style.transition = 'none'; el.style.opacity = '1'; });
+    void view.offsetHeight;
+    oImg.style.transition = 'transform ' + FS_EASE.dur + 'ms ' + FS_EASE.curve;
+    oImg.style.transform = lzFlight(content, tRect);
+    view.style.transition = 'background-color ' + FS_EASE.dur + 'ms ' + FS_EASE.curve;
+    view.style.backgroundColor = 'transparent';
+    chrome.forEach(function (el) {
+        el.style.transition = 'opacity ' + FS_EASE.dur + 'ms ' + FS_EASE.curve;
+        el.style.opacity = '0';
     });
+    setTimeout(function () {
+        view.classList.remove('is-viewing');            // rest state is static (opacity 0)
+        lzFlightCleanup(oImg);
+    }, FS_EASE.dur);
+    release();          // veil-reveal on the viewed thumbnail; back to state 2
 }
 
 // ── State 4b : Zoom + Pan ──
@@ -1149,7 +1234,7 @@ function resetZoom() {
 // ── State 1 <-> 2 : Accordion ──
 
 function closeAccordion(el) {
-    closeDetail(el);
+    if (detail && detail.trigger === el) { detail = null; }   // v66: engagement, no view
     el.querySelectorAll(W_THUMB).forEach(function (t) {
         var th = t.querySelector('.thumb-hover');
         if (th) { th.classList.remove('is-revealed'); }
@@ -1272,10 +1357,11 @@ document.addEventListener('click', function (e) {
     document.addEventListener('click', warm, true);
 }());
 
-// State 2 -> 3 : Thumbnail click
+// State 2 -> 4 : Thumbnail click — STRAIGHT to fullscreen (v66, the ladder
+// cut). Single-image entries always worked this way; now every entry does.
 document.addEventListener('click', function (e) {
     var thumb = e.target.closest(W_THUMB),
-        trigger, images, idx;
+        trigger;
     if (!thumb) {
         return;
     }
@@ -1284,43 +1370,21 @@ document.addEventListener('click', function (e) {
     if (!trigger) {
         return;
     }
-
-    images = getImages(trigger);
-    idx    = thumbIndex(trigger, thumb);
-
-    if (detail && detail.trigger === trigger) {
-        detail.idx = idx;
-        paintDetail(trigger.querySelector(DETAIL));
-        return;
-    }
-
-    openDetail(trigger, idx, images);
-
-    if (images.length === 1) {
-        openFullscreen();
-    }
+    engage(trigger, thumbIndex(trigger, thumb), getImages(trigger));
+    openFullscreen();
 });
 
-// State 3 -> 4 : Detail image click / fullscreen zoom toggle
+// State 4 : image click = click-step zoom (Seth's mouse model). A click that
+// ended a pan or swipe drag is swallowed (dragMoved); a clean click steps the
+// zoom toward the click point. Pinch + drag layer in for trackpad/touch.
 document.addEventListener('click', function (e) {
     var img = e.target.closest(FS_IMG);
-    if (!img) {
+    if (!img || !fs) {
         return;
     }
     e.preventDefault();
-
-    if (fs) {
-        // Click-step zoom (Seth's mouse model). A click that ended a pan or swipe
-        // drag is swallowed (dragMoved); a clean click steps the zoom toward the
-        // click point. Pinch + drag layer in for trackpad/touch.
-        if (dragMoved) { dragMoved = false; return; }
-        zoomStepClick(img, e.clientX, e.clientY);
-        return;
-    }
-
-    if (detail) {
-        openFullscreen();
-    }
+    if (dragMoved) { dragMoved = false; return; }
+    zoomStepClick(img, e.clientX, e.clientY);
 });
 
 // Control delegation
@@ -1360,37 +1424,9 @@ document.addEventListener('click', function (e) {
             }
             return;
         }
-        return;
     }
-
-    if (detail) {
-        view = detail.trigger.querySelector(DETAIL);
-        if (action === 'close') {
-            closeDetail(detail.trigger);
-            return;
-        }
-        if (action === 'prev') {
-            detail.idx = (detail.idx - 1 + detail.images.length) % detail.images.length;
-            paintDetail(view);
-            return;
-        }
-        if (action === 'next') {
-            detail.idx = (detail.idx + 1) % detail.images.length;
-            paintDetail(view);
-            return;
-        }
-        if (action === 'expand') {
-            openFullscreen();
-            return;
-        }
-        if (action === 'toggle-caption') {
-            c = view.querySelector(CAPTION);
-            if (c) {
-                c.classList.toggle('is-collapsed');
-            }
-            return;
-        }
-    }
+    // (v66: the non-fullscreen [data-detail] branch — state 3's own controls,
+    // incl. the `expand` action — is retired with the detail view.)
 });
 
 // Pan handlers — pointer-based so trackpad press-drag, mouse, and touch all pan.
@@ -1473,17 +1509,13 @@ document.addEventListener('keydown', function (e) {
             closeFullscreen();
             return;
         }
-        if (detail) {
-            closeDetail(detail.trigger);
-            return;
-        }
         open = document.querySelector(TRIGGER + '.open');
         if (open) {
             closeAccordion(open);
         }
         return;
     }
-    if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && detail) {
+    if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && fs && detail) {
         e.preventDefault();
         if (zoom) {
             resetZoom();
@@ -1493,10 +1525,7 @@ document.addEventListener('keydown', function (e) {
         } else {
             detail.idx = (detail.idx + 1) % detail.images.length;
         }
-        view = fs ? fs.view : detail.trigger.querySelector(DETAIL);
-        if (view) {
-            paintDetail(view);
-        }
+        paintDetail(fs.view);
     }
 });
 
@@ -2172,18 +2201,19 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         // beneath for pages without the overlay.
         '.immersive-overlay.is-viewing{cursor:' + XCUR + ';}',
         '.immersive-overlay .immersive-bar,.immersive-overlay .caption-drawer,.immersive-overlay .immersive-image{cursor:auto;}',
-        '.detail-view.is-fullscreen{cursor:' + XCUR + ';}',
-        '.caption-drawer.is-fullscreen{cursor:auto;}',
+        // Caption collapse (v67) — DESCENDANT selector, Webflow can't author it
+        // (contract §2 pattern). The Designer's .caption-drawer.is-collapsed
+        // collapses a grid row the caption doesn't live in (measured: rows
+        // "50px 0px" with everything in row one — the class flipped, nothing
+        // moved, in v65 too). Inside the overlay, collapsed hides the caption
+        // text and keeps the ◉; the state itself stays Seth's to restyle.
+        '.immersive-overlay .caption-drawer.is-collapsed .caption-content{display:none;}',
         // Slide counter: hidden at rest (paintDetail seeds it into every caption
-        // row), shown inside the overlay / legacy fullscreen caption.
+        // row), shown inside the overlay caption.
         '.fs-count{display:none;}',
-        '.immersive-overlay .fs-count,.caption-drawer.is-fullscreen .fs-count{display:inline-block;color:' + ACC + ';}',
-        // LEGACY fullscreen fill (fallback pages without the overlay only —
-        // the overlay path never touches these; layout there is Seth's).
-        '.detail-view.is-fullscreen{inset:0;margin:0;display:flex;flex-direction:column;z-index:999;padding:calc(4vh + 3rem) 1.5rem 1.5rem;}',
-        '.detail-bar.is-fullscreen{display:none;}',
-        '.detail-image.is-fullscreen{flex:1 1 auto;min-height:0;height:auto;}',
-        '.caption-drawer.is-fullscreen{flex:0 0 auto;grid-template-rows:auto 1fr;}',
+        '.immersive-overlay .fs-count{display:inline-block;color:' + ACC + ';}',
+        // (v66: the legacy .detail-view/.detail-bar/.detail-image .is-fullscreen
+        // fill rules left with the no-overlay promote path.)
         '.fs-nav.is-prev{cursor:' + LCUR + ';}',
         '.fs-nav.is-next{cursor:' + RCUR + ';}',
         '.fs-chev{font-size:0!important;text-shadow:none!important;font-family:inherit!important;padding:' + SP3 + '!important;color:' + ACC + '!important;line-height:1!important;}',
@@ -2201,22 +2231,14 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     st.textContent = css;
     document.head.appendChild(st);
 
-    // Fullscreen close = ✕ (data-detail) + backdrop + Back + Esc. The
-    // LUNGITZ-closes shortcut survives only on the LEGACY path (with the
-    // overlay, LUNGITZ means "menu" and sits beneath it anyway).
-    document.addEventListener('click', function (e) {
-        if (!fs || OVERLAY) { return; }
-        if (e.target.closest('.nav-lungitz')) {
-            e.preventDefault();
-            e.stopPropagation();
-            closeFullscreen();
-        }
-    }, true);
+    // Fullscreen close = ✕ (data-detail) + backdrop + Back + Esc. (v66: the
+    // LUNGITZ-closes shortcut left with the legacy no-overlay path — with the
+    // overlay, LUNGITZ means "menu" and sits beneath it anyway.)
     document.addEventListener('click', function (e) {
         if (!fs || zoom) { return; }
         var view = fs.view;
         if (!view || !view.contains(e.target)) { return; }
-        if (e.target.closest('.detail-image, .immersive-image, .immersive-bar, .caption-drawer, .fs-nav, .nav, [data-detail]')) { return; }
+        if (e.target.closest('.immersive-image, .immersive-bar, .caption-drawer, .fs-nav, .nav, [data-detail]')) { return; }
         closeFullscreen();
     }, false);
 }());
@@ -2757,8 +2779,7 @@ var lzSyncPad = null;
     function levelText() {
         var esc = browserFs() ? '✕ / back' : 'esc';
         if (fs) { return zoom ? '←→ pan · +/− zoom · ' + esc + ' reset' : '←→ image · +/− zoom · ⏎ zoom · ' + esc + ' exit'; }
-        if (detail) { return '←→ image · ⏎ fullscreen · esc back'; }
-        if (openTrig()) { return '←→ thumbnails · ⏎ view · esc close'; }
+        if (openTrig()) { return '←→ thumbnails · ⏎ fullscreen · esc close'; }
         return INDEX_RING ? '↑↓ browse · ←→ switch side · ⏎ open' : '';
     }
     function paintHint() {
@@ -2767,7 +2788,7 @@ var lzSyncPad = null;
         else { hint.classList.remove('is-on'); }
     }
     function reconcile() {            // after a step-out, restore the ring to where you were
-        if (INDEX_RING && kbMode && !fs && !detail && !openTrig() && lastEntry) {
+        if (INDEX_RING && kbMode && !fs && !openTrig() && lastEntry) {
             focusEntry(lastEntry, false);
         }
         paintHint();
@@ -2803,7 +2824,6 @@ var lzSyncPad = null;
                 else if (fimg) { var fr = fimg.getBoundingClientRect(); zoomSet(fimg, 2, fr.left + fr.width / 2, fr.top + fr.height / 2); }
                 paintHint(); return;
             }
-            if (detail) { e.preventDefault(); if (typeof openFullscreen === 'function') { openFullscreen(); } paintHint(); return; }
             var ot = openTrig();
             if (ot) {
                 var th = thumbsOf(ot);
