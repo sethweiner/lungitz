@@ -929,17 +929,21 @@ function openFullscreen() {
         OVERLAY.style.transition = 'none';
         OVERLAY.style.backgroundColor = 'transparent';
         chrome.forEach(function (el) { el.style.transition = 'none'; el.style.opacity = '0'; });
-        requestAnimationFrame(function () {
-            img.style.transition = 'transform ' + FS_EASE.dur + 'ms ' + FS_EASE.curve;
-            img.style.transform = 'none';
-            OVERLAY.style.transition = 'background-color ' + FS_EASE.dur + 'ms ' + FS_EASE.curve;
-            OVERLAY.style.backgroundColor = bg;
-            chrome.forEach(function (el) {
-                el.style.transition = 'opacity ' + FS_EASE.dur + 'ms ' + FS_EASE.curve;
-                el.style.opacity = '1';
-            });
-            setTimeout(function () { lzFlightCleanup(img); }, FS_EASE.dur);
+        // FORCED FLUSH, not rAF (v68): a rAF callback can run in the same frame
+        // as the start-state writes — measured: both landed in the same
+        // millisecond, no style recalc between, so the transition saw no change
+        // and the grow SNAPPED. offsetWidth commits the start state
+        // deterministically (and unlike rAF it also works in a hidden tab).
+        void OVERLAY.offsetWidth;
+        img.style.transition = 'transform ' + FS_EASE.dur + 'ms ' + FS_EASE.curve;
+        img.style.transform = 'none';
+        OVERLAY.style.transition = 'background-color ' + FS_EASE.dur + 'ms ' + FS_EASE.curve;
+        OVERLAY.style.backgroundColor = bg;
+        chrome.forEach(function (el) {
+            el.style.transition = 'opacity ' + FS_EASE.dur + 'ms ' + FS_EASE.curve;
+            el.style.opacity = '1';
         });
+        setTimeout(function () { lzFlightCleanup(img); }, FS_EASE.dur);
     }
 }
 
