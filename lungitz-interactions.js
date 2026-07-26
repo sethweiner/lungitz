@@ -6,8 +6,8 @@
 // zoom/pan, arrangement). Loaded by the Home page — bail on /sandbox so it doesn't
 // double-bind with the loader's sandbox/vN.js. The injected CSS scaffold below is
 // being migrated to Designer combos; motion + grid-rows transitions stay here.
-// ★ v62 PROMOTED TO PRODUCTION 2026-07-26 — thumbnails reserve their own footprint:
-// per-image natural ratio stamped at warm time, ragged heights kept (Seth-approved).
+// ★ v64 PROMOTED TO PRODUCTION 2026-07-26 — the 1-col ratchet retired: time-eased glide on
+// the site's own SETTLE token, immediate expand-follow, realm scroll-spy (Seth-approved).
 // Loaded per-page via <script src="https://sethweiner.github.io/lungitz/lungitz-interactions.js">
 // (Home + the menu pages; paste the same tag into any new page's custom code).
 // Bail on /sandbox (its loader runs sandbox/vN.js) and guard against double loads
@@ -15,6 +15,31 @@
 if (window.__lzLoaded) { return; }
 window.__lzLoaded = true;
 if (/\/sandbox\/?$/.test(location.pathname)) { return; }
+// v64 (2026-07-26) — the glide speaks the site's own easing token. Seth on v63:
+//   "just use the same animation/easing tokens from the desktop" — so the
+//   easeInOutCubic candidate is gone and the glide's curve IS the SETTLE constant
+//   (cubic-bezier(0.16, 1, 0.3, 1), the token every desktop settle/expand motion
+//   already uses), parsed from the same string that styles the CSS, evaluated in
+//   JS over the glide's existing 620ms. One token, one source of truth; the 1-col
+//   glide and the desktop expand now read as the same gesture (T-07's spirit).
+//   Everything structural from v63 stands: time-eased error paydown (frame-rate
+//   independent, exact landing), immediate expand-follow, realmSpy.
+// v63 (2026-07-26) — the 1-column ratchet, measured twice and fixed twice; and the
+//   realm word follows the reader. (a) The glide's flat 18%-per-frame paydown was an
+//   ease-out with all its velocity on frame one — first visible frame jumped 394px
+//   of a 2188px travel, half the distance in 66ms, then a 30-frame crawl; per-frame
+//   portions also made the steps twice as big at half the frame rate. Now a time
+//   eased curve (easeInOutCubic — the feel is Seth's call, T-07) dictates how much
+//   of the journey is done at this instant and each frame pays exactly that share
+//   of the CURRENT error: frame-rate independent, zero-velocity start, exact land.
+//   (b) Opening an entry where the page scrolls was instant-expand → 520ms dead air
+//   → one instant scroll teleport (measured y 0→91 in a single event at ms 536):
+//   settleAfterExpand waited for a transition that never runs on 1-column. Retired;
+//   the open path glides immediately — the expand is instant there and v62 reserved
+//   the thumbnails, so the destination is already final. (c) realmSpy: on 1-column
+//   the section under the masthead lights its word — same lightRealm/.is-realm as
+//   desktop's realmHover, boundary = the is-right column's top crossing the
+//   masthead's measured bottom. Desktop untouched (spy no-ops above 767px).
 // v62 (2026-07-26) — thumbnails reserve their OWN footprint, not a uniform one.
 //   T-01's Designer aspect-ratio:3/2 reserved space but flattened the strip into a
 //   uniform row; Seth: the ragged natural heights ARE the design. Reverted in the
@@ -272,7 +297,7 @@ var TRIGGER    = '.trigger-accordion',
 // A few lines of flight recorder. Always on, costs nothing, and it is the only way
 // to see what a real phone actually did — this pane and a device disagree, and
 // guessing across that gap has cost more time than the bugs. Rendered by ?lzdebug=1.
-var LZ_VERSION = 'v62';
+var LZ_VERSION = 'v64';
 window.__lzTrace = window.__lzTrace || [];
 function lzLog(what, data) {
     try {
@@ -540,24 +565,40 @@ function pageIsScroller(el) {
     return !(col && col.scrollHeight > col.clientHeight + 1);
 }
 
-// Settle an entry once its expand transition has finished, instantly. Waiting for
-// the transition means the destination has stopped moving before we aim at it.
-function settleAfterExpand(trigger) {
-    var content = trigger.querySelector(CONTENT), fired = false;
-    function go() {
-        if (fired) { return; }
-        fired = true;
-        if (trigger.classList.contains('open')) { scrollToTrigger(trigger, true); }
+// (v63) settleAfterExpand is RETIRED. It waited out a transition that does not run
+// where it was used: it was only ever called when the PAGE scrolls (stacked 1-column),
+// and there the expand is instant by design (contract §8) — so the destination is
+// final the moment the class flips, and the wait bought nothing. What it delivered
+// was measured on staging: instant expand, 520ms of dead air, then a single instant
+// scroll teleport (y 0 → 91 in one event) — the second half of "the animation still
+// ratchets on 1-column". The open path now glides immediately through the same eased
+// walk everything else uses; with the expand instant and v62's thumbnails reserved,
+// the target is stable under the glide.
+
+// The SETTLE token, runnable (v64). CSS gets the string; the glide needs the same
+// curve as a function, so parse the four control numbers out of the one constant
+// and evaluate the cubic bezier (binary-search x → t, return y). Change SETTLE and
+// both the transitions and the glide change together — that is the point.
+var lzSettleEase = (function () {
+    var n = (SETTLE.match(/[\d.]+/g) || ['0.16', '1', '0.3', '1']).map(Number),
+        x1 = n[0], y1 = n[1], x2 = n[2], y2 = n[3];
+    function axis(t, a, b) {
+        var u = 1 - t;
+        return 3 * u * u * t * a + 3 * u * t * t * b + t * t * t;
     }
-    if (content) {
-        content.addEventListener('transitionend', function once(e) {
-            if (e.target !== content) { return; }
-            content.removeEventListener('transitionend', once);
-            go();
-        });
-    }
-    setTimeout(go, 520);            // transitionend can never fire; never hang on it
-}
+    return function (x) {
+        if (x <= 0) { return 0; }
+        if (x >= 1) { return 1; }
+        var lo = 0, hi = 1, t = x, cx, i;
+        for (i = 0; i < 24; i += 1) {
+            cx = axis(t, x1, x2);
+            if (Math.abs(cx - x) < 0.0005) { break; }
+            if (cx < x) { lo = t; } else { hi = t; }
+            t = (lo + hi) / 2;
+        }
+        return axis(t, y1, y2);
+    };
+}());
 
 // Put `el` exactly `pad` below the top of the viewport, WITHOUT deciding in advance
 // which thing scrolls.
@@ -602,14 +643,38 @@ function scrollToTrigger(trigger, instant) {
     // ONE MECHANISM (v59). This used to pick a scroller up front and tween that one
     // element's scrollTop — which is why clicking GIVEAWAYS in a single column did
     // nothing at all: it committed to the wrong thing and then animated it faithfully.
-    // Now it eases by consuming a share of the CURRENT error each frame and taking the
-    // whole remainder on the last one, through the same ancestor walk the arrivals use.
-    // Layout-agnostic by construction (one column, two, or mid-load), it lands exactly,
-    // and there is no second code path left to disagree with the first.
+    // It eases through the same ancestor walk the arrivals use — layout-agnostic by
+    // construction (one column, two, or mid-load), and the destination is re-read
+    // every frame so a still-settling layout is tracked, not fought.
+    //
+    // EASED IN TIME, NOT PER FRAME (v63). The old shape took a flat 18% of the
+    // remaining error on every rAF frame: an exponential ease-OUT whose whole
+    // velocity sits on frame one — measured on staging at 606px/1-col, the first
+    // visible frame teleported 394px of a 2188px travel, half the distance was gone
+    // in 4 frames (66ms), then ~30 frames crawled below 20px. And because the
+    // portion was per-FRAME, dropped frames on a slow device made the same spatial
+    // staircase with half the steps — "the animation still ratchets on 1-column".
+    // Now an easing curve says how much of the JOURNEY should be complete at this
+    // elapsed time, and each frame consumes exactly the share of the remaining
+    // error that gets it there: portion = (e(p) − e(prev)) / (1 − e(prev)).
+    // Frame-rate independent (time decides, not frame count), still re-reads the
+    // destination every frame, and the last frame takes portion 1, so it lands
+    // exactly as before.
+    // THE CURVE IS THE SITE'S OWN TOKEN (v64, Seth: "use the same animation/easing
+    // tokens from the desktop"): SETTLE — cubic-bezier(0.16, 1, 0.3, 1) — the same
+    // constant every desktop settle/expand transition is styled with, parsed from
+    // the same string and evaluated here, over the glide's existing 620ms. One
+    // gesture, one token, whichever thing scrolls.
+    var prevE = 0;
+    var ease = lzSettleEase;
     function step(now) {
         if (start === null) { start = now; }
-        var p = Math.min(1, (now - start) / DUR);
-        settleExactly(trigger, anchorPad(), p >= 1 ? 1 : 0.18);
+        var p = Math.min(1, (now - start) / DUR),
+            e = ease(p),
+            remaining = 1 - prevE,
+            portion = (p >= 1 || remaining < 0.001) ? 1 : (e - prevE) / remaining;
+        prevE = e;
+        settleExactly(trigger, anchorPad(), portion);
         if (p < 1) { requestAnimationFrame(step); }
     }
     requestAnimationFrame(step);
@@ -1119,12 +1184,14 @@ document.addEventListener('click', function (e) {
         pendingOpen = setTimeout(function () {
             pendingOpen = null;
             trigger.classList.add('open', 'is-engaged');
-            if (pageIsScroller(trigger)) { settleAfterExpand(trigger); }
+            // v63: glide, don't wait-then-teleport. Where the page scrolls the
+            // expand is instant, so the destination is already final — the old
+            // settleAfterExpand added 520ms of dead air and one instant jump.
+            if (pageIsScroller(trigger)) { scrollToTrigger(trigger); }
         }, CLOSE_STAGGER);
     } else {
         trigger.classList.add('open', 'is-engaged');
-        if (pageIsScroller(trigger)) { settleAfterExpand(trigger); }
-        else { scrollToTrigger(trigger); }
+        scrollToTrigger(trigger);   // v63: same eased glide whichever thing scrolls
     }
 });
 
@@ -1722,6 +1789,43 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             if (!immersive()) { lightRealm(null); }
         });
     });
+}());
+
+// Realm scroll-spy (v63, Seth: "on 1-column, when you're in the giveaways section
+// it should highlight w the accent color, and vice versa, just as it does on
+// desktop"). Desktop's cue is realmHover above — pointer-in-column lights the word
+// via lightRealm → Seth's existing .is-realm combo on the .h5-nav. On the stacked
+// 1-column layout there is no hover, so the viewport position is the pointer: the
+// reader is in HIDEAWAYS once that column's top has passed under the masthead's
+// bottom edge — the same measured line every anchor lands on (type-driven, so it is
+// re-read per event, never cached). Same class, same look, nothing new to style.
+// Scroll-event driven on purpose: scroll keeps firing where rAF and observers are
+// throttled. It also re-applies on wheel/pointerdown because the transient cues
+// (goToInfo's clearRealmCue, the arrival highlight) clear the word on those — on
+// 1-column the section, not the gesture, owns the highlight.
+(function realmSpy() {
+    var mq = matchMedia('(max-width:767px)');
+    function apply() {
+        if (!mq.matches || fs) { return; }        // desktop: hover owns it; state 4: the lock owns it
+        var right = document.querySelector('.wrapper-content.is-right'),
+            mast = document.querySelector('.nav.wide');
+        if (!right || !mast || right.offsetParent === null) { return; }
+        var mastBottom = mast.getBoundingClientRect().bottom;
+        if (mastBottom < 0 || mastBottom > 200) { return; }   // modal open — not a masthead line
+        lightRealm(right.getBoundingClientRect().top <= mastBottom ? 'hideaways' : 'giveaways');
+    }
+    window.addEventListener('scroll', apply, { passive: true });
+    window.addEventListener('resize', apply);
+    window.addEventListener('wheel', apply, { passive: true });
+    document.addEventListener('pointerdown', apply);          // bubble: after the capture-phase cue clears
+    if (mq.addEventListener) {
+        mq.addEventListener('change', function (e) {
+            if (!e.matches) { lightRealm(null); }             // leaving 1-column: hand back to hover
+            else { apply(); }
+        });
+    }
+    if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', apply); }
+    else { apply(); }
 }());
 
 // ════════════════════════════════════════════════════════════════════════
