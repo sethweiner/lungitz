@@ -288,3 +288,21 @@ revalidation after 10 minutes).
 `data_scripts_tool` → `set_site_freeform_code`) and publish the site. Forgetting the
 bump means visitors keep the previous build until the CDN/browser cache expires.
 `/sandbox` is unaffected — its page-footer loader has its own `?v=` selector.
+
+## 13. The overlay never arrives open — html.lz-ov-rest (v72, 2026-07-26)
+
+Webflow publishes whatever state classes are toggled on the canvas (§3's own
+preview workflow). A 2026-07-26 publish shipped `.immersive-overlay.is-viewing` on
+the component root and every page arrived covered by the open overlay (full-viewport
+at 1-col). Two-part fix, same architecture as the landing gate:
+
+- **SITE HEAD** adds `lz-ov-rest` to `<html>` unconditionally and hides
+  `.immersive-overlay` under it — no arrival flow opens fullscreen, so this is
+  always correct pre-paint.
+- **The script** settles the overlay at init (strips `is-viewing`/`is-open`/
+  `is-fullscreen` from the element) and removes `lz-ov-rest`.
+
+**Lockstep: change either half only with the other.** Styling overlay states on the
+canvas is now safe to publish — leave `is-viewing` toggled in the Designer as long
+as you like. Note: sandbox builds < v72 never remove `lz-ov-rest`, so their
+fullscreen opens invisibly — test old builds only by removing the class by hand.
