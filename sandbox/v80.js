@@ -1203,10 +1203,14 @@ function closeFullscreenNow() {
     // ratio is already known FOR FREE: the overlay image IS the same asset.
     // Stamp the wrapper synchronously (v62's own property, identical layout by
     // construction), warm the thumb, reflow, re-measure — a real rect to fly to.
-    if (tEl && tRect && (tRect.height < 20 || tRect.width < 20) &&
-            oImg && oImg.naturalWidth && oImg.naturalHeight) {
+    if (tEl && tRect && (tRect.height < 20 || tRect.width < 20)) {
         if (!tEl.style.aspectRatio) {
-            tEl.style.aspectRatio = oImg.naturalWidth + ' / ' + oImg.naturalHeight;
+            tEl.style.aspectRatio = (oImg && oImg.naturalWidth && oImg.naturalHeight)
+                ? oImg.naturalWidth + ' / ' + oImg.naturalHeight
+                // The overlay image can itself still be loading (slow network,
+                // fast close): T-01's dominant source ratio — a real-sized pad
+                // beats a dot, and beats the static hide.
+                : '3 / 2';
         }
         var tImg = tEl.querySelector('img');
         if (tImg && tImg.loading === 'lazy') { tImg.loading = 'eager'; }
