@@ -142,3 +142,11 @@ bail + `window.__lzLoaded` double-load guard.
 Old Masthead component: still instanced ONLY on the entry templates (their
 legacy fullscreen frame). Swap → Landing Modal + Immersive Overlay instances
 there = the last retirement step.
+
+---
+
+## 6. TEMPORARY overrides living in SITE HEAD custom code (move these into the Designer)
+
+| override | why it is there, and what to do |
+|---|---|
+| `@media (max-width:767px){.wrapper-content.is-left,.is-right{overflow:visible}}` | At ≤767px the columns **stack** and the page scrolls — the column scrolls nothing (`scrollHeight === clientHeight`), yet the combo still carried `overflow:auto`. That leaves a composited scroll layer with no content to scroll, and **Android Chrome fails to invalidate it**, so scrolled entries leave ghost trails that accumulate. Desktop columns *are* real scrollers (verified at 991px: side-by-side, 709/3307) so the base rule must not change. It sits in head code only because the winning rule is a combo on `is-left`/`is-right`, which are **shared modifier names** (also on `.h5-nav`) — rewriting a shared-modifier combo over MCP is the recorded collapse hazard. **By hand in the Designer this is safe: set Overflow → Visible on `.wrapper-content.is-left` and `.is-right` at the Mobile landscape breakpoint, then delete the head block.** |
