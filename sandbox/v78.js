@@ -2269,7 +2269,12 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         // (b) the chrome lamp's pulse — @keyframes.
         '.is-pending h1,.is-pending h2,.is-pending h3,.is-pending h4,.is-pending h5,.is-pending p,.is-pending div{color:inherit;}',
         '@keyframes lz-pending-pulse{50%{opacity:0.4;}}',
-        '.nav-lungitz.is-pending{animation:lz-pending-pulse 1.4s ' + CLOSE_EASE + ' infinite;}',
+        // Specificity backstop (measured): .nav-lungitz carries its own colour at
+        // the same 0-1-0 specificity as .is-pending, and Webflow's stylesheet
+        // order decided against the state class — the lamp pulsed but stayed
+        // blue. The compound (0-2-0) settles it; same token as the Designer
+        // class, the v37 hover-rule precedent.
+        '.nav-lungitz.is-pending{animation:lz-pending-pulse 1.4s ' + CLOSE_EASE + ' infinite;color:var(--_lungitz---color-accent-b-500);}',
         '.immersive-overlay .immersive-bar,.immersive-overlay .caption-drawer,.immersive-overlay .immersive-image{cursor:auto;}',
         // Caption collapse (v67) — DESCENDANT selector, Webflow can't author it
         // (contract §2 pattern). The Designer's .caption-drawer.is-collapsed
