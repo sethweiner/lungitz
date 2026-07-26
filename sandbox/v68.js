@@ -1047,11 +1047,20 @@ function closeFullscreenNow() {
     var content = fsContentRect(oImg, tRect.width / tRect.height),
         chrome = lzOverlayChrome(),
         bg = getComputedStyle(view).backgroundColor;
-    oImg.style.transition = 'transform ' + FS_EASE.dur + 'ms ' + FS_EASE.curve;
+    // Pin every start state, commit them in ONE forced flush, then write the
+    // targets — the exact pattern the grow uses. (Writing the img's transition
+    // and target in the same recalc measured as a SNAP while the backdrop —
+    // which had its own pin+flush — animated: scale was at its final 0.163 at
+    // 50ms. One discipline for every animated property, no exceptions.)
+    oImg.style.transition = 'none';
     oImg.style.transformOrigin = '50% 50%';
-    oImg.style.transform = lzFlight(content, tRect);
-    view.style.backgroundColor = bg;                    // pin, then fade the inline value
+    oImg.style.transform = 'none';
+    view.style.transition = 'none';
+    view.style.backgroundColor = bg;
+    chrome.forEach(function (el) { el.style.transition = 'none'; el.style.opacity = '1'; });
     void view.offsetHeight;
+    oImg.style.transition = 'transform ' + FS_EASE.dur + 'ms ' + FS_EASE.curve;
+    oImg.style.transform = lzFlight(content, tRect);
     view.style.transition = 'background-color ' + FS_EASE.dur + 'ms ' + FS_EASE.curve;
     view.style.backgroundColor = 'transparent';
     chrome.forEach(function (el) {
