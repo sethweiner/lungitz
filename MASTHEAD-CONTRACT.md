@@ -274,3 +274,17 @@ jump, which *does* honour the synced scroll-padding — strictly better than the
 The smoothed glide now records the hash itself (`replaceState`) so the URL stays honest.
 Verified 1-col click/arrival `off_by=0`, 2-col `off_by=−1`, wide 2-col `off_by=−3`
 (the §9 first-in-column geometry, not a scroll bug).
+
+## 12. The production script's cache pin lives in SITE FOOTER custom code (T-10, 2026-07-26)
+
+The site footer loads `lungitz-interactions.js?v=NN` with a **pinned** build tag.
+It was `?v=' + Date.now()` during iteration — that made every navigation re-download
+the ~106KB script and widened every load-timing race. Pinned, the second navigation
+serves from browser cache (GitHub Pages sends `max-age=600`, so at worst a cheap 304
+revalidation after 10 minutes).
+
+**The pin is part of the promote procedure**: after copying a sandbox build to
+`lungitz-interactions.js` and pushing, bump `?v=NN` in the site footer (MCP
+`data_scripts_tool` → `set_site_freeform_code`) and publish the site. Forgetting the
+bump means visitors keep the previous build until the CDN/browser cache expires.
+`/sandbox` is unaffected — its page-footer loader has its own `?v=` selector.

@@ -79,3 +79,12 @@ Edit `sandbox/vNN.js`, test on `/sandbox?v=NN`, then promote by copying to
 `lungitz-interactions.js` with the production header (the `/sandbox` bail +
 `window.__lzLoaded` guard — see current file head). Never push untested code
 straight to the production filename.
+
+**Promote step 2 — BUMP THE CACHE PIN (T-10, pinned 2026-07-26).** The SITE
+FOOTER custom code loads the script with a **pinned** `?v=NN` (no more
+`Date.now()`, which re-downloaded ~106KB every navigation). The pin is the cache
+key: after every promote, edit the site footer (MCP `data_scripts_tool` →
+`set_site_freeform_code`, location `footer`) to the new build number and publish
+the site — **or visitors keep running the previous build indefinitely**. A
+promote is not live until git push AND pin bump AND site publish have all
+happened. Verify with `?lzdebug=1` (panel shows the build) on a hard reload.
