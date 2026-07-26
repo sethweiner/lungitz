@@ -6,7 +6,8 @@
 // zoom/pan, arrangement). Loaded by the Home page — bail on /sandbox so it doesn't
 // double-bind with the loader's sandbox/vN.js. The injected CSS scaffold below is
 // being migrated to Designer combos; motion + grid-rows transitions stay here.
-// ★ v60 PROMOTED TO PRODUCTION 2026-07-26 — one scroll mechanism; entry images warmed before expand.
+// ★ v61 PROMOTED TO PRODUCTION 2026-07-26 — webflow.js's own smooth scroll unbound; it was
+// the second scroll mechanism, re-landing every single-column anchor 68px under the masthead.
 // Loaded per-page via <script src="https://sethweiner.github.io/lungitz/lungitz-interactions.js">
 // (Home + the menu pages; paste the same tag into any new page's custom code).
 // Bail on /sandbox (its loader runs sandbox/vN.js) and guard against double loads
@@ -14,6 +15,22 @@
 if (window.__lzLoaded) { return; }
 window.__lzLoaded = true;
 if (/\/sandbox\/?$/.test(location.pathname)) { return; }
+// v61 (2026-07-26) — webflow.js was the SECOND scroll mechanism. Its own `scroll`
+//   module delegates click.wf-scroll on every a[href*="#"], ignores our
+//   preventDefault, pushState's the hash, and tweens window.scroll to the target's
+//   RAW offset().top — its fixed-header selector is `header, .header, .w-nav`,
+//   which the .nav.wide masthead is none of, so its offset is 0 and it ignores
+//   scroll-padding/scroll-margin too. Its duration is ~472·ln(dist)−2000 ms
+//   (≈1.4s at 1500px), so it OUTLASTS our 620ms glide and lands last: measured at
+//   470px, click GIVEAWAYS from y=1500 → y=80, gTop=0 (want pad=68) — the intro
+//   decapitated under the masthead, while the walk had verifiably landed at 12
+//   first. Invisible at 2/3 columns only because the document doesn't scroll
+//   there, so its window.scroll writes were no-ops. Fix: unbind click.wf-scroll
+//   (the Webflow-sanctioned recipe, via Webflow.push so it runs after the module
+//   binds) — ONE scroll mechanism again, v59's actual promise. Native anchors
+//   (JS off, unintercepted clicks) are untouched and now behave BETTER: the
+//   browser's own jump honours the synced scroll-padding, which webflow.js's
+//   tween never did. Verified 1-col click 1500→12 gTop=68 off_by=0.
 // v60 (2026-07-26) — entry images get a head start, so the expand is not animating a
 //   box whose contents are still arriving. .wrapper-thumbnail has no dimensions of
 //   its own: the strip is sized by the image, and every thumbnail is lazy with no
@@ -241,7 +258,7 @@ var TRIGGER    = '.trigger-accordion',
 // A few lines of flight recorder. Always on, costs nothing, and it is the only way
 // to see what a real phone actually did — this pane and a device disagree, and
 // guessing across that gap has cost more time than the bugs. Rendered by ?lzdebug=1.
-var LZ_VERSION = 'v60';
+var LZ_VERSION = 'v61';
 window.__lzTrace = window.__lzTrace || [];
 function lzLog(what, data) {
     try {
@@ -1415,12 +1432,39 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         // clipped and the two behaviors disagreed.
         scrollToTrigger(el);
         lightRealm(side);
+        // Keep the URL honest (the arrive() precedent): webflow.js's scroll module
+        // used to pushState the hash as a side effect of its (wrong) tween; with it
+        // unbound the smoothed glide records the link's own destination itself.
+        try {
+            history.replaceState(null, '', location.pathname + location.search + '#info-' + side);
+        } catch (err) {}
         setTimeout(function () {
             document.addEventListener('pointerdown', clearRealmCue, true);
             window.addEventListener('wheel', clearRealmCue, { capture: true, passive: true });
         }, 50);
     }
     goInfo = goToInfo;   // shared with the landing modal's anchor links
+
+    // ONE SCROLL MECHANISM (v61) — webflow.js's `scroll` module is a second one.
+    // It delegates click.wf-scroll on a[href*="#"] at the document level, does not
+    // check defaultPrevented, and tweens window.scroll to the target's raw
+    // offset().top for ~472·ln(dist)−2000 ms — no masthead offset (its header
+    // selector is `header, .header, .w-nav`, which .nav.wide is none of) and no
+    // scroll-padding. It outlasted the 620ms glide and re-landed every 1-column
+    // anchor 68px too low (measured: y=80, gTop=0, want 68). Unbinding it is the
+    // Webflow-sanctioned recipe; Webflow.push runs the unbind after the module has
+    // bound, whichever script loaded first. The links keep their meaning: clicks
+    // the script doesn't smooth fall through to the browser's NATIVE anchor jump,
+    // which honours the scroll-padding this script syncs — better than the tween
+    // ever was. click.wf-empty-link (href="#" no-op guard) stays bound.
+    (window.Webflow = window.Webflow || []).push(function () {
+        try {
+            if (window.jQuery) {
+                window.jQuery(document).off('click.wf-scroll');
+                lzLog('wf-scroll.unbound', null);
+            }
+        } catch (err) {}
+    });
 
     // DELEGATED word wiring: the page may carry more than one nav row (the old
     // Masthead component AND the container-landing's own rows — including the
