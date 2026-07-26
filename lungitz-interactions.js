@@ -6,12 +6,12 @@
 // zoom/pan, arrangement). Loaded by the Home page — bail on /sandbox so it doesn't
 // double-bind with the loader's sandbox/vN.js. The injected CSS scaffold below is
 // being migrated to Designer combos; motion + grid-rows transitions stay here.
-// ★ v81 PROMOTED TO PRODUCTION 2026-07-27 — the close flies on BOTH axes of the
-// un-warmed-thumb problem: a degenerate landing pad is stamped with the overlay
-// image's own ratio (3/2 while it loads) AND borrows a loaded sibling's width when
-// its grid track collapsed around the unloaded image (measured 19x14 live on v80).
-// Transient inline width clears when the real image loads. v79's landing fix and
-// v80's stamp intact. Carries v71–v80.
+// ★ v82 PROMOTED TO PRODUCTION 2026-07-27 — the 1-col close flies onto a real pad.
+// The full arc of the fix: v79 stopped the browser's post-popstate scroll yank from
+// displacing the landing; v80 stamps an unsized landing thumb with the overlay
+// image's own ratio (3/2 while loading); v81 lends it a loaded sibling's width when
+// its grid track collapsed; v82 widens the degenerate threshold to 40px (healthy
+// thumbs are never under 62). Carries v71–v81.
 // Loaded per-page via <script src="https://sethweiner.github.io/lungitz/lungitz-interactions.js">
 // (Home + the menu pages; paste the same tag into any new page's custom code).
 // Bail on /sandbox (its loader runs sandbox/vN.js) and guard against double loads
@@ -507,7 +507,7 @@ var TRIGGER    = '.trigger-accordion',
 // A few lines of flight recorder. Always on, costs nothing, and it is the only way
 // to see what a real phone actually did — this pane and a device disagree, and
 // guessing across that gap has cost more time than the bugs. Rendered by ?lzdebug=1.
-var LZ_VERSION = 'v81';
+var LZ_VERSION = 'v82';
 window.__lzTrace = window.__lzTrace || [];
 function lzLog(what, data) {
     try {
@@ -1221,7 +1221,10 @@ function closeFullscreenNow() {
     // ratio is already known FOR FREE: the overlay image IS the same asset.
     // Stamp the wrapper synchronously (v62's own property, identical layout by
     // construction), warm the thumb, reflow, re-measure — a real rect to fly to.
-    if (tEl && tRect && (tRect.height < 20 || tRect.width < 20)) {
+    // v82: threshold 40 — a 401x20 sliver (image failed outright) missed the
+    // 20px check by equality; healthy thumbs measure >=62px on every width, so
+    // 40 catches the whole degenerate family without touching real layout.
+    if (tEl && tRect && (tRect.height < 40 || tRect.width < 40)) {
         if (!tEl.style.aspectRatio) {
             tEl.style.aspectRatio = (oImg && oImg.naturalWidth && oImg.naturalHeight)
                 ? oImg.naturalWidth + ' / ' + oImg.naturalHeight
@@ -1237,7 +1240,7 @@ function closeFullscreenNow() {
         // the WIDTH came from the grid, not the ratio). Borrow a loaded
         // sibling's width as the pad's transient width; the real image clears
         // it on load and takes over the sizing.
-        if (tRect.width < 20) {
+        if (tRect.width < 40) {
             var sibW = 0, sbi;
             for (sbi = 0; sbi < thumbs.length; sbi += 1) {
                 var sbr = thumbs[sbi].getBoundingClientRect();
