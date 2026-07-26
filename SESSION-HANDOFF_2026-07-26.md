@@ -35,9 +35,11 @@ today's lost time came from inferring across that gap.
 | Mobile anchors never worked | columns stack and the *page* scrolls; every routine wrote `column.scrollTop` |
 | `#info` anchor | **`.wrapper-content.is-left/.is-right` had `padding-top:7vh` (50.4px) under a masthead ending at 58** — the first item in a column cannot be scrolled down, so its clearance is padding and nothing else. Now `5rem`. Verified `off_by=0` mobile, `-1` desktop |
 | Viewport chrome cutting the bottom | `vh` → `dvh` |
+| **1-column anchor did nothing** | two scroll paths existed and only arrivals had been migrated; the click path still picked a scroller and tweened it. Measured: `scrollY` 2200 before and after a GIVEAWAYS click. Both paths now ease through one error-paydown walk — verified single column −2120 → 68 (`off_by 0`), two column −1420 → 80 (`off_by −1`) |
 | Blue tap flash | `-webkit-tap-highlight-color` |
 
-**Not solved:** the CMS entry expand still animates poorly (see T-01).
+**Partly solved:** the entry expand's *cause* is now confirmed and half the fix shipped; the
+remaining half is one Designer value (T-01).
 
 ---
 
@@ -45,14 +47,23 @@ today's lost time came from inferring across that gap.
 
 ### Blocking / functional
 
-**T-01 — Entry expand animation is wonky (desktop + mobile)**
-Not solved despite several attempts. Below 767px the `grid-template-rows` transition is
-now stripped (it forces a full-page relayout per frame across a long stacked document);
-desktop keeps it. Still reported wonky on both. **Prime suspect, unverified:** every CMS
-thumbnail is `loading="lazy"` with **no height attribute** (`width="Auto"`), so it
-reserves no space and the entry's height jumps as each image decodes. Fix direction:
-reserve space (aspect-ratio or explicit height on `.image-thumbnail`) rather than tuning
-the animation. Verify with `?lzdebug=1` while expanding.
+**T-01 — Entry expand animation (TOP PRIORITY) — cause confirmed, one half left**
+**Confirmed:** `.wrapper-thumbnail` has **no width or height of its own** — the strip is
+sized entirely by whatever the image turns out to be, and every thumbnail is
+`loading="lazy"` with **no height attribute** (`width="Auto"`). Until each image decodes
+it occupies nothing, so the entry's height jumps as they arrive, during and after the
+transition. Animating a box whose contents keep resizing is exactly "ratchet and lag" —
+no easing can smooth it.
+
+Done (v60): images are fetched on hover and on press, buying a whole gesture's worth of
+time so they are far less likely to land mid-expand. Invisible; changes *when* bytes
+arrive, not what anything looks like.
+
+**Remaining, and it is a design decision — yours:** reserve space on the thumbnails so
+the strip has a size before it fills. Give `.wrapper-thumbnail` (or `.image-thumbnail`) a
+height, or an `aspect-ratio`. That sets what the strip looks like empty, which is why I
+have not picked a value. Once it is reserved, the expand animates a stable box and this
+class of jank cannot recur — it is also almost certainly the same root as T-05.
 
 **T-02 — Fullscreen collapse targets the wrong image, and skews**
 Collapsing from fullscreen returns to the *trigger* image, not the one being viewed, and
@@ -71,8 +82,9 @@ script settles it. Accent/hover colours also wrong on these pages. Wants arrival
 to CMS content.
 
 **T-05 — Image sliver, Chrome only, clears on hover**
-Parked twice. Not reproducible in Firefox. Clearing on hover points at decode/paint
-rather than layout. Possibly the same lazy-image root as T-01.
+Parked twice. Not reproducible in Firefox. Clearing *on hover* is the tell: hover both
+triggers a repaint and (since v60) starts the fetch. Almost certainly the same
+unreserved-lazy-image root as T-01 — fix that first and re-check this.
 
 **T-06 — Participant → open index entry loads slowly**
 Full page navigation plus `@view-transition` holding the old page. Staging HTML measured
