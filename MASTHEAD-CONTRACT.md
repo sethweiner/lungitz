@@ -202,3 +202,47 @@ does not, so the test is "is it at the top of the scrollport", not "is it fixed"
 very long document with 215 lazy images, so transitioning `grid-template-rows` costs a
 full-page relayout every frame — that is the "ratchet and lag". Below 767px the expand
 changes state instantly; colour and border still ease. Desktop keeps the tween, verified.
+
+---
+
+## 9. The `#info-*` anchor is a LAYOUT constant, not a scroll problem 🔧
+
+`#info-giveaways` and `#info-hideaways` are the **first elements in their columns**.
+Measured: `columnScrollTop 0`, `canScrollUpFurther false`. Nothing can push them further
+down — **their clearance is `.wrapper-content`'s `padding-top` and nothing else.** Every
+scroll fix attempted against this was arguing with geometry it could not move.
+
+The mismatch: `padding-top: 8vh` scales with the **viewport**, while the masthead's height
+scales with the **type**. At 1280×720 that is **50.4px against a masthead ending at 58**,
+so the info heading sits ~8px underneath it; wanting 23px of breathing room makes the
+shortfall ~31px. The masthead also *grows as the webfonts land* (measured 37px early,
+58px settled), which is why any runtime measurement of it is a moving target.
+
+**The fix belongs on the class**, in the Designer: `.wrapper-content` `padding-top` must
+be ≥ masthead height + breathing room, expressed in a unit that tracks the type rather
+than the viewport — a `rem`/space-token value, not `vh`. At the current type scale that is
+roughly **5rem (~80px)** where `8vh` currently gives 50.4px. Set it once and the anchor,
+the scroll padding and the layout all agree.
+
+Code deliberately does **not** write this. v56/v57 tried and it was wrong twice: it
+overwrote a Designer value, and it measured a masthead that had not finished growing, so
+it wrote 60px where 81 was wanted. Reverted in v58.
+
+Verify with `?lzdebug=1` (see §10): the `INFO top / want / off_by` line should read
+`off_by=0`.
+
+---
+
+## 10. `?lzdebug=1` — the on-screen readout
+
+Append `?lzdebug=1` to any URL for a fixed panel showing the build, viewport, whether the
+≤767px media query matched, the live `transition-property` on `.trigger-accordion`,
+whether the `#info` hash was intercepted, the measured pad, the info block's offset from
+where it should be, pending image count, and the last 16 trace entries. **Strictly
+opt-in** — without the parameter nothing runs and nothing is added to the page.
+
+It exists because the in-app browser pane reports `document.hidden` permanently, which
+suspends rendering: `requestAnimationFrame` and `ResizeObserver` callbacks never fire
+there, so load-time scroll and animation behaviour cannot be verified in it. Inferring
+across that gap cost far more time than the bugs did. One screenshot from a real device
+settles more than an afternoon of reasoning.
