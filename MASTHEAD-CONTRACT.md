@@ -47,6 +47,7 @@ Status legend: ✅ already in the Designer · ⬜ to migrate (currently injected
 | `.nav-detail-body p { max-width: 60ch; margin }` | descendant (the rich-text paragraphs) |
 | `.detail-view.is-fullscreen` family (frame fill, `z-index:999`, `margin:0`) | the shared `is-fullscreen` modifier the **MCP can't write** (it collapses every `is-fullscreen` combo to one). **You can author these by hand** if you'd rather they be native |
 | FLIP morph · `<body>` portal · zoom math · scroll | runtime-computed values — no static CSS can express them |
+| `transition` on `.container-landing` **appended two frames late** (v34) | *timing*, not values — CSS can't say "not on the first paint". Webflow ships `.container-landing` already `.is-active` in every page's HTML; the script loads async and strips it on Home, so an armed transition played the whole menu collapsing as the page appeared (the click-navigation "jump"; back/forward was clean because bfcache restores the settled DOM). The durations are unchanged — only when they start applying. Change the values on the class; leave the arming to `armMotion()` |
 
 ---
 
