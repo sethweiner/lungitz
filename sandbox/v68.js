@@ -915,8 +915,12 @@ function openFullscreen() {
     setImmersive(true, detail.trigger);
     pushFsState();
     var img = OVERLAY.querySelector('.immersive-image');
-    if (srcRect && srcRect.width && img && img.naturalWidth) {
-        var content = fsContentRect(img),
+    if (srcRect && srcRect.width && srcRect.height && img) {
+        // The thumbnail's rect IS the picture's aspect (v62 stamps the wrapper
+        // with the image's own ratio), so the flight geometry never has to wait
+        // for the full-size file to decode (naturalWidth is 0 until it does —
+        // gating on it silently skipped the whole morph on first open).
+        var content = fsContentRect(img, srcRect.width / srcRect.height),
             chrome = lzOverlayChrome(),
             bg = getComputedStyle(OVERLAY).backgroundColor;
         img.style.transition = 'none';
@@ -951,13 +955,15 @@ var FS_EASE = (function () {
 }());
 
 // The contain-fit CONTENT rect of the fullscreen image — where the pixels
-// actually render inside the element's box (object-fit: contain math).
-function fsContentRect(img) {
-    var r = img.getBoundingClientRect(), nw = img.naturalWidth, nh = img.naturalHeight, s, w, h;
-    if (!nw || !nh || !r.width || !r.height) { return r; }
-    s = Math.min(r.width / nw, r.height / nh);
-    w = nw * s;
-    h = nh * s;
+// actually render inside the element's box (object-fit: contain math). The
+// aspect comes in from the caller (the thumbnail rect carries the picture's
+// own ratio via v62), with naturalWidth as the fallback once decoded.
+function fsContentRect(img, aspect) {
+    var r = img.getBoundingClientRect(), a, w, h;
+    a = aspect || (img.naturalHeight ? img.naturalWidth / img.naturalHeight : 0);
+    if (!a || !r.width || !r.height) { return r; }
+    w = Math.min(r.width, r.height * a);
+    h = w / a;
     return { left: r.left + (r.width - w) / 2, top: r.top + (r.height - h) / 2, width: w, height: h };
 }
 
@@ -1024,7 +1030,7 @@ function closeFullscreenNow() {
         settleExactly(trigger, anchorPad());
         tRect = tEl.getBoundingClientRect();
     }
-    if (!tRect || !tRect.width || !oImg || !oImg.naturalWidth) {   // no landing pad → static hide
+    if (!tRect || !tRect.width || !tRect.height || !oImg) {   // no landing pad → static hide
         view.classList.remove('is-viewing');
         lzFlightCleanup(oImg);
         release();
@@ -1034,7 +1040,7 @@ function closeFullscreenNow() {
     // contain-fit content rect onto the viewed thumbnail — one uniform
     // translate+scale, whole picture at natural aspect both ends, nothing to
     // squash — while the backdrop colour and chrome fade out on the same clock.
-    var content = fsContentRect(oImg),
+    var content = fsContentRect(oImg, tRect.width / tRect.height),
         chrome = lzOverlayChrome(),
         bg = getComputedStyle(view).backgroundColor;
     oImg.style.transition = 'transform ' + FS_EASE.dur + 'ms ' + FS_EASE.curve;
