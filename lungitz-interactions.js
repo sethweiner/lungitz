@@ -6,9 +6,13 @@
 // zoom/pan, arrangement). Loaded by the Home page — bail on /sandbox so it doesn't
 // double-bind with the loader's sandbox/vN.js. The injected CSS scaffold below is
 // being migrated to Designer combos; motion + grid-rows transitions stay here.
-// ★ v77 PROMOTED TO PRODUCTION 2026-07-26 — ni=2 menu-page fix (dim falls back to
-// body where .container-content doesn't exist). Carries v76 (nav-cue candidates,
-// held behind ?ni=N) and v71–v75. Default sessions unchanged.
+// ★ v78 PROMOTED TO PRODUCTION 2026-07-26 — THE CUE SHIPS AS .is-pending (Seth:
+// "ni=3 is good, and call the state .is-pending"). Default for every visitor: the
+// clicked link and the visible LUNGITZ link take Seth's .is-pending Designer class
+// (rust token — both states stylable on canvas); code keeps only the un-authorable
+// half (contract §2): descendant colour reach, specificity backstops, and the pulse
+// keyframes. ?ni=0 off · ?ni=1 link only · ?ni=2 dim (held) · ?ni=3 = the default.
+// Carries v71–v77.
 // Loaded per-page via <script src="https://sethweiner.github.io/lungitz/lungitz-interactions.js">
 // (Home + the menu pages; paste the same tag into any new page's custom code).
 // Bail on /sandbox (its loader runs sandbox/vN.js) and guard against double loads
@@ -28,6 +32,14 @@ if (/\/sandbox\/?$/.test(location.pathname)) { return; }
 //   · browser BACK closes fullscreen (history state — the Antoine fix: Esc is never the only
 //     way out; the hint chip advertises "✕ / back" in browser-fullscreen)
 //   · participants links rewrite to /?entry=<coll>/<slug> — index arrival highlight
+// v78 (2026-07-26) — THE CUE SHIPS AS .is-pending (Seth: "ni=3 is good, and
+//   call the state .is-pending"). Default for every visitor: the clicked link
+//   and the LUNGITZ link take Seth's .is-pending Designer class (rust token,
+//   created 2026-07-26, collision-checked clean — both states stylable on
+//   canvas); code keeps only the un-authorable half (contract §2): the
+//   descendant colour reach and the LUNGITZ pulse keyframes. No body/html
+//   companion — the chrome lamp IS a link, one state name covers both.
+//   ?ni=0 cue off · ?ni=1 link only · ?ni=2 dim (held, inline) · ?ni=3 default.
 // v76 (2026-07-26) — the navigation-pending cue, HELD behind ?ni=N. Seth: "if
 //   the link from participants to the entry is going to be so slow we're gonna
 //   need some visual indicator." §navCue: instant at click on the OUTGOING
@@ -468,7 +480,7 @@ var TRIGGER    = '.trigger-accordion',
 // A few lines of flight recorder. Always on, costs nothing, and it is the only way
 // to see what a real phone actually did — this pane and a device disagree, and
 // guessing across that gap has cost more time than the bugs. Rendered by ?lzdebug=1.
-var LZ_VERSION = 'v77';
+var LZ_VERSION = 'v78';
 window.__lzTrace = window.__lzTrace || [];
 function lzLog(what, data) {
     try {
@@ -2261,6 +2273,26 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         // caption, and image keep their own affordances. Legacy-path rules kept
         // beneath for pages without the overlay.
         '.immersive-overlay.is-viewing{cursor:' + XCUR + ';}',
+        // NAVIGATION PENDING (v78, Seth: "call the state .is-pending"). The
+        // COLOUR is the Designer's .is-pending class (rust token — restyle on
+        // canvas). Code owns only what Webflow cannot author (contract §2):
+        // (a) the descendant reach — h4 children carry the bare tag colour
+        // (the v37/v39 shortfall), so the clicked entry link's type/author/
+        // edition and the LUNGITZ .h5-nav child need a descendant rule;
+        // (b) the chrome lamp's pulse — @keyframes.
+        '.is-pending h1,.is-pending h2,.is-pending h3,.is-pending h4,.is-pending h5,.is-pending p,.is-pending div{color:inherit;}',
+        '@keyframes lz-pending-pulse{50%{opacity:0.4;}}',
+        // Specificity backstop (measured): .nav-lungitz carries its own colour at
+        // the same 0-1-0 specificity as .is-pending, and Webflow's stylesheet
+        // order decided against the state class — the lamp pulsed but stayed
+        // blue. The compound (0-2-0) settles it; same token as the Designer
+        // class, the v37 hover-rule precedent.
+        '.nav-lungitz.is-pending{animation:lz-pending-pulse 1.4s ' + CLOSE_EASE + ' infinite;color:var(--_lungitz---color-accent-b-500);}',
+        // …and the lamp's own word: the .h5-nav child is coloured by 0-2-0
+        // rules inside media blocks, which outrank the generic 0-1-1 reach
+        // above. 0-3-0 settles the lamp for good (measured: parent rust,
+        // child still blue without this).
+        '.nav-lungitz.is-pending .h5-nav{color:var(--_lungitz---color-accent-b-500);}',
         '.immersive-overlay .immersive-bar,.immersive-overlay .caption-drawer,.immersive-overlay .immersive-image{cursor:auto;}',
         // Caption collapse (v67) — DESCENDANT selector, Webflow can't author it
         // (contract §2 pattern). The Designer's .caption-drawer.is-collapsed
@@ -2315,23 +2347,26 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
 //  Wireframe-first: dormant until the modal is instanced on the page.
 //  ?veil=0 suppresses it for testing.
 // ════════════════════════════════════════════════════════════════════════
-// ── §navCue — "this click is going somewhere" (v76, HELD behind ?ni=N) ──
-// Seth: "if the link from participants to the entry is going to be so slow
-// we're gonna need some visual indicator." With view transitions the OLD page
-// holds during the ~2s staging HTML fetch, so the cue lives on the outgoing
-// page, instantly at click. Only REAL document navigations cue: this listener
-// is bubble-phase and registered by the async script, so every smoothed link
-// (glide, modal toggle) has already preventDefault'd and is skipped — except
-// the participants-name route, whose head-gate router preventDefaults and then
-// navigates, so it is explicitly included. Color/opacity only — zero layout
-// shift; eased on existing tokens so a fast (~200ms) navigation shows a brief
-// soft cue, never a strobe. INTERIM STYLING NOTE: the cue is set inline because
-// "navigation pending" has no state class yet — that name is Seth's to create
-// (same territory as T-12); once named, these inline writes become
-// classList.add and both states are stylable on canvas.
-// Candidates (session-sticky, ?ni=0 clears): ?ni=1 clicked link goes rust;
-// ?ni=2 the page dims to 0.55 on CLOSE_EASE (the veil gesture); ?ni=3 clicked
-// link goes rust + LUNGITZ pulses rust as a chrome-level lamp.
+// ── §navCue — "this click is going somewhere" (v78: SHIPPED, Seth's pick) ──
+// Seth: "ni=3 is good, and call the state .is-pending." DEFAULT for every
+// visitor: the clicked link takes Seth's .is-pending state class (Designer
+// class, colour = the rust token — restyle it on canvas any time) and the
+// LUNGITZ link takes the same class as the chrome-level lamp, pulsing via the
+// injected keyframes (Webflow cannot author @keyframes or descendant rules —
+// contract §2; everything colour-level is the Designer class). No body/html
+// companion class: the chrome element IS a link, so the one Seth-named state
+// covers both placements with no cascade ambiguity.
+// With view transitions the OLD page holds during the ~2s staging HTML fetch,
+// so the cue lives on the outgoing page, instantly at click. Only REAL
+// document navigations cue: this listener is bubble-phase and registered by
+// the async script, so every smoothed link (glide, modal toggle) has already
+// preventDefault'd and is skipped — except the participants-name route, whose
+// head-gate router preventDefaults and then navigates, so it is explicitly
+// included. Zero layout shift; eased on tokens so a fast navigation shows a
+// brief soft cue, never a strobe.
+// Flags (session-sticky insurance, like ?vt=): ?ni=0 cue OFF for comparison;
+// ?ni=1 clicked link only; ?ni=2 page dim (inline candidates); ?ni=3 = the
+// shipped default, explicitly.
 (function navCue() {
     var mode = '';
     try {
@@ -2339,8 +2374,8 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         if (m) { sessionStorage.setItem('lz-ni', m[1]); }
         mode = sessionStorage.getItem('lz-ni') || '';
     } catch (eni) {}
-    if (!mode || mode === '0') { return; }
-    var RUSTC = 'var(--_lungitz---color-accent-b-500)';
+    if (!mode) { mode = '3'; }              // Seth's pick is the default
+    if (mode === '0') { return; }
     var cueOn = false, undo = [], failsafe = null;
     function clear() {
         if (!cueOn) { return; }
@@ -2349,28 +2384,30 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         for (var i = 0; i < undo.length; i += 1) { try { undo[i](); } catch (ec) {} }
         undo = [];
     }
-    function tintLink(link) {
-        var pc = link.style.color, pt = link.style.transition;
-        link.style.transition = 'color 150ms ease';
-        link.style.color = RUSTC;
-        // the h4 children carry the bare tag colour (the v37/v39 shortfall) —
-        // tint them too so the whole clicked element answers
-        var kids = link.querySelectorAll('h1,h2,h3,h4,h5,p,div');
-        var prev = [];
-        for (var k = 0; k < kids.length; k += 1) {
-            prev.push([kids[k], kids[k].style.color]);
-            kids[k].style.color = RUSTC;
-        }
-        undo.push(function () {
-            link.style.color = pc; link.style.transition = pt;
-            for (var j = 0; j < prev.length; j += 1) { prev[j][0].style.color = prev[j][1]; }
-        });
+    function pendLink(el) {
+        // Seth's state, Seth's styling: .is-pending is a Designer class (rust
+        // token). The injected CSS carries only what Webflow can't author —
+        // the descendant colour reach and the LUNGITZ pulse keyframes.
+        if (!el || !el.classList) { return; }
+        el.classList.add('is-pending');
+        undo.push(function () { el.classList.remove('is-pending'); });
     }
     function show(link) {
         if (cueOn) { return; }
         cueOn = true;
-        if ((mode === '1' || mode === '3') && link) { tintLink(link); }
-        if (mode === '2') {
+        if (mode === '3') {                           // SHIPPED (Seth's pick)
+            pendLink(link);
+            // The VISIBLE lamp only: pages duplicated from Home carry hidden
+            // index copies, and a hidden .nav-lungitz can precede the real one
+            // in DOM order (the onRealIndex doctrine — only visible counts).
+            var lz = null, lzs = document.querySelectorAll('a.nav-lungitz, .nav-lungitz'), zi;
+            for (zi = 0; zi < lzs.length; zi += 1) {
+                if (lzs[zi].getClientRects().length) { lz = lzs[zi]; break; }
+            }
+            if (lz && lz !== link) { pendLink(lz); }  // the chrome lamp
+        }
+        if (mode === '1' && link) { pendLink(link); } // held: link only
+        if (mode === '2') {                           // held: the veil dim (inline)
             // menu pages have no .container-content (their content lives in the
             // permanently-open modal) — dim the body there instead (v77).
             var cc = document.querySelector('.container-content') || document.body;
@@ -2379,26 +2416,6 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
                 cc.style.transition = 'opacity 500ms ' + CLOSE_EASE;
                 cc.style.opacity = '0.55';
                 undo.push(function () { cc.style.opacity = po; cc.style.transition = pt2; });
-            }
-        }
-        if (mode === '3') {
-            var lz = null, links = document.querySelectorAll('.nav.wide a'), li;
-            for (li = 0; li < links.length; li += 1) {
-                if (/LUNGITZ/i.test(links[li].textContent)) { lz = links[li]; break; }
-            }
-            if (lz) {
-                var p1 = lz.style.color, p2 = lz.style.transition, p3 = lz.style.opacity;
-                lz.style.transition = 'color 150ms ease, opacity 700ms ' + CLOSE_EASE;
-                lz.style.color = RUSTC;
-                var dimmed = false;
-                var pulse = setInterval(function () {
-                    dimmed = !dimmed;
-                    lz.style.opacity = dimmed ? '0.4' : '1';
-                }, 700);
-                undo.push(function () {
-                    clearInterval(pulse);
-                    lz.style.color = p1; lz.style.transition = p2; lz.style.opacity = p3;
-                });
             }
         }
         // aborted navigation (Esc mid-fetch): the page never unloads — restore
@@ -2799,9 +2816,8 @@ var lzSyncPad = null;
                         : '(no transition seen yet — navigate once)'));
             }
             var niFlag = sessionStorage.getItem('lz-ni');
-            if (niFlag && niFlag !== '0') {
-                L.push('nav-cue candidate ' + niFlag + ' ARMED (click an internal link)');
-            }
+            L.push('nav cue .is-pending: mode ' + (niFlag || '3 (default)')
+                 + (niFlag === '0' ? ' — OFF' : ''));
         } catch (evt) {}
         if (ir) {
             L.push('INFO top=' + Math.round(ir.top) + '  want=' + anchorPad()
