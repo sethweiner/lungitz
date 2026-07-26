@@ -66,6 +66,15 @@ behavior layer. Violating this is the #1 recurring failure — do not repeat it.
 
 ## When editing the script
 
+**Never read `location.search` / `location.hash` for an arrival decision** — read
+`INITIAL_SEARCH` / `INITIAL_HASH` (captured at script start). Modules clean up
+after themselves with `replaceState` (`arrive()` drops `?entry=`, `landingModal`
+drops `?menu=1`), and those same flags are how *later* modules decide what to do,
+so whoever runs second sees a URL the first one already erased. That is exactly
+how a participant-name click opened an entry and then greeted the reader over it
+(v36). Test arrival flows in a **cold session** — `seen=1` masks this whole class
+of bug.
+
 Edit `sandbox/vNN.js`, test on `/sandbox?v=NN`, then promote by copying to
 `lungitz-interactions.js` with the production header (the `/sandbox` bail +
 `window.__lzLoaded` guard — see current file head). Never push untested code
