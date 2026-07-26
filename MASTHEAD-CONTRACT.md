@@ -175,3 +175,30 @@ Two rules now hold, and both must survive any future edit to `arrange()`:
 Anchoring is also measured, not assumed: `anchorPad()` reads the fixed masthead's real
 bottom edge (+23px breathing room) instead of the old hard-coded 64px, which was a
 desktop constant from when the masthead was 41px tall and wrong at every other size.
+
+---
+
+## 8. The `#info-*` arrival belongs to the script (v52)
+
+The head gate **stashes and strips** the `#info-*` hash before `<body>` parses, so the
+browser never performs its own anchor jump. That jump was the whole problem: it happens
+at parse time, then the web fonts and the lazy CMS images reflow everything above the
+target and it slides out from under the position just set — ~100px low by the time the
+page settled, and no amount of correcting afterwards landed it reliably.
+
+With no jump there is no wrong position to correct, only a right one to set. The script
+polls until the target reads the same twice in a row, then restores the hash so the URL
+stays shareable, and abandons on any real scroll. **Polling, not observing, is
+deliberate**: `setTimeout` keeps running where `requestAnimationFrame` and
+`ResizeObserver` do not, so it behaves identically in a backgrounded tab — and it is the
+only version of this that could be verified. With JS off the head block never runs, the
+hash survives and the native jump behaves as it always did.
+
+The offset is **measured, never assumed**: `anchorPad()` reads the masthead's real bottom
+edge + 23px. The masthead is `fixed` where the document scrolls and `absolute` where it
+does not, so the test is "is it at the top of the scrollport", not "is it fixed".
+
+**Motion is dropped where layout is expensive.** At ≤767px the columns stack into one
+very long document with 215 lazy images, so transitioning `grid-template-rows` costs a
+full-page relayout every frame — that is the "ratchet and lag". Below 767px the expand
+changes state instantly; colour and border still ease. Desktop keeps the tween, verified.
