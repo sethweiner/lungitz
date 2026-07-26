@@ -6,12 +6,11 @@
 // zoom/pan, arrangement). Loaded by the Home page — bail on /sandbox so it doesn't
 // double-bind with the loader's sandbox/vN.js. The injected CSS scaffold below is
 // being migrated to Designer combos; motion + grid-rows transitions stay here.
-// ★ v74 PROMOTED TO PRODUCTION 2026-07-26 — T-08 additions, all held behind ?vt=N:
-// armed sessions run the menu modal on CLOSE_EASE 500ms (one piece of chrome with
-// the entry expand, fullscreen morph, and page transitions); the head carries the
-// arrival-fade fallback for browsers without cross-document view transitions and
-// the vt=2 persistent element is the invariant top word row. Default sessions are
-// bit-identical to v73 behavior. Carries v73 (panel vt line), v72, v71.
+// ★ v75 PROMOTED TO PRODUCTION 2026-07-26 — T-08 SHIPPED (Seth: "vt=1 is the best
+// so far"): the CLOSE_EASE 500ms crossfade is every visitor's page transition, the
+// opt-in and rules live parse-time in the SITE HEAD, softNav's async 300ms copy is
+// retired, and the menu modal runs the same family clock by default. ?vt=0 = no
+// transitions (comparison); ?vt=2/3 remain held candidates. Carries v71–v74.
 // Loaded per-page via <script src="https://sethweiner.github.io/lungitz/lungitz-interactions.js">
 // (Home + the menu pages; paste the same tag into any new page's custom code).
 // Bail on /sandbox (its loader runs sandbox/vN.js) and guard against double loads
@@ -31,6 +30,16 @@ if (/\/sandbox\/?$/.test(location.pathname)) { return; }
 //   · browser BACK closes fullscreen (history state — the Antoine fix: Esc is never the only
 //     way out; the hint chip advertises "✕ / back" in browser-fullscreen)
 //   · participants links rewrite to /?entry=<coll>/<slug> — index arrival highlight
+// v75 (2026-07-26) — T-08 SHIPPED. Seth: "vt=1 is the best so far" — the
+//   re-eased crossfade (CLOSE_EASE 500ms) is the site DEFAULT for every
+//   visitor: the head carries the parse-time @view-transition opt-in and the
+//   default root-crossfade rules; softNav's async 300ms copy is retired (it
+//   both fought the cascade and was why transitions fired only sometimes).
+//   The modal's family timing is the default too — the legacy mix retires.
+//   Flags after the ship: ?vt=0 = NO transitions (comparison), ?vt=2 masthead
+//   persists, ?vt=3 whisper of scale — held candidates, still one line each
+//   to promote. The arrival-fade fallback ships default for browsers without
+//   cross-document view transitions.
 // v74 (2026-07-26) — the menu modal joins the gesture family (held with the vt
 //   candidates). Seth: "make sure the menu modal also has the same animations so
 //   it all feels like one piece of chrome." In an ARMED session (?vt=N)
@@ -451,7 +460,7 @@ var TRIGGER    = '.trigger-accordion',
 // A few lines of flight recorder. Always on, costs nothing, and it is the only way
 // to see what a real phone actually did — this pane and a device disagree, and
 // guessing across that gap has cost more time than the bugs. Rendered by ?lzdebug=1.
-var LZ_VERSION = 'v74';
+var LZ_VERSION = 'v75';
 window.__lzTrace = window.__lzTrace || [];
 function lzLog(what, data) {
     try {
@@ -508,17 +517,15 @@ function onRealIndex() {
     return !!(col && col.offsetParent !== null);
 }
 
-// ── Soft page transition (entry ↔ index) ──
-// Opt into the cross-document View Transitions API so same-origin navigations
-// cross-fade instead of hard-cutting. Progressive: unsupported browsers just
-// hard-navigate (the @rule is ignored). Injected site-wide, early.
-(function softNav() {
-    var s = document.createElement('style');
-    s.textContent = '@view-transition{navigation:auto}'
-        + '::view-transition-old(root),::view-transition-new(root){'
-        + 'animation-duration:300ms;animation-timing-function:ease}';
-    (document.head || document.documentElement).appendChild(s);
-}());
+// ── Soft page transition — RETIRED here, owned by the SITE HEAD (v75) ──
+// softNav used to inject @view-transition{navigation:auto} plus a 300ms ease
+// on the root snapshots from THIS async script — which is why transitions only
+// fired "sometimes": the incoming document needs the opt-in at parse time, and
+// this file loads after first paint. Since the T-08 ship (Seth: "vt=1 is the
+// best so far") the opt-in and the CLOSE_EASE 500ms crossfade live in the site
+// HEAD custom code, parse-time, on every page — the async 300ms copy here
+// would only fight that cascade (later style wins), so it is gone. ?vt=0
+// compares against no transitions; ?vt=2/3 remain as held candidates.
 
 // ── Injected styles (scrollbars + detail animation) + theme-color ──
 (function injectCSS() {
@@ -2355,19 +2362,15 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     function armMotion() {
         if (armed) { return; }
         armed = true;
-        var vtArmed = false;
-        try { vtArmed = !!sessionStorage.getItem('lz-vt'); } catch (evta) {}
         var motion = document.createElement('style');
+        // v75 (T-08 SHIPPED, Seth: "vt=1 is the best so far"): the modal's family
+        // timing is now the DEFAULT — every property on CLOSE_EASE at the 500ms
+        // clock, the same curve as the entry expand, the fullscreen morph, and
+        // the page-transition crossfade. The legacy mix (.45s SETTLE / .5s ease /
+        // .6s SETTLE / .3s) is retired.
         motion.textContent =
             '.container-landing,.container-landing-modal{'
-          + (vtArmed
-                // v74 (T-08, held with the vt candidates): the menu modal joins the
-                // gesture family — every property on CLOSE_EASE at the 500ms clock,
-                // the same curve as the entry expand and the fullscreen morph, so
-                // masthead, menu, page transitions, expand and flight read as one
-                // piece of chrome. Armed sessions only; default keeps the legacy mix.
-             ? 'transition:grid-template-rows 500ms ' + CLOSE_EASE + ',opacity 500ms ' + CLOSE_EASE + ',transform 500ms ' + CLOSE_EASE + ',padding 500ms ' + CLOSE_EASE + ';}'
-             : 'transition:grid-template-rows .45s ' + SETTLE + ',opacity .5s ease,transform .6s ' + SETTLE + ',padding .3s;}');
+          + 'transition:grid-template-rows 500ms ' + CLOSE_EASE + ',opacity 500ms ' + CLOSE_EASE + ',transform 500ms ' + CLOSE_EASE + ',padding 500ms ' + CLOSE_EASE + ';}';
         document.head.appendChild(motion);
     }
 
