@@ -69,14 +69,34 @@ pin bump serves stale script to every visitor.
 - Restyle `.is-pending` / `.is-realm` states if the baselines aren't final.
 
 ### Code-side crumbs
-- **T-15** (Seth, 2026-07-27, on v86): entries with many images load their thumbs
-  slowly on the phone — the ANIMATION lands (v85/86 verified); the images arrive late.
-  Bookmarked, not diagnosed. Leads for the round: (a) touch has no warm head-start —
-  `warmEntryImages` warms on hover/press, and on a phone the press IS the open, so
-  lazy thumbs only start fetching at expand; (b) check what the published thumbs
-  actually fetch (srcset/sizes vs full-res asset — measure bytes, don't assume);
-  (c) staging latency inflates everything ~2s (re-measure on the real domain before
-  tuning). Rule of the round: measure transfer sizes first, then pick ONE lever.
+- **T-15** — DIAGNOSED 2026-07-27, measured, no code fix shipped (the durable fix
+  is Designer-side; per the round's rule it is named, not coded around).
+  **The bottleneck is bytes, not request start.** Measured on the published site:
+  - 129 of 142 index thumbnails publish **no srcset/sizes** — every one fetches its
+    full-res original (median **607 KB**, max 3.1 MB; **96 MB** across the index).
+    One 9-thumb entry (karl-ich-bin-kein-nazi-aber) = **5.6 MB**; its batch took
+    2.26 s on fast broadband — call it ~9 s on 4G. `-p-500`/`-p-800` variants 403:
+    they were never generated.
+  - The 13 thumbs that DO have srcset are exactly the Designer-uploaded ones.
+    The 129 without are exactly the API-uploaded ones (double-ID filenames from
+    the image-parenting job). Webflow's docs state this outright: *variants are
+    only created when images are uploaded directly in Webflow (Assets panel or
+    CMS image field); images added through CSV import or the API don't create
+    responsive variants* (help.webflow.com, "Responsive images").
+  - Lead (a) — warm head-start — is a dead lever: all 9 fetches dispatched in the
+    same millisecond at open (already parallel, nothing serialized), and native
+    lazy-load already prefetches within Chrome's ~1250–2500 px scroll margin.
+    Moving fetch start ~200 ms earlier does nothing against multi-second transfers.
+  - Lead (c) — staging latency — measured 111 ms TTFB on the HTML today; not it.
+  **The fix (Seth, in the Designer):** 1) Try **Cmd+Shift+I** (re-measure/generate
+  responsive images site-wide), then publish — cheapest possible test of whether
+  Webflow backfills API-uploaded assets. 2) If variants still 403, the documented
+  path is re-uploading the affected images **directly into the CMS image field**
+  (the 129 parent items) — painful, so confirm the shortcut fails first.
+  **Verify from code side:** `curl -sI <thumb-url with -p-500 before extension>` →
+  200 = variants exist; then re-publish and check published img tags carry srcset.
+  Bonus once variants exist: a Designer page-scan also replaces the fallback
+  `sizes="100vw"` with measured values, so phones pull the 500/800w variants.
 - **T-13**: keep or strip `?lzdebug` + flight recorder at sign-off (costs nothing unused).
 - **T-14**: retire Menu Entries collection + `/menu-entries` template + `sandbox-landing`
   page once nothing binds them. Sandbox `vNN.js` files ≤ v77 are also prunable (v78 = live).
