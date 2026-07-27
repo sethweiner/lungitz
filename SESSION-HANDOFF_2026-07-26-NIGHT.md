@@ -69,6 +69,14 @@ pin bump serves stale script to every visitor.
 - Restyle `.is-pending` / `.is-realm` states if the baselines aren't final.
 
 ### Code-side crumbs
+- **T-15** (Seth, 2026-07-27, on v86): entries with many images load their thumbs
+  slowly on the phone — the ANIMATION lands (v85/86 verified); the images arrive late.
+  Bookmarked, not diagnosed. Leads for the round: (a) touch has no warm head-start —
+  `warmEntryImages` warms on hover/press, and on a phone the press IS the open, so
+  lazy thumbs only start fetching at expand; (b) check what the published thumbs
+  actually fetch (srcset/sizes vs full-res asset — measure bytes, don't assume);
+  (c) staging latency inflates everything ~2s (re-measure on the real domain before
+  tuning). Rule of the round: measure transfer sizes first, then pick ONE lever.
 - **T-13**: keep or strip `?lzdebug` + flight recorder at sign-off (costs nothing unused).
 - **T-14**: retire Menu Entries collection + `/menu-entries` template + `sandbox-landing`
   page once nothing binds them. Sandbox `vNN.js` files ≤ v77 are also prunable (v78 = live).
