@@ -344,3 +344,34 @@ Flags: `?ni=0` cue off · `?ni=1` link only · `?ni=2` page dim (held, inline) �
 never advances, so computed colour reads frame-zero forever — even inline
 `!important` writes appear to "not apply". Kill the transition
 (`el.style.transition='none'`) before measuring colour in a hidden tab.
+
+---
+
+## 15. The lightbox drawer protocol — `data-detail` slots + `data-entry` leaves (v87, 2026-07-27)
+
+Seth rebuilt the overlay drawer as **labeled slots**: a wrapper div holding a label
+paragraph (styled `.caption-name`) and a value element (styled `.caption-edition`).
+The paint addresses VALUES by attribute, never by class or position:
+
+| slot (`data-detail=`) | painted with | source |
+|---|---|---|
+| `count` | "01 / 02" (zero-padded) | script state |
+| `title` (bar) | entry name — NO slide number | trigger `.title` |
+| `name` (bar) | contributors ", " | trigger `.author` leaves |
+| `edition` | Edition | trigger `.edition` leaf (visible Designer leaf) |
+| `format` | Material/Format | trigger `[data-entry=format]` hidden leaf |
+| `photo-credit` | per-image credit | `.thumb-credit` via getImages |
+| `link` | href only (text = Seth's glyph) | trigger `[data-entry=weblink]` hidden leaf; `target=_blank rel=noopener` painted |
+
+**Rules.** (1) Classes are pure styling — rename/restyle freely, the attribute is the
+wiring. (2) **An empty value hides its whole WRAPPER** (`parentElement`) — no orphan
+labels; hideaways have no edition/format and that must read as absence. (3) Passive
+slots (`count/title/name/edition/format/photo-credit/link`) fall through the control
+delegation — `link` especially MUST, or the blanket preventDefault swallows the
+navigation. (4) `[data-entry]` leaves are code-hidden (`display:none!important`
+injected) — do NOT style them with `.hide`: that class exists only as combos and the
+MCP style resolver once expanded it to `container-landing.is-active.hide` (caught
+live, 2026-07-27). (5) The `.fs-count` injection is retired; the count is Seth's
+element. (6) Leaves exist on **Home + /sandbox only** — entry templates have no
+edition/weblink/format leaves, so those wrappers hide in entry-page lightboxes until
+leaves are added there.
