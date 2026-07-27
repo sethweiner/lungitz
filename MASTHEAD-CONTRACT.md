@@ -203,6 +203,17 @@ very long document with 215 lazy images, so transitioning `grid-template-rows` c
 full-page relayout every frame — that is the "ratchet and lag". Below 767px the expand
 changes state instantly; colour and border still ease. Desktop keeps the tween, verified.
 
+**v85 (2026-07-27) amendment: the entry tween is back at every width.** The ratchet had
+four authors and the other three were fixed independently after v52 wrote the ban
+(webflow.js's second scroll authority unbound in §11/v61, thumb footprints reserved v62,
+scroll-follow separated from the grow v63). Re-measured at 500px on the real page: open
+25 steps / close 31 steps at ~16ms cadence, zero frames >34ms, entry-switch lands at
+masthead+23 exactly with no reversals, stable at t+2s. `.trigger-accordion` now keeps
+its desktop motion at ≤767px; **`.category-content` (the realm "+" drawers) is still
+instant there**, and the accordion caption-drawer kill (v83 scoping) is unchanged. If a
+future phone measurement ratchets, the kill to restore is the media rule in `injectCSS`
+— but measure first; do not re-inherit the ban.
+
 ---
 
 ## 9. The `#info-*` anchor is a LAYOUT constant, not a scroll problem 🔧
