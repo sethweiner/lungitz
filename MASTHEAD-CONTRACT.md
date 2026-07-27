@@ -209,10 +209,14 @@ four authors and the other three were fixed independently after v52 wrote the ba
 scroll-follow separated from the grow v63). Re-measured at 500px on the real page: open
 25 steps / close 31 steps at ~16ms cadence, zero frames >34ms, entry-switch lands at
 masthead+23 exactly with no reversals, stable at t+2s. `.trigger-accordion` now keeps
-its desktop motion at ≤767px; **`.category-content` (the realm "+" drawers) is still
-instant there**, and the accordion caption-drawer kill (v83 scoping) is unchanged. If a
-future phone measurement ratchets, the kill to restore is the media rule in `injectCSS`
-— but measure first; do not re-inherit the ban.
+its desktop motion at ≤767px, and the accordion caption-drawer kill (v83 scoping) is
+unchanged. **v86 (same day, Seth-approved): `.category-content` (the realm "+" drawers)
+too** — its motion is the Designer's (`all .2s`, both states his); the kill was simply
+removed and nothing injected in its place, so the Designer transition now runs at every
+width (measured: 13 steps / ~190ms / 0 long frames both directions at 606px). The ≤767
+media block in `injectCSS` now contains ONLY the caption-drawer rule. If a future phone
+measurement ratchets, the kill to restore is that media rule — but measure first; do
+not re-inherit the ban.
 
 ---
 
