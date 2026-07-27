@@ -35,6 +35,12 @@ if (/\/sandbox\/?$/.test(location.pathname)) { return; }
 //   · browser BACK closes fullscreen (history state — the Antoine fix: Esc is never the only
 //     way out; the hint chip advertises "✕ / back" in browser-fullscreen)
 //   · participants links rewrite to /?entry=<coll>/<slug> — index arrival highlight
+// v86 (2026-07-27) — the realm "+" drawers keep their Designer motion at 1-col.
+//   Seth on v85: "give the + drawers the same motion". .category-content's look
+//   AND motion are the Designer's (all .2s, both states his); the v52 kill was
+//   the only thing overriding it at <=767px. The kill is removed, nothing is
+//   injected in its place — desktop parity by subtraction, Webflow-first.
+//   Measured at 606px: open/close both 13 steps over ~190ms, 0 long frames.
 // v85 (2026-07-27) — the entry open/close is tuned like desktop at 1-col. Seth:
 //   "the 1-column entry open and close is still off somehow (not tuned like the
 //   desktop version)" — it wasn't a bug, it was v52's deliberate transition kill
@@ -713,12 +719,12 @@ function onRealIndex() {
             // layout cost instead of inheriting the ban: the entry accordion now
             // keeps its desktop motion (grid-rows .45s SETTLE open, 500ms CLOSE_EASE
             // close, padding + content fade) at every width — one gesture, one clock.
-            // .category-content (the realm "+" drawers) stays instant pending its
-            // own look; the accordion caption-drawer kill below is unchanged.
+            // v86 — the realm "+" drawers too: .category-content's motion is the
+            // Designer's (`all .2s`, both states his) and the v52 kill was the only
+            // thing flattening it to a pop at <=767px. Removed — the Designer's own
+            // transition now runs at every width; code injects nothing for it.
+            // Only the accordion caption-drawer kill (v83 scoping) remains.
             '@media screen and (max-width:767px){',
-            '  .category-content{',
-            '    transition:color .175s,border-color .25s ' + SETTLE + ',border-radius 75ms!important;',
-            '  }',
             // v83: SCOPED to the accordion drawers. The bare selector also hit
             // the OVERLAY's caption drawer, and !important beats the chrome
             // fade's inline transition — so at <=767px the lightbox bar faded
