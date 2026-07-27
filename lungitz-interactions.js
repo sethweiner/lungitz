@@ -35,12 +35,24 @@ if (/\/sandbox\/?$/.test(location.pathname)) { return; }
 //   · browser BACK closes fullscreen (history state — the Antoine fix: Esc is never the only
 //     way out; the hint chip advertises "✕ / back" in browser-fullscreen)
 //   · participants links rewrite to /?entry=<coll>/<slug> — index arrival highlight
+// v87 (2026-07-27) — the lightbox drawer speaks Seth's rebuilt layout. He
+//   rebuilt the overlay as labeled slots (wrapper > label p + value) and the
+//   paint now addresses each value by data-detail: count (zero-padded, his
+//   "01 / 02" mock), edition, format (NEW — Material/Format), photo-credit
+//   (per-image), link (NEW — a real <a>, href from the entry's Web link,
+//   target _blank). Title drops its "N · " prefix (count lives in the drawer).
+//   Empty value = the WHOLE wrapper hides (no orphan labels — hideaways have
+//   no edition/format). Retired: the .fs-count injection + its CSS, and the
+//   first-two-paragraphs caption/credit paint (his layout has no per-image
+//   caption slot — deliberate). New sources: hidden [data-entry=weblink/
+//   format] leaves in the Home triggers (CMS-bound, injected display:none).
+//   Control delegation lets passive slots + `link` fall through (the blanket
+//   preventDefault was swallowing the <a>'s navigation).
 // v86 (2026-07-27) — the realm "+" drawers keep their Designer motion at 1-col.
 //   Seth on v85: "give the + drawers the same motion". .category-content's look
 //   AND motion are the Designer's (all .2s, both states his); the v52 kill was
 //   the only thing overriding it at <=767px. The kill is removed, nothing is
 //   injected in its place — desktop parity by subtraction, Webflow-first.
-//   Measured at 606px: open/close both 13 steps over ~190ms, 0 long frames.
 // v85 (2026-07-27) — the entry open/close is tuned like desktop at 1-col. Seth:
 //   "the 1-column entry open and close is still off somehow (not tuned like the
 //   desktop version)" — it wasn't a bug, it was v52's deliberate transition kill
@@ -48,9 +60,7 @@ if (/\/sandbox\/?$/.test(location.pathname)) { return; }
 //   justified the kill had four authors and the other three are long fixed
 //   (webflow.js unbound v61, thumb footprints reserved v62, follow-vs-grow
 //   separated v63), so the ban is re-measured, not inherited: .trigger-accordion
-//   now keeps its desktop motion at every width. Measured at 500px: open 25
-//   steps/0 long frames, close 31 steps/0 long frames, switch lands top=68
-//   (=masthead+23) with 0 reversals, stable at t+2s. .category-content stays
+//   now keeps its desktop motion at every width. .category-content stays
 //   instant; the accordion caption-drawer kill (v83 scoping) unchanged.
 // v84 (2026-07-27) — the flight prop is transient. Seth on v83: "glitchier on
 //   all breakpoints... shifted the layout of the right-column". The v83 diff
@@ -963,7 +973,7 @@ function scrollToTrigger(trigger, instant) {
 // ── State 3 : Detail ──
 
 function paintDetail(view) {
-    var img, n, el, count, caps, prev, next;
+    var img, n, el, count, prev, next;
     if (!detail) {
         return;
     }
@@ -975,45 +985,49 @@ function paintDetail(view) {
         el.src = img.src;
     }
 
-    count = view.querySelector('[data-detail="count"]');
-    if (count) {
-        count.textContent = (detail.idx + 1) + ' / ' + n;
+    // v87 — the drawer speaks data-detail. Seth rebuilt the overlay as labeled
+    // slots (label + value pairs in wrappers) and stamped each value with a
+    // data-detail address; every paint below targets its address, so classes
+    // are pure styling and reordering is free. THE RULE: an empty value hides
+    // its whole WRAPPER (label included) — hideaways have no edition/format,
+    // giveaways-only fields must not leave orphan labels. paintSlot returns
+    // the value so callers can chain.
+    function pad2(x) { return (x < 10 ? '0' : '') + x; }
+    function paintSlot(action, text) {
+        var el = view.querySelector('[data-detail="' + action + '"]'),
+            wrap;
+        if (!el) { return null; }
+        el.textContent = text;
+        wrap = el.parentElement;
+        if (wrap) { wrap.style.display = text ? '' : 'none'; }
+        return el;
+    }
+    function leafText(sel) {
+        var el = detail.trigger.querySelector(sel);
+        return el ? el.textContent.trim() : '';
     }
 
-    // Overlay bar title (v32): "N · Entry Title" — N pages with the slides.
+    // Slide count — Seth's mock reads "01 / 02"; zero-pad both sides. His
+    // count paragraph does NOT hide when single-image (the pair-hiding rule
+    // is for label+value wrappers; a "01 / 01" count is honest, and hiding
+    // it would re-flow the whole drawer). The v66 .fs-count injection is
+    // retired — the count slot is a Designer element now.
+    count = view.querySelector('[data-detail="count"]');
+    if (count) {
+        count.textContent = pad2(detail.idx + 1) + ' / ' + pad2(n);
+    }
+
+    // Overlay bar title — the entry name ALONE (Seth's spec: no slide number
+    // in the title; the count lives in the drawer).
     var bar = view.querySelector('[data-detail="title"]');
     if (bar) {
         var tEl = detail.trigger.querySelector('.title');
-        bar.textContent = (detail.idx + 1) + ' · ' + (tEl ? tEl.textContent.trim() : '');
+        bar.textContent = tEl ? tEl.textContent.trim() : '';
     }
 
-    // Fullscreen slide counter — sits first in the caption row (bottom-left,
-    // before the caption). Shown only in fullscreen; the state-3 bar carries
-    // the other one. Created lazily per detail-view.
-    var capRow = view.querySelector(CAP_BODY);
-    if (capRow) {
-        var fsCount = capRow.querySelector('.fs-count');
-        if (!fsCount) {
-            fsCount = document.createElement('span');
-            fsCount.className = 'fs-count';
-            capRow.insertBefore(fsCount, capRow.firstChild);
-        }
-        fsCount.textContent = (detail.idx + 1) + ' / ' + n;
-    }
-
-    caps = view.querySelectorAll(CAP_BODY + ' p');
-    if (caps[0]) {
-        caps[0].textContent = img.caption;
-    }
-    if (caps[1]) {
-        caps[1].textContent = img.credit;
-    }
-
-    // v70 — the two Designer-requested leaves. NAME = the entry's author /
-    // contributor names, read from the accordion's own CMS-bound .author
-    // leaves (nested Contributors list; DynamoEmpty renders none). EDITION =
-    // the accordion's bound .edition leaf. Both live in .caption-content for
-    // Seth to rearrange and style; an empty field renders empty, never stale.
+    // NAME = the entry's contributors, joined ", " (v70 rule, unchanged —
+    // the first .caption-name is Seth's bar h4; the label paragraphs in the
+    // drawer reuse the class for STYLE but are never painted).
     var nameEl = view.querySelector('.caption-name');
     if (nameEl) {
         var authorEls = detail.trigger.querySelectorAll('.author'),
@@ -1024,10 +1038,29 @@ function paintDetail(view) {
         }
         nameEl.textContent = names.join(', ');
     }
-    var edEl = view.querySelector('.caption-edition');
-    if (edEl) {
-        var edSrc = detail.trigger.querySelector('.edition');
-        edEl.textContent = edSrc ? edSrc.textContent.trim() : '';
+
+    // The labeled drawer slots. Sources: entry-level values ride hidden
+    // CMS-bound leaves in the trigger (.edition h4 = the visible Designer
+    // leaf; [data-entry=format] / [data-entry=weblink] = v87's hidden ones);
+    // the photo credit is per-image (.thumb-credit via getImages).
+    paintSlot('edition', leafText('.edition'));
+    paintSlot('format', leafText('[data-entry="format"]'));
+    paintSlot('photo-credit', img.credit || '');
+
+    // External link — the value is a real Designer <a>; paint the href from
+    // the entry's Web link leaf, force new-tab + noopener, hide the pair
+    // when the entry has no link. textContent stays Seth's glyph.
+    var linkEl = view.querySelector('[data-detail="link"]'),
+        linkUrl = leafText('[data-entry="weblink"]');
+    if (linkEl) {
+        if (linkUrl) {
+            linkEl.setAttribute('href', linkUrl);
+            linkEl.setAttribute('target', '_blank');
+            linkEl.setAttribute('rel', 'noopener');
+        }
+        if (linkEl.parentElement) {
+            linkEl.parentElement.style.display = linkUrl ? '' : 'none';
+        }
     }
 
     prev = view.querySelector('[data-detail="prev"]');
@@ -1628,7 +1661,13 @@ document.addEventListener('click', function (e) {
         return;
     }
     action = btn.getAttribute('data-detail');
-    if (action === 'count' || action === 'title') {
+    // v87 — passive slots pass through. count/title were always display-only;
+    // the labeled drawer values join them, and `link` MUST fall through or the
+    // blanket preventDefault below swallows the external link's navigation
+    // (it is a real <a target=_blank> — the browser handles it).
+    if (action === 'count' || action === 'title' || action === 'name' ||
+            action === 'edition' || action === 'format' ||
+            action === 'photo-credit' || action === 'link') {
         return;
     }
 
@@ -2461,10 +2500,14 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         // moved, in v65 too). Inside the overlay, collapsed hides the caption
         // text and keeps the ◉; the state itself stays Seth's to restyle.
         '.immersive-overlay .caption-drawer.is-collapsed .caption-content{display:none;}',
-        // Slide counter: hidden at rest (paintDetail seeds it into every caption
-        // row), shown inside the overlay caption.
-        '.fs-count{display:none;}',
-        '.immersive-overlay .fs-count{display:inline-block;color:' + ACC + ';}',
+        // (v87: the .fs-count rules left with the injected counter — the count
+        // is Seth's Designer element now, addressed as [data-detail=count].)
+        // Hidden data leaves (v87): [data-entry=weblink/format] paragraphs in
+        // the entry triggers carry CMS values for the overlay paint. Code-owned
+        // hiding for code-owned wiring — they are data, never layout. (The
+        // .hide class could not be used: it exists only as combos, and the
+        // style resolver expanded it to container-landing.is-active.hide.)
+        '[data-entry]{display:none!important;}',
         // (v66: the legacy .detail-view/.detail-bar/.detail-image .is-fullscreen
         // fill rules left with the no-overlay promote path.)
         '.fs-nav.is-prev{cursor:' + LCUR + ';}',
