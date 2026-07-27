@@ -35,6 +35,17 @@ if (/\/sandbox\/?$/.test(location.pathname)) { return; }
 //   · browser BACK closes fullscreen (history state — the Antoine fix: Esc is never the only
 //     way out; the hint chip advertises "✕ / back" in browser-fullscreen)
 //   · participants links rewrite to /?entry=<coll>/<slug> — index arrival highlight
+// v85 (2026-07-27) — the entry open/close is tuned like desktop at 1-col. Seth:
+//   "the 1-column entry open and close is still off somehow (not tuned like the
+//   desktop version)" — it wasn't a bug, it was v52's deliberate transition kill
+//   at <=767px (instant flip instead of the grid-rows tween). The ratchet that
+//   justified the kill had four authors and the other three are long fixed
+//   (webflow.js unbound v61, thumb footprints reserved v62, follow-vs-grow
+//   separated v63), so the ban is re-measured, not inherited: .trigger-accordion
+//   now keeps its desktop motion at every width. Measured at 500px: open 25
+//   steps/0 long frames, close 31 steps/0 long frames, switch lands top=68
+//   (=masthead+23) with 0 reversals, stable at t+2s. .category-content stays
+//   instant; the accordion caption-drawer kill (v83 scoping) unchanged.
 // v84 (2026-07-27) — the flight prop is transient. Seth on v83: "glitchier on
 //   all breakpoints... shifted the layout of the right-column". The v83 diff
 //   itself was clean (one media-scoped transition rule; layouts measured
@@ -691,16 +702,21 @@ function onRealIndex() {
             '.trigger-accordion.is-closing .content-accordion{',
             '  opacity:0;',
             '}',
-            // NO LAYOUT ANIMATION WHERE THE PAGE SCROLLS (v52). Transitioning
-            // grid-template-rows makes the browser re-run layout every single frame.
-            // On desktop that is one column of a two-column page and it is smooth. At
-            // <=767px the columns stack into one very long document with 215 lazy
-            // images, so the same 450ms costs a full-page relayout per frame and the
-            // expand advances in visible steps — "ratchet and lag". The state change is
-            // what matters; the tween is a desktop luxury. Colour and border still
-            // ease, because those are cheap and carry the accent.
+            // v85 — THE ENTRY TWEEN RETURNS AT <=767px. v52 killed all layout
+            // animation where the page scrolls: transitioning grid-template-rows
+            // re-ran full-page layout per frame and the expand "ratcheted". But the
+            // ratchet had FOUR authors, and the other three have since been fixed
+            // on their own: webflow.js's second scroll authority (unbound, v61),
+            // lazy thumbs occupying nothing until decode (footprints reserved, v62),
+            // and the scroll-follow chasing a still-growing target (open glides on
+            // a stable destination since v63). With those gone, re-measure the pure
+            // layout cost instead of inheriting the ban: the entry accordion now
+            // keeps its desktop motion (grid-rows .45s SETTLE open, 500ms CLOSE_EASE
+            // close, padding + content fade) at every width — one gesture, one clock.
+            // .category-content (the realm "+" drawers) stays instant pending its
+            // own look; the accordion caption-drawer kill below is unchanged.
             '@media screen and (max-width:767px){',
-            '  .trigger-accordion,.trigger-accordion.is-closing,.category-content{',
+            '  .category-content{',
             '    transition:color .175s,border-color .25s ' + SETTLE + ',border-radius 75ms!important;',
             '  }',
             // v83: SCOPED to the accordion drawers. The bare selector also hit
