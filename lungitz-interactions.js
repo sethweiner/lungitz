@@ -35,6 +35,17 @@ if (/\/sandbox\/?$/.test(location.pathname)) { return; }
 //   · browser BACK closes fullscreen (history state — the Antoine fix: Esc is never the only
 //     way out; the hint chip advertises "✕ / back" in browser-fullscreen)
 //   · participants links rewrite to /?entry=<coll>/<slug> — index arrival highlight
+// v88 (2026-07-27) — one arrow pair, and the cursor is the navigation. The
+//   script-built .fs-nav edge zones (v15) are retired — three arrow systems
+//   existed (edge zones, Seth's drawer pair, the old bar pair) and Seth's
+//   [data-detail=prev/next] buttons are the survivor. The ←/→ cursors move
+//   onto the image itself: hover pointer + multi-image + unzoomed, the outer
+//   30% thirds cursor ←/→ and click prev/next (capture phase, so the
+//   click-step zoom never fires there); the middle third keeps Seth's zoom
+//   mouse model exactly. Touch untouched (swipe stays). Cursor constants
+//   hoisted to module scope; .fs-chev CSS survives only for the entry pages'
+//   [data-entry-nav] arrows. Cursor art stays code-SVG until Seth decides on
+//   Webflow-asset urls.
 // v87 (2026-07-27) — the lightbox drawer speaks Seth's rebuilt layout. He
 //   rebuilt the overlay as labeled slots (wrapper > label p + value) and the
 //   paint now addresses each value by data-detail: count (zero-padded, his
@@ -548,6 +559,16 @@ var TRIGGER    = '.trigger-accordion',
     SETTLE     = 'cubic-bezier(0.16, 1, 0.3, 1)',
     CLOSE_EASE = 'cubic-bezier(0.4, 0, 0.2, 1)',
     CLOSE_STAGGER = 140;
+
+// The lightbox cursor set — ✕ (exit), ← (prev), → (next), off-white for the
+// dark frame. Module-scope since v88: durabilityPolish paints the backdrop ✕,
+// slideshowNav paints the image-half arrows. Code-owned because the Designer
+// cannot author image cursors at all (preset list only) — if Seth wants the
+// artwork editable, the move is Webflow-hosted ASSET urls referenced here.
+var CUR = function (svg) { return "url(\"data:image/svg+xml," + svg + "\") 13 13, pointer"; };
+var XCUR = CUR("%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='26'%20height='26'%3E%3Cg%20stroke='%23e8e2da'%20stroke-width='2'%20stroke-linecap='round'%3E%3Cline%20x1='8'%20y1='8'%20x2='18'%20y2='18'/%3E%3Cline%20x1='18'%20y1='8'%20x2='8'%20y2='18'/%3E%3C/g%3E%3C/svg%3E"),
+    LCUR = CUR("%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='26'%20height='26'%3E%3Cg%20fill='none'%20stroke='%23e8e2da'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cline%20x1='19'%20y1='13'%20x2='7'%20y2='13'/%3E%3Cpolyline%20points='12,8%207,13%2012,18'/%3E%3C/g%3E%3C/svg%3E"),
+    RCUR = CUR("%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='26'%20height='26'%3E%3Cg%20fill='none'%20stroke='%23e8e2da'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cline%20x1='7'%20y1='13'%20x2='19'%20y2='13'/%3E%3Cpolyline%20points='14,8%2019,13%2014,18'/%3E%3C/g%3E%3C/svg%3E");
 
 // The URL AS THE READER ARRIVED, captured before any module can rewrite it.
 // Several modules clean up after themselves with history.replaceState (arrive()
@@ -2324,30 +2345,23 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
 }());
 
 // ════════════════════════════════════════════════════════════════════════
-//  §Slideshow navigation (v15) — prev/next in fullscreen
+//  §Slideshow navigation — prev/next in fullscreen (v88 rewrite)
 //
-//  Hover-reveal chevrons at the edges (desktop) + a haptic swipe (drag the
-//  image; it follows your finger, then slides to the neighbour and settles —
-//  feel proven on the gesture catalog). Single image, so the slide swaps
-//  off-screen: current eases out one side, the new one eases in from the other.
-//  Only fullscreen + multi-image + not zoomed (the body.is-fs / is-fs-zoom flags
-//  set by setImmersive + the zoom fns drive chevron visibility). Designer hooks:
-//  .fs-nav (edge zone) and .fs-chev (the revealed glyph).
+//  v88: the script-built .fs-nav edge zones are RETIRED — the site had three
+//  arrow systems (edge zones, Seth's drawer pair, the bar's old pair) and
+//  Seth's [data-detail=prev/next] buttons are the one that survives. The
+//  ←/→ affordance moves onto the IMAGE: on a hover pointer, multi-image and
+//  unzoomed, the outer thirds show the directional cursors and a click there
+//  routes to prev/next; the middle third keeps Seth's click-step zoom mouse
+//  model untouched. Zoomed or single-image, the whole image behaves exactly
+//  as before. Touch keeps the haptic swipe — no tap-zone changes.
+//  Cursor classes lz-cur-prev/next are code plumbing (arrange-ghost
+//  precedent), never Designer states.
 // ════════════════════════════════════════════════════════════════════════
 (function slideshowNav() {
-    var V = function (n) { return 'var(--_lungitz---' + n + ')'; },
-        css = [
-            // z 1000: above the portal'd modal (999, last body child) so the
-            // chevron zones stay clickable.
-            '.fs-nav{position:fixed;top:calc(4vh + 3rem);bottom:1.5rem;width:14%;',
-            '  z-index:1000;display:none;align-items:center;cursor:pointer;}',
-            'body.is-fs .fs-nav{display:flex;}',
-            'body.is-fs.is-fs-zoom .fs-nav{display:none;}',
-            '.fs-nav.is-prev{left:1.5rem;justify-content:flex-start;padding-left:' + V('space-4') + ';}',
-            '.fs-nav.is-next{right:1.5rem;justify-content:flex-end;padding-right:' + V('space-4') + ';}',
-            // .fs-chev glyph look migrated to the Designer; kept here: the reveal motion.
-            '.fs-chev{opacity:0;transition:opacity .2s,color .2s;}',
-            '.fs-nav:hover .fs-chev{opacity:1;color:' + V('color-ink-100') + ';}'
+    var css = [
+            '.immersive-overlay .immersive-image.lz-cur-prev{cursor:' + LCUR + ';}',
+            '.immersive-overlay .immersive-image.lz-cur-next{cursor:' + RCUR + ';}'
         ].join('\n'),
         styleEl = document.createElement('style');
     styleEl.textContent = css;
@@ -2365,19 +2379,42 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         img.style.transform = 'none';
     }
 
-    function chevron(dir, cls, glyph) {
-        var z = document.createElement('div');
-        z.className = 'fs-nav ' + cls;
-        z.innerHTML = '<span class="fs-chev">' + glyph + '</span>';
-        z.addEventListener('click', function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            slideTo(dir);
-        });
-        return z;
+    // Which nav third of the image is x over? -1 / 1 for the outer 30%s,
+    // 0 for the middle (zoom's territory). Only meaningful when the image
+    // is navigable (fullscreen, multi, unzoomed) on a hovering pointer.
+    var HOVERQ = matchMedia('(hover:hover)');
+    function navThird(img, x) {
+        if (!fs || !detail || detail.images.length < 2 || zoom || !HOVERQ.matches) { return 0; }
+        var r = img.getBoundingClientRect(),
+            t = (x - r.left) / r.width;
+        if (t < 0.3) { return -1; }
+        if (t > 0.7) { return 1; }
+        return 0;
     }
-    document.body.appendChild(chevron(-1, 'is-prev', '‹'));
-    document.body.appendChild(chevron(1, 'is-next', '›'));
+
+    // The cursor toggles as the mouse crosses the thirds.
+    document.addEventListener('pointermove', function (e) {
+        var img = e.target.closest ? e.target.closest(FS_IMG) : null,
+            dir = img ? navThird(img, e.clientX) : 0,
+            el = fs && fsImage();
+        if (!el) { return; }
+        el.classList.toggle('lz-cur-prev', dir === -1);
+        el.classList.toggle('lz-cur-next', dir === 1);
+    });
+
+    // Clicks on the outer thirds navigate — CAPTURE phase, so the bubble-phase
+    // click-step zoom handler never sees them; the middle third falls through
+    // to it untouched. A drag's tail click is still swallowed there (dragMoved).
+    document.addEventListener('click', function (e) {
+        var img = e.target.closest(FS_IMG),
+            dir;
+        if (!img || !fs) { return; }
+        dir = navThird(img, e.clientX);
+        if (!dir || dragMoved) { return; }
+        e.preventDefault();
+        e.stopPropagation();
+        slideTo(dir);
+    }, true);
 
     // Haptic swipe — drag the fullscreen image; past a threshold it slides to the
     // neighbour, otherwise it eases back. Fullscreen + multi-image + unzoomed only.
@@ -2386,7 +2423,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         var img;
         if (!fs || !detail || detail.images.length < 2 || zoom) { return; }
         img = fsImage();
-        if (!img || img._sliding || !fs.view.contains(e.target) || e.target.closest('.fs-nav')) { return; }
+        if (!img || img._sliding || !fs.view.contains(e.target)) { return; }
         swipe = { x0: e.clientX, img: img, dx: 0 };
         img.style.transition = 'none';
     });
@@ -2440,11 +2477,8 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         RUST  = 'var(--_lungitz---color-accent-b-500)',
         F4    = 'var(--_lungitz---font-size-4)',
         SP3   = 'var(--_lungitz---space-3)';
-    var CUR = function (svg) { return "url(\"data:image/svg+xml," + svg + "\") 13 13, pointer"; };
-    // ✕ (exit), ← (prev), → (next) cursors — off-white, for the dark frame.
-    var XCUR = CUR("%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='26'%20height='26'%3E%3Cg%20stroke='%23e8e2da'%20stroke-width='2'%20stroke-linecap='round'%3E%3Cline%20x1='8'%20y1='8'%20x2='18'%20y2='18'/%3E%3Cline%20x1='18'%20y1='8'%20x2='8'%20y2='18'/%3E%3C/g%3E%3C/svg%3E"),
-        LCUR = CUR("%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='26'%20height='26'%3E%3Cg%20fill='none'%20stroke='%23e8e2da'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cline%20x1='19'%20y1='13'%20x2='7'%20y2='13'/%3E%3Cpolyline%20points='12,8%207,13%2012,18'/%3E%3C/g%3E%3C/svg%3E"),
-        RCUR = CUR("%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='26'%20height='26'%3E%3Cg%20fill='none'%20stroke='%23e8e2da'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cline%20x1='7'%20y1='13'%20x2='19'%20y2='13'/%3E%3Cpolyline%20points='14,8%2019,13%2014,18'/%3E%3C/g%3E%3C/svg%3E");
+    // (v88: the CUR/XCUR/LCUR/RCUR cursor constants hoisted to module scope —
+    // shared with slideshowNav's image-half arrows.)
     var css = [
         // ★ The "author bounce" (state 1↔2). Diagnosed LIVE via the Chrome bridge:
         // .author lives in a NESTED collection-list inside the entry header, and the
@@ -2510,13 +2544,15 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         '[data-entry]{display:none!important;}',
         // (v66: the legacy .detail-view/.detail-bar/.detail-image .is-fullscreen
         // fill rules left with the no-overlay promote path.)
-        '.fs-nav.is-prev{cursor:' + LCUR + ';}',
-        '.fs-nav.is-next{cursor:' + RCUR + ';}',
+        // (v88: the .fs-nav edge-zone cursor + chevron rules left with the
+        // zones themselves — Seth's wrapper-prev-next buttons are the one nav
+        // pair, and the ←/→ cursors moved onto the image halves. The .fs-chev
+        // rules below stay ONLY for the entry pages' [data-entry-nav] arrows.)
         '.fs-chev{font-size:0!important;text-shadow:none!important;font-family:inherit!important;padding:' + SP3 + '!important;color:' + ACC + '!important;line-height:1!important;}',
         '.fs-chev::before{font-size:' + F4 + ';line-height:1;}',
-        '.fs-nav.is-prev .fs-chev::before,[data-entry-nav="prev"] .fs-chev::before,[data-entry-nav="prev"].fs-chev::before{content:"\\2190";}',
-        '.fs-nav.is-next .fs-chev::before,[data-entry-nav="next"] .fs-chev::before,[data-entry-nav="next"].fs-chev::before{content:"\\2192";}',
-        '.fs-nav:hover .fs-chev,[data-entry-nav]:hover .fs-chev{color:' + RUST + '!important;}'
+        '[data-entry-nav="prev"] .fs-chev::before,[data-entry-nav="prev"].fs-chev::before{content:"\\2190";}',
+        '[data-entry-nav="next"] .fs-chev::before,[data-entry-nav="next"].fs-chev::before{content:"\\2192";}',
+        '[data-entry-nav]:hover .fs-chev{color:' + RUST + '!important;}'
         // RESOLVED 2026-06-12 — the line-height px-pins that used to live here are
         // gone: leading is now fixed-px ON THE CLASS in the Designer (.author / .type /
         // Rich Text Block 20px · .number-list 16px · .button / .button-copy 32px),
@@ -2534,7 +2570,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         if (!fs || zoom) { return; }
         var view = fs.view;
         if (!view || !view.contains(e.target)) { return; }
-        if (e.target.closest('.immersive-image, .immersive-bar, .caption-drawer, .fs-nav, .nav, [data-detail]')) { return; }
+        if (e.target.closest('.immersive-image, .immersive-bar, .caption-drawer, .nav, [data-detail]')) { return; }
         closeFullscreen();
     }, false);
 }());
