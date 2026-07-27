@@ -375,3 +375,15 @@ live, 2026-07-27). (5) The `.fs-count` injection is retired; the count is Seth's
 element. (6) Leaves exist on **Home + /sandbox only** — entry templates have no
 edition/weblink/format leaves, so those wrappers hide in entry-page lightboxes until
 leaves are added there.
+
+**v88 addendum — the cursor is the navigation.** The script-built `.fs-nav` edge zones
+are retired; Seth's `[data-detail=prev/next]` buttons are the one arrow pair. On a
+hover pointer, multi-image, unzoomed: the image's outer 30% thirds show the ←/→
+cursors and click prev/next (capture phase); the **middle third keeps the click-step
+zoom mouse model**. Zoomed or single-image = pure zoom behavior, touch = swipe,
+unchanged. `lz-cur-prev/next` are code plumbing classes, never Designer states. The
+cursor artwork (✕/←/→) is code-SVG at module scope — Designer cannot author image
+cursors; making the art Seth-editable means swapping to Webflow-hosted asset URLs
+(decision open). `.fs-chev` CSS now serves ONLY the entry pages' `[data-entry-nav]`
+arrows. Leaves now also exist on both entry templates (edition h4 + weblink/format on
+Giveaways, weblink on Hideaways) and the sandbox page has Home-parity (edition h4).
