@@ -37,6 +37,13 @@
 //   until the new file decodes; the overlay now seeds each slide from the
 //   thumb's already-decoded srcset variant (instant, correct) and upgrades to
 //   the full asset on load (guarded against fast arrows).
+//   AND two more mid-round Seth reports: (1) mobile zoom "weird" → NATIVE now:
+//   touch-action gains pinch-zoom (two fingers go to the browser), tap-step
+//   zoom gated off on hover:none, swipe stands down while visualViewport
+//   scale > 1 (a drag then means "pan what I zoomed"); the custom layer stays
+//   for mouse/trackpad. (2) desktop zoom cursors: image shows zoom-in at rest
+//   (thirds' ←/→ still win their zones), grab when zoomed, grabbing while
+//   panning — native cursors, movable onto [data-cursor] assets on request.
 // v88 (2026-07-27) — one arrow pair, and the cursor is the navigation. The
 //   script-built .fs-nav edge zones (v15) are retired — three arrow systems
 //   existed (edge zones, Seth's drawer pair, the old bar pair) and Seth's
@@ -674,8 +681,11 @@ function onRealIndex() {
             'html{-webkit-tap-highlight-color:transparent;}',
             // Let the fullscreen image OWN horizontal gestures on touch, so a carousel
             // swipe stays a swipe instead of the browser deciding it was a scroll and
-            // firing pointercancel at us mid-drag. pan-y keeps vertical scrolling native.
-            '.immersive-image,.detail-image{touch-action:pan-y;}',
+            // firing pointercancel at us mid-drag. pan-y keeps vertical scrolling
+            // native. v89 adds pinch-zoom: phones zoom NATIVELY (Seth: "can it just
+            // go native touch mode") — two fingers go straight to the browser; the
+            // custom zoom layer is desktop/trackpad-only now.
+            '.immersive-image,.detail-image{touch-action:pan-y pinch-zoom;}',
             // ENTRY ACCENT IN THE OPEN STATE (v39). Same inheritance shortfall the
             // hover rule below fixes: the <h4> children carry the bare h4 tag
             // colour, so they ignore any colour inherited from the trigger — which
@@ -1720,6 +1730,10 @@ document.addEventListener('click', function (e) {
     openFullscreen();
 });
 
+// v89 — ON TOUCH THE ZOOM IS THE BROWSER'S. Tap-step zoom felt "weird" on the
+// phone (Seth) because it fought the native gesture language; with
+// touch-action allowing pinch-zoom, phones pinch and pan the real viewport.
+// The custom layer below stays for mouse/trackpad, where it IS the language.
 // State 4 : image click = click-step zoom (Seth's mouse model). A click that
 // ended a pan or swipe drag is swallowed (dragMoved); a clean click steps the
 // zoom toward the click point. Pinch + drag layer in for trackpad/touch.
@@ -1730,6 +1744,9 @@ document.addEventListener('click', function (e) {
     }
     e.preventDefault();
     if (dragMoved) { dragMoved = false; return; }
+    // v89: no tap-step zoom on touch — pinch is native there. (hover:none =
+    // the device's PRIMARY pointer can't hover = phones/tablets.)
+    if (matchMedia('(hover: none)').matches) { return; }
     zoomStepClick(img, e.clientX, e.clientY);
 });
 
@@ -2515,6 +2532,10 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     document.addEventListener('pointerdown', function (e) {
         var img;
         if (!fs || !detail || detail.images.length < 2 || zoom) { return; }
+        // v89: while the reader is NATIVELY pinch-zoomed in (visualViewport
+        // scale > 1), a horizontal drag means "pan what I zoomed", never
+        // "next slide" — stand the swipe down until they pinch back out.
+        if (window.visualViewport && window.visualViewport.scale > 1.05) { return; }
         img = fsImage();
         if (!img || img._sliding || !fs.view.contains(e.target)) { return; }
         swipe = { x0: e.clientX, img: img, dx: 0 };
@@ -2619,7 +2640,16 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         // above. 0-3-0 settles the lamp for good (measured: parent rust,
         // child still blue without this).
         '.nav-lungitz.is-pending .h5-nav{color:var(--_lungitz---color-accent-b-500);}',
-        '.immersive-overlay .immersive-bar,.immersive-overlay .caption-drawer,.immersive-overlay .immersive-image{cursor:auto;}',
+        '.immersive-overlay .immersive-bar,.immersive-overlay .caption-drawer{cursor:auto;}',
+        // v89 — THE IMAGE'S CURSOR TELLS THE ZOOM STORY (Seth: "the zoom icon
+        // doesn't come in when zooming or move"). Unzoomed: zoom-in (the middle
+        // third's click-step; the outer thirds' ←/→ rules are more specific and
+        // win there). Zoomed: grab; while panning: grabbing. Native cursors —
+        // universally understood; say the word to move these three onto
+        // [data-cursor] assets like the others.
+        '.immersive-overlay .immersive-image{cursor:zoom-in;}',
+        'body.is-fs-zoom .immersive-overlay .immersive-image{cursor:grab;}',
+        'body.is-fs-zoom .immersive-overlay .immersive-image.is-panning{cursor:grabbing;}',
         // Caption collapse (v67) — DESCENDANT selector, Webflow can't author it
         // (contract §2 pattern). The Designer's .caption-drawer.is-collapsed
         // collapses a grid row the caption doesn't live in (measured: rows
