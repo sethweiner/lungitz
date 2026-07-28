@@ -387,3 +387,20 @@ cursors; making the art Seth-editable means swapping to Webflow-hosted asset URL
 (decision open). `.fs-chev` CSS now serves ONLY the entry pages' `[data-entry-nav]`
 arrows. Leaves now also exist on both entry templates (edition h4 + weblink/format on
 Giveaways, weblink on Hideaways) and the sandbox page has Home-parity (edition h4).
+
+**v89 addendum — the accessible finish (2026-07-28).** The overlay is a real dialog:
+`role/aria-modal/aria-label` are Designer attributes on the component root,
+`aria-live=polite` on the count slot; the script moves focus in on open (tabindex -1),
+holds Tab inside (wrapping), and returns focus to the opener on close (preventScroll —
+the flight owns the scroll; never strands focus in the hidden dialog). Arrow keys flash
+**`.is-active-key`** (SETH-NAMED) on the matching button for 180ms — style the combo on
+`.button`. **Cursor artwork is Seth's**: three hidden `[data-cursor=close/prev/next]`
+Images in the overlay carry the art as ordinary assets (seeded with exact copies of the
+old code SVGs, in the Asset panel as `lightbox-cursor-*`) — swap them in the asset
+picker; the script reads the src at init, inline SVGs are only the fallback. Zoom
+cursors (native `zoom-in`/`grab`/`grabbing`) live in injected CSS; promotable to
+`[data-cursor]` assets on request. **Alt text flows**: thumbs bind Image Sets → Alt text
+(all six lists), the overlay image inherits it per slide. **Touch zoom is native**:
+`touch-action: pan-y pinch-zoom`, tap-step zoom gated off on `hover:none`, the swipe
+stands down while `visualViewport.scale > 1`. **Stale-image flash fixed**: each slide
+seeds from the thumb's decoded srcset variant, upgrades to the full asset on load.
