@@ -69,8 +69,24 @@ pin bump serves stale script to every visitor.
 - Restyle `.is-pending` / `.is-realm` states if the baselines aren't final.
 
 ### Code-side crumbs
-- **T-15** — DIAGNOSED 2026-07-27, measured, no code fix shipped (the durable fix
-  is Designer-side; per the round's rule it is named, not coded around).
+- **T-15 — RESOLVED 2026-07-28.** All 129 API-uploaded CMS thumbnails re-uploaded
+  through the Designer CMS UI (browser automation in Seth's Chrome: per item,
+  open the Image Sets editor, slug-verified, then invoke the file input's React
+  `onChange` with the CDN-fetched original — the drag-drop event path is
+  unreliable, the React-props path is deterministic). Every item verified via
+  the Data API (clean single-ID filename), batch-published (129/129, zero
+  errors), site published. **Published proof:** 137 unique thumbs now carry the
+  full srcset ladder (500/800/1080/1600/2000 + original); the karl 9-thumb entry
+  measured **787 KB at 800w vs 5,734 KB before — 7.3×** (500w is smaller still).
+  The 5 remaining bare img tags are tiny covers (14–33 KB) and the placeholder
+  SVG — Webflow correctly skips variants for those. Originals untouched (largest
+  srcset candidate, same bytes). Notes: `sizes` is Webflow's fallback `100vw`
+  (a Designer Cmd+Shift+I re-scan + publish could tighten it, optional);
+  Cmd+Shift+I does NOT backfill CMS-bucket files (only Assets-panel copies) —
+  the UI upload path is the only variant generator for CMS images; one stray
+  test asset `6a6883ed…giveaway-nordfassade-01.jpeg` (Assets panel, unused) can
+  be deleted whenever.
+  The original diagnosis (kept for the record):
   **The bottleneck is bytes, not request start.** Measured on the published site:
   - 129 of 142 index thumbnails publish **no srcset/sizes** — every one fetches its
     full-res original (median **607 KB**, max 3.1 MB; **96 MB** across the index).
