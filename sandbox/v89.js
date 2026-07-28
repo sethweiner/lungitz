@@ -1373,9 +1373,14 @@ function closeFullscreenNow() {
 
     // v89 — the dialog gives focus back where it came from. preventScroll: the
     // close flight owns the scroll (v79 pinned scrollRestoration for exactly
-    // this window); a focus-scroll here would fight the landing.
+    // this window); a focus-scroll here would fight the landing. If the opener
+    // can't take it (mouse flows focus body), at least don't leave focus
+    // stranded on a control inside the hidden dialog.
     if (fsOpener && document.contains(fsOpener) && fsOpener.focus) {
         fsOpener.focus({ preventScroll: true });
+    }
+    if (view.contains(document.activeElement) && document.activeElement.blur) {
+        document.activeElement.blur();
     }
     fsOpener = null;
 
