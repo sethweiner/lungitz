@@ -35,6 +35,14 @@ if (/\/sandbox\/?$/.test(location.pathname)) { return; }
 //   · browser BACK closes fullscreen (history state — the Antoine fix: Esc is never the only
 //     way out; the hint chip advertises "✕ / back" in browser-fullscreen)
 //   · participants links rewrite to /?entry=<coll>/<slug> — index arrival highlight
+// v90 (2026-07-28) — zoomed-in panning unlocked on touch. Seth on v89: "pinch
+//   and swipe feels good... but panning is locked due to the swipe." v89's
+//   guard silenced the script but the injected touch-action (pan-y pinch-zoom)
+//   still denied the BROWSER horizontal pans. Now visualViewport.scale drives
+//   the image's inline touch-action: `auto` while natively zoomed (> 1.05, the
+//   browser owns every gesture), stylesheet value at rest (the swipe owns
+//   horizontal again). Zoom level only changes between gestures, so the flip
+//   always lands before the next drag.
 // v89 (2026-07-28) — the accessible finish + the cursor art is Seth's. Three
 //   hidden [data-cursor=close/prev/next] Images in the overlay carry the
 //   cursor artwork as ordinary Designer assets (seeded with exact copies of
@@ -2550,6 +2558,27 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     // Haptic swipe — drag the fullscreen image; past a threshold it slides to the
     // neighbour, otherwise it eases back. Fullscreen + multi-image + unzoomed only.
     var swipe = null;
+    // v90 — WHILE NATIVELY ZOOMED, THE BROWSER OWNS EVERY GESTURE. v89's
+    // pointerdown guard stood the SCRIPT down, but the injected
+    // `touch-action: pan-y pinch-zoom` still told the BROWSER horizontal pans
+    // were ours — so zoomed-in panning was locked (Seth: "panning is locked
+    // due to the swipe"). touch-action can't change mid-gesture, but zoom
+    // level only changes between gestures: track visualViewport.scale and
+    // flip the image's inline touch-action to `auto` while zoomed (> 1.05),
+    // back to the stylesheet value at rest. Inline beats injected, so pan-x
+    // goes native exactly when a drag means "pan what I zoomed".
+    if (window.visualViewport) {
+        var vvSync = function () {
+            var img = document.querySelector(FS_IMG);
+            if (img) {
+                img.style.touchAction =
+                    window.visualViewport.scale > 1.05 ? 'auto' : '';
+            }
+        };
+        window.visualViewport.addEventListener('resize', vvSync);
+        vvSync();
+    }
+
     document.addEventListener('pointerdown', function (e) {
         var img;
         if (!fs || !detail || detail.images.length < 2 || zoom) { return; }
