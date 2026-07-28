@@ -6,23 +6,7 @@
 // zoom/pan, arrangement). Loaded by the Home page — bail on /sandbox so it doesn't
 // double-bind with the loader's sandbox/vN.js. The injected CSS scaffold below is
 // being migrated to Designer combos; motion + grid-rows transitions stay here.
-// ★ v84 PROMOTED TO PRODUCTION 2026-07-27 — DEFECT FIX, promoted on the
-// coordinator's call: v80-82's landing-pad stamp persisted with wrong data
-// (entries with empty image fields render Webflow's 180x180 placeholder; a close
-// stamped a square and the entry grew 464->845px permanently, reshaping the
-// column for every lightbox use). The stamp and borrowed width are flight props
-// now — applied for the 500ms flight, restored on landing. Rides along: the
-// <=767 caption-drawer transition kill is scoped to the ACCORDION drawers, so
-// the lightbox bar and drawer fade as one (the chrome-coming-apart fix).
-// Layout parity vs v82 verified byte-identical at 470/1000/1600, both columns.
-// Carries v71-v83.
-// Loaded per-page via <script src="https://sethweiner.github.io/lungitz/lungitz-interactions.js">
-// (Home + the menu pages; paste the same tag into any new page's custom code).
-// Bail on /sandbox (its loader runs sandbox/vN.js) and guard against double loads
-// (the tag can exist at both site and page level during migration).
-if (window.__lzLoaded) { return; }
-window.__lzLoaded = true;
-if (/\/sandbox\/?$/.test(location.pathname)) { return; }
+// [sandbox v32] production's /sandbox bail is removed so this standalone build runs here.
 // v32 — LANDING/MENU MODAL CONCEPT (Seth's wireframes, 2026-07-25):
 //   · §landingModal: Seth's container-landing modal IS the landing + the menu — greets on
 //     arrival at the index, dismisses on any click outside its links, LUNGITZ re-opens it
@@ -35,17 +19,6 @@ if (/\/sandbox\/?$/.test(location.pathname)) { return; }
 //   · browser BACK closes fullscreen (history state — the Antoine fix: Esc is never the only
 //     way out; the hint chip advertises "✕ / back" in browser-fullscreen)
 //   · participants links rewrite to /?entry=<coll>/<slug> — index arrival highlight
-// v91 (2026-07-28) — the keyboard hint chip is hidden site-wide (Seth: "hide
-//   the browse tooltip"). One display:none rule; the chip's machinery and all
-//   keyboard navigation stay intact — un-hiding is deleting that line.
-// v90 (2026-07-28) — zoomed-in panning unlocked on touch. Seth on v89: "pinch
-//   and swipe feels good... but panning is locked due to the swipe." v89's
-//   guard silenced the script but the injected touch-action (pan-y pinch-zoom)
-//   still denied the BROWSER horizontal pans. Now visualViewport.scale drives
-//   the image's inline touch-action: `auto` while natively zoomed (> 1.05, the
-//   browser owns every gesture), stylesheet value at rest (the swipe owns
-//   horizontal again). Zoom level only changes between gestures, so the flip
-//   always lands before the next drag.
 // v89 (2026-07-28) — the accessible finish + the cursor art is Seth's. Three
 //   hidden [data-cursor=close/prev/next] Images in the overlay carry the
 //   cursor artwork as ordinary Designer assets (seeded with exact copies of
@@ -2561,27 +2534,6 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     // Haptic swipe — drag the fullscreen image; past a threshold it slides to the
     // neighbour, otherwise it eases back. Fullscreen + multi-image + unzoomed only.
     var swipe = null;
-    // v90 — WHILE NATIVELY ZOOMED, THE BROWSER OWNS EVERY GESTURE. v89's
-    // pointerdown guard stood the SCRIPT down, but the injected
-    // `touch-action: pan-y pinch-zoom` still told the BROWSER horizontal pans
-    // were ours — so zoomed-in panning was locked (Seth: "panning is locked
-    // due to the swipe"). touch-action can't change mid-gesture, but zoom
-    // level only changes between gestures: track visualViewport.scale and
-    // flip the image's inline touch-action to `auto` while zoomed (> 1.05),
-    // back to the stylesheet value at rest. Inline beats injected, so pan-x
-    // goes native exactly when a drag means "pan what I zoomed".
-    if (window.visualViewport) {
-        var vvSync = function () {
-            var img = document.querySelector(FS_IMG);
-            if (img) {
-                img.style.touchAction =
-                    window.visualViewport.scale > 1.05 ? 'auto' : '';
-            }
-        };
-        window.visualViewport.addEventListener('resize', vvSync);
-        vvSync();
-    }
-
     document.addEventListener('pointerdown', function (e) {
         var img;
         if (!fs || !detail || detail.images.length < 2 || zoom) { return; }
@@ -3390,11 +3342,7 @@ var lzSyncPad = null;
     hint.setAttribute('aria-hidden', 'true');
     var hs = document.createElement('style');
     hs.textContent =
-        // v91 — the chip is RETIRED from view (Seth: "hide the browse
-        // tooltip"). Keyboard navigation itself is untouched; the chip's
-        // machinery stays so un-hiding is deleting this one line.
-        '.kb-hint{display:none!important;}'
-      + '.kb-hint{position:fixed;right:1.5rem;bottom:1.5rem;z-index:1200;font-family:inherit;'
+        '.kb-hint{position:fixed;right:1.5rem;bottom:1.5rem;z-index:1200;font-family:inherit;'
       + 'font-size:12px;letter-spacing:.02em;line-height:1;color:color-mix(in srgb,var(--_lungitz---color-accent-a-500),#fff 30%);'
       + 'background:color-mix(in srgb,var(--_lungitz---color-ink-900),#000 8%);'
       + 'padding:.4rem .6rem;border-radius:6px;pointer-events:none;white-space:nowrap;'

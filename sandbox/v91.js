@@ -6,23 +6,7 @@
 // zoom/pan, arrangement). Loaded by the Home page — bail on /sandbox so it doesn't
 // double-bind with the loader's sandbox/vN.js. The injected CSS scaffold below is
 // being migrated to Designer combos; motion + grid-rows transitions stay here.
-// ★ v84 PROMOTED TO PRODUCTION 2026-07-27 — DEFECT FIX, promoted on the
-// coordinator's call: v80-82's landing-pad stamp persisted with wrong data
-// (entries with empty image fields render Webflow's 180x180 placeholder; a close
-// stamped a square and the entry grew 464->845px permanently, reshaping the
-// column for every lightbox use). The stamp and borrowed width are flight props
-// now — applied for the 500ms flight, restored on landing. Rides along: the
-// <=767 caption-drawer transition kill is scoped to the ACCORDION drawers, so
-// the lightbox bar and drawer fade as one (the chrome-coming-apart fix).
-// Layout parity vs v82 verified byte-identical at 470/1000/1600, both columns.
-// Carries v71-v83.
-// Loaded per-page via <script src="https://sethweiner.github.io/lungitz/lungitz-interactions.js">
-// (Home + the menu pages; paste the same tag into any new page's custom code).
-// Bail on /sandbox (its loader runs sandbox/vN.js) and guard against double loads
-// (the tag can exist at both site and page level during migration).
-if (window.__lzLoaded) { return; }
-window.__lzLoaded = true;
-if (/\/sandbox\/?$/.test(location.pathname)) { return; }
+// [sandbox v32] production's /sandbox bail is removed so this standalone build runs here.
 // v32 — LANDING/MENU MODAL CONCEPT (Seth's wireframes, 2026-07-25):
 //   · §landingModal: Seth's container-landing modal IS the landing + the menu — greets on
 //     arrival at the index, dismisses on any click outside its links, LUNGITZ re-opens it

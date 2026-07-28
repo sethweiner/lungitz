@@ -6,23 +6,7 @@
 // zoom/pan, arrangement). Loaded by the Home page — bail on /sandbox so it doesn't
 // double-bind with the loader's sandbox/vN.js. The injected CSS scaffold below is
 // being migrated to Designer combos; motion + grid-rows transitions stay here.
-// ★ v84 PROMOTED TO PRODUCTION 2026-07-27 — DEFECT FIX, promoted on the
-// coordinator's call: v80-82's landing-pad stamp persisted with wrong data
-// (entries with empty image fields render Webflow's 180x180 placeholder; a close
-// stamped a square and the entry grew 464->845px permanently, reshaping the
-// column for every lightbox use). The stamp and borrowed width are flight props
-// now — applied for the 500ms flight, restored on landing. Rides along: the
-// <=767 caption-drawer transition kill is scoped to the ACCORDION drawers, so
-// the lightbox bar and drawer fade as one (the chrome-coming-apart fix).
-// Layout parity vs v82 verified byte-identical at 470/1000/1600, both columns.
-// Carries v71-v83.
-// Loaded per-page via <script src="https://sethweiner.github.io/lungitz/lungitz-interactions.js">
-// (Home + the menu pages; paste the same tag into any new page's custom code).
-// Bail on /sandbox (its loader runs sandbox/vN.js) and guard against double loads
-// (the tag can exist at both site and page level during migration).
-if (window.__lzLoaded) { return; }
-window.__lzLoaded = true;
-if (/\/sandbox\/?$/.test(location.pathname)) { return; }
+// [sandbox v32] production's /sandbox bail is removed so this standalone build runs here.
 // v32 — LANDING/MENU MODAL CONCEPT (Seth's wireframes, 2026-07-25):
 //   · §landingModal: Seth's container-landing modal IS the landing + the menu — greets on
 //     arrival at the index, dismisses on any click outside its links, LUNGITZ re-opens it
@@ -35,42 +19,6 @@ if (/\/sandbox\/?$/.test(location.pathname)) { return; }
 //   · browser BACK closes fullscreen (history state — the Antoine fix: Esc is never the only
 //     way out; the hint chip advertises "✕ / back" in browser-fullscreen)
 //   · participants links rewrite to /?entry=<coll>/<slug> — index arrival highlight
-// v91 (2026-07-28) — the keyboard hint chip is hidden site-wide (Seth: "hide
-//   the browse tooltip"). One display:none rule; the chip's machinery and all
-//   keyboard navigation stay intact — un-hiding is deleting that line.
-// v90 (2026-07-28) — zoomed-in panning unlocked on touch. Seth on v89: "pinch
-//   and swipe feels good... but panning is locked due to the swipe." v89's
-//   guard silenced the script but the injected touch-action (pan-y pinch-zoom)
-//   still denied the BROWSER horizontal pans. Now visualViewport.scale drives
-//   the image's inline touch-action: `auto` while natively zoomed (> 1.05, the
-//   browser owns every gesture), stylesheet value at rest (the swipe owns
-//   horizontal again). Zoom level only changes between gestures, so the flip
-//   always lands before the next drag.
-// v89 (2026-07-28) — the accessible finish + the cursor art is Seth's. Three
-//   hidden [data-cursor=close/prev/next] Images in the overlay carry the
-//   cursor artwork as ordinary Designer assets (seeded with exact copies of
-//   the code SVGs, uploaded to the Asset panel) — Seth swaps art in the asset
-//   picker, the script reads the src at init; inline SVGs remain the fallback.
-//   Dialog semantics: role/aria-modal/aria-label are Designer attributes on
-//   the overlay root, aria-live=polite on the count; focus moves into the
-//   overlay on open (tabindex -1), Tab is held inside and wraps, focus returns
-//   to the opener on close (preventScroll — the flight owns the scroll).
-//   Arrow keys flash .is-active-key (SETH-NAMED) on the matching button for
-//   180ms — the look is his to style on the .button combo. Per-slide alt:
-//   thumbs are CMS-bound to Image Sets → Alt text (Designer binding, all six
-//   lists), getImages carries it, the overlay image inherits it each paint.
-//   PLUS Seth's mobile bug (reported mid-round): "the last opened image
-//   flashes when opening a new one" — a src swap keeps the OLD bitmap painted
-//   until the new file decodes; the overlay now seeds each slide from the
-//   thumb's already-decoded srcset variant (instant, correct) and upgrades to
-//   the full asset on load (guarded against fast arrows).
-//   AND two more mid-round Seth reports: (1) mobile zoom "weird" → NATIVE now:
-//   touch-action gains pinch-zoom (two fingers go to the browser), tap-step
-//   zoom gated off on hover:none, swipe stands down while visualViewport
-//   scale > 1 (a drag then means "pan what I zoomed"); the custom layer stays
-//   for mouse/trackpad. (2) desktop zoom cursors: image shows zoom-in at rest
-//   (thirds' ←/→ still win their zones), grab when zoomed, grabbing while
-//   panning — native cursors, movable onto [data-cursor] assets on request.
 // v88 (2026-07-27) — one arrow pair, and the cursor is the navigation. The
 //   script-built .fs-nav edge zones (v15) are retired — three arrow systems
 //   existed (edge zones, Seth's drawer pair, the old bar pair) and Seth's
@@ -606,19 +554,6 @@ var XCUR = CUR("%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='26'%20heigh
     LCUR = CUR("%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='26'%20height='26'%3E%3Cg%20fill='none'%20stroke='%23e8e2da'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cline%20x1='19'%20y1='13'%20x2='7'%20y2='13'/%3E%3Cpolyline%20points='12,8%207,13%2012,18'/%3E%3C/g%3E%3C/svg%3E"),
     RCUR = CUR("%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='26'%20height='26'%3E%3Cg%20fill='none'%20stroke='%23e8e2da'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cline%20x1='7'%20y1='13'%20x2='19'%20y2='13'/%3E%3Cpolyline%20points='14,8%2019,13%2014,18'/%3E%3C/g%3E%3C/svg%3E");
 
-// v89 — THE CURSOR ART IS SETH'S. Three hidden Image elements in the overlay
-// ([data-cursor=close/prev/next], display:none via injectCSS) carry the cursor
-// artwork as ordinary Designer-picked ASSETS — Seth swaps them in the asset
-// picker like any image, no code changes ever. The script reads whatever he
-// picked; the inline SVG constants above are only the fallback for a page
-// without the overlay (or a deleted source). Hotspot stays 13 13 (the art is
-// 26x26, centered).
-function cursorFrom(name, fallback) {
-    var img = document.querySelector('.immersive-overlay [data-cursor="' + name + '"]'),
-        src = img && (img.currentSrc || img.src);
-    return src ? 'url("' + src + '") 13 13, pointer' : fallback;
-}
-
 // The URL AS THE READER ARRIVED, captured before any module can rewrite it.
 // Several modules clean up after themselves with history.replaceState (arrive()
 // drops ?entry= so a refresh won't re-fire; landingModal drops ?menu=1), and
@@ -652,8 +587,7 @@ var detail      = null,
     pendingOpen = null,
     modalToggle = null,    // set by §landingModal; used by §masthead (LUNGITZ)
     goInfo      = null,    // set by §masthead; used by §landingModal (anchor links)
-    fsPushed    = false,   // fullscreen pushed a history entry (back closes it)
-    fsOpener    = null;    // v89: who had focus when the dialog opened — restored on close
+    fsPushed    = false;   // fullscreen pushed a history entry (back closes it)
 
 // State-4 view (v32): Seth's Designer-owned overlay when it exists on the page
 // (wireframe-first find-or-reuse); the legacy promoted detail-view otherwise.
@@ -708,11 +642,8 @@ function onRealIndex() {
             'html{-webkit-tap-highlight-color:transparent;}',
             // Let the fullscreen image OWN horizontal gestures on touch, so a carousel
             // swipe stays a swipe instead of the browser deciding it was a scroll and
-            // firing pointercancel at us mid-drag. pan-y keeps vertical scrolling
-            // native. v89 adds pinch-zoom: phones zoom NATIVELY (Seth: "can it just
-            // go native touch mode") — two fingers go straight to the browser; the
-            // custom zoom layer is desktop/trackpad-only now.
-            '.immersive-image,.detail-image{touch-action:pan-y pinch-zoom;}',
+            // firing pointercancel at us mid-drag. pan-y keeps vertical scrolling native.
+            '.immersive-image,.detail-image{touch-action:pan-y;}',
             // ENTRY ACCENT IN THE OPEN STATE (v39). Same inheritance shortfall the
             // hover rule below fixes: the <h4> children carry the bare h4 tag
             // colour, so they ignore any colour inherited from the trigger — which
@@ -860,14 +791,6 @@ function getImages(trigger) {
             credEl = t.querySelector('.thumb-credit');
         out.push({
             src:     img ? (img.src || img.getAttribute('src')) : '',
-            // v89: what the thumb is DISPLAYING right now (the loaded srcset
-            // variant) — the overlay seeds from this so a stale previous image
-            // never paints while the full asset loads (Seth's mobile flash).
-            srcNow:  img ? (img.currentSrc || img.src || '') : '',
-            // v89: the thumb's alt is CMS-bound in the Designer (Image Sets →
-            // Alt text); the overlay image inherits it per slide. Falls back to
-            // the image name so no slide reads as decorative.
-            alt:     (img && img.getAttribute('alt')) || (capEl && capEl.textContent.trim()) || '',
             caption: (capEl && capEl.textContent.trim()) || t.getAttribute('data-caption') || '',
             credit:  (credEl && credEl.textContent.trim()) || t.getAttribute('data-credit') || ''
         });
@@ -1064,28 +987,7 @@ function paintDetail(view) {
 
     el = view.querySelector(FS_IMG);       // .immersive-image (overlay) or .detail-image
     if (el && img.src) {
-        // v89 — NEVER SHOW THE LAST SESSION'S IMAGE (Seth, mobile: "the last
-        // opened image flashes when opening a new one"). Swapping src keeps the
-        // OLD bitmap painted until the new file decodes — invisible on a warm
-        // desktop cache, a real flash on mobile. So paint the slide's
-        // already-decoded thumb variant FIRST (same picture, cached — the
-        // thumbs are on the page), then upgrade to the full asset when it
-        // lands. The upgrade checks the slide is still current (fast arrows).
-        if (el.src !== img.src && el.src !== img.srcNow) {
-            el.src = img.srcNow || img.src;
-        }
-        if (img.srcNow && img.srcNow !== img.src && el.src !== img.src) {
-            (function (want, forImg) {
-                var up = new Image();
-                up.onload = function () {
-                    if (detail && detail.images[detail.idx] === forImg) {
-                        el.src = want;
-                    }
-                };
-                up.src = want;
-            }(img.src, img));
-        }
-        el.alt = img.alt || '';            // v89: per-slide alt rides along
+        el.src = img.src;
     }
 
     // v87 — the drawer speaks data-detail. Seth rebuilt the overlay as labeled
@@ -1284,13 +1186,7 @@ function openFullscreen() {
     var srcEl = detail.trigger.querySelectorAll(W_THUMB)[detail.idx],
         srcRect = srcEl && srcEl.getBoundingClientRect();
     fs = { view: OVERLAY };
-    // v89 — the overlay is a dialog (role/aria-modal are Designer attributes).
-    // Remember who opened it, move focus INTO it (tabindex -1 so the container
-    // itself is focusable without joining the tab order), give it back on close.
-    fsOpener = document.activeElement;
-    OVERLAY.setAttribute('tabindex', '-1');
     OVERLAY.classList.add('is-viewing');
-    OVERLAY.focus({ preventScroll: true });
     paintDetail(OVERLAY);
     setImmersive(true, detail.trigger);
     pushFsState();
@@ -1397,19 +1293,6 @@ function closeFullscreenNow() {
 
     fs = null;
     setImmersive(false);
-
-    // v89 — the dialog gives focus back where it came from. preventScroll: the
-    // close flight owns the scroll (v79 pinned scrollRestoration for exactly
-    // this window); a focus-scroll here would fight the landing. If the opener
-    // can't take it (mouse flows focus body), at least don't leave focus
-    // stranded on a control inside the hidden dialog.
-    if (fsOpener && document.contains(fsOpener) && fsOpener.focus) {
-        fsOpener.focus({ preventScroll: true });
-    }
-    if (view.contains(document.activeElement) && document.activeElement.blur) {
-        document.activeElement.blur();
-    }
-    fsOpener = null;
 
     // The landing pad is the thumbnail of the image being VIEWED
     // (thumbs[detail.idx]) — not the one that opened it (T-02's fix). Option-C's
@@ -1762,10 +1645,6 @@ document.addEventListener('click', function (e) {
     openFullscreen();
 });
 
-// v89 — ON TOUCH THE ZOOM IS THE BROWSER'S. Tap-step zoom felt "weird" on the
-// phone (Seth) because it fought the native gesture language; with
-// touch-action allowing pinch-zoom, phones pinch and pan the real viewport.
-// The custom layer below stays for mouse/trackpad, where it IS the language.
 // State 4 : image click = click-step zoom (Seth's mouse model). A click that
 // ended a pan or swipe drag is swallowed (dragMoved); a clean click steps the
 // zoom toward the click point. Pinch + drag layer in for trackpad/touch.
@@ -1776,9 +1655,6 @@ document.addEventListener('click', function (e) {
     }
     e.preventDefault();
     if (dragMoved) { dragMoved = false; return; }
-    // v89: no tap-step zoom on touch — pinch is native there. (hover:none =
-    // the device's PRIMARY pointer can't hover = phones/tablets.)
-    if (matchMedia('(hover: none)').matches) { return; }
     zoomStepClick(img, e.clientX, e.clientY);
 });
 
@@ -1927,40 +1803,6 @@ document.addEventListener('keydown', function (e) {
             detail.idx = (detail.idx + 1) % detail.images.length;
         }
         paintDetail(fs.view);
-        // v89 — the key visibly presses the button (Seth named the state:
-        // .is-active-key). The look is his on the canvas (style the combo on
-        // .button); code only flips it for the length of a press.
-        var keyBtn = fs.view.querySelector(
-            '[data-detail="' + (e.key === 'ArrowLeft' ? 'prev' : 'next') + '"]'
-        );
-        if (keyBtn) {
-            keyBtn.classList.add('is-active-key');
-            setTimeout(function () { keyBtn.classList.remove('is-active-key'); }, 180);
-        }
-        return;
-    }
-    // v89 — the dialog holds Tab. Focus cycles through the overlay's own
-    // controls (visible, tabbable) and wraps; Shift+Tab wraps the other way.
-    if (e.key === 'Tab' && fs) {
-        var focusables = [].filter.call(
-            fs.view.querySelectorAll('a[href], button, [tabindex]:not([tabindex="-1"])'),
-            function (el) { return el.offsetParent !== null; }
-        );
-        if (!focusables.length) { e.preventDefault(); return; }
-        var first = focusables[0],
-            last = focusables[focusables.length - 1],
-            active = document.activeElement;
-        if (e.shiftKey && (active === first || active === fs.view)) {
-            e.preventDefault();
-            last.focus();
-        } else if (!e.shiftKey && active === last) {
-            e.preventDefault();
-            first.focus();
-        } else if (focusables.indexOf(active) === -1 && active !== fs.view) {
-            // focus escaped (or never entered) — pull it to the first control
-            e.preventDefault();
-            first.focus();
-        }
     }
 });
 
@@ -2502,8 +2344,8 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
 // ════════════════════════════════════════════════════════════════════════
 (function slideshowNav() {
     var css = [
-            '.immersive-overlay .immersive-image.lz-cur-prev{cursor:' + cursorFrom('prev', LCUR) + ';}',
-            '.immersive-overlay .immersive-image.lz-cur-next{cursor:' + cursorFrom('next', RCUR) + ';}'
+            '.immersive-overlay .immersive-image.lz-cur-prev{cursor:' + LCUR + ';}',
+            '.immersive-overlay .immersive-image.lz-cur-next{cursor:' + RCUR + ';}'
         ].join('\n'),
         styleEl = document.createElement('style');
     styleEl.textContent = css;
@@ -2561,34 +2403,9 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     // Haptic swipe — drag the fullscreen image; past a threshold it slides to the
     // neighbour, otherwise it eases back. Fullscreen + multi-image + unzoomed only.
     var swipe = null;
-    // v90 — WHILE NATIVELY ZOOMED, THE BROWSER OWNS EVERY GESTURE. v89's
-    // pointerdown guard stood the SCRIPT down, but the injected
-    // `touch-action: pan-y pinch-zoom` still told the BROWSER horizontal pans
-    // were ours — so zoomed-in panning was locked (Seth: "panning is locked
-    // due to the swipe"). touch-action can't change mid-gesture, but zoom
-    // level only changes between gestures: track visualViewport.scale and
-    // flip the image's inline touch-action to `auto` while zoomed (> 1.05),
-    // back to the stylesheet value at rest. Inline beats injected, so pan-x
-    // goes native exactly when a drag means "pan what I zoomed".
-    if (window.visualViewport) {
-        var vvSync = function () {
-            var img = document.querySelector(FS_IMG);
-            if (img) {
-                img.style.touchAction =
-                    window.visualViewport.scale > 1.05 ? 'auto' : '';
-            }
-        };
-        window.visualViewport.addEventListener('resize', vvSync);
-        vvSync();
-    }
-
     document.addEventListener('pointerdown', function (e) {
         var img;
         if (!fs || !detail || detail.images.length < 2 || zoom) { return; }
-        // v89: while the reader is NATIVELY pinch-zoomed in (visualViewport
-        // scale > 1), a horizontal drag means "pan what I zoomed", never
-        // "next slide" — stand the swipe down until they pinch back out.
-        if (window.visualViewport && window.visualViewport.scale > 1.05) { return; }
         img = fsImage();
         if (!img || img._sliding || !fs.view.contains(e.target)) { return; }
         swipe = { x0: e.clientX, img: img, dx: 0 };
@@ -2672,7 +2489,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         // v32: the overlay backdrop reads as the exit (✕ cursor); its bar,
         // caption, and image keep their own affordances. Legacy-path rules kept
         // beneath for pages without the overlay.
-        '.immersive-overlay.is-viewing{cursor:' + cursorFrom('close', XCUR) + ';}',
+        '.immersive-overlay.is-viewing{cursor:' + XCUR + ';}',
         // NAVIGATION PENDING (v78, Seth: "call the state .is-pending"). The
         // COLOUR is the Designer's .is-pending class (rust token — restyle on
         // canvas). Code owns only what Webflow cannot author (contract §2):
@@ -2693,16 +2510,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         // above. 0-3-0 settles the lamp for good (measured: parent rust,
         // child still blue without this).
         '.nav-lungitz.is-pending .h5-nav{color:var(--_lungitz---color-accent-b-500);}',
-        '.immersive-overlay .immersive-bar,.immersive-overlay .caption-drawer{cursor:auto;}',
-        // v89 — THE IMAGE'S CURSOR TELLS THE ZOOM STORY (Seth: "the zoom icon
-        // doesn't come in when zooming or move"). Unzoomed: zoom-in (the middle
-        // third's click-step; the outer thirds' ←/→ rules are more specific and
-        // win there). Zoomed: grab; while panning: grabbing. Native cursors —
-        // universally understood; say the word to move these three onto
-        // [data-cursor] assets like the others.
-        '.immersive-overlay .immersive-image{cursor:zoom-in;}',
-        'body.is-fs-zoom .immersive-overlay .immersive-image{cursor:grab;}',
-        'body.is-fs-zoom .immersive-overlay .immersive-image.is-panning{cursor:grabbing;}',
+        '.immersive-overlay .immersive-bar,.immersive-overlay .caption-drawer,.immersive-overlay .immersive-image{cursor:auto;}',
         // Caption collapse (v67) — DESCENDANT selector, Webflow can't author it
         // (contract §2 pattern). The Designer's .caption-drawer.is-collapsed
         // collapses a grid row the caption doesn't live in (measured: rows
@@ -2718,9 +2526,6 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         // .hide class could not be used: it exists only as combos, and the
         // style resolver expanded it to container-landing.is-active.hide.)
         '[data-entry]{display:none!important;}',
-        // v89: the cursor-source images ([data-cursor], overlay) are data too —
-        // Seth picks their assets in the Designer, the script reads the src.
-        '[data-cursor]{display:none!important;}',
         // (v66: the legacy .detail-view/.detail-bar/.detail-image .is-fullscreen
         // fill rules left with the no-overlay promote path.)
         // (v88: the .fs-nav edge-zone cursor + chevron rules left with the
@@ -3390,11 +3195,7 @@ var lzSyncPad = null;
     hint.setAttribute('aria-hidden', 'true');
     var hs = document.createElement('style');
     hs.textContent =
-        // v91 — the chip is RETIRED from view (Seth: "hide the browse
-        // tooltip"). Keyboard navigation itself is untouched; the chip's
-        // machinery stays so un-hiding is deleting this one line.
-        '.kb-hint{display:none!important;}'
-      + '.kb-hint{position:fixed;right:1.5rem;bottom:1.5rem;z-index:1200;font-family:inherit;'
+        '.kb-hint{position:fixed;right:1.5rem;bottom:1.5rem;z-index:1200;font-family:inherit;'
       + 'font-size:12px;letter-spacing:.02em;line-height:1;color:color-mix(in srgb,var(--_lungitz---color-accent-a-500),#fff 30%);'
       + 'background:color-mix(in srgb,var(--_lungitz---color-ink-900),#000 8%);'
       + 'padding:.4rem .6rem;border-radius:6px;pointer-events:none;white-space:nowrap;'

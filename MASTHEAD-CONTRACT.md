@@ -344,3 +344,63 @@ Flags: `?ni=0` cue off · `?ni=1` link only · `?ni=2` page dim (held, inline) �
 never advances, so computed colour reads frame-zero forever — even inline
 `!important` writes appear to "not apply". Kill the transition
 (`el.style.transition='none'`) before measuring colour in a hidden tab.
+
+---
+
+## 15. The lightbox drawer protocol — `data-detail` slots + `data-entry` leaves (v87, 2026-07-27)
+
+Seth rebuilt the overlay drawer as **labeled slots**: a wrapper div holding a label
+paragraph (styled `.caption-name`) and a value element (styled `.caption-edition`).
+The paint addresses VALUES by attribute, never by class or position:
+
+| slot (`data-detail=`) | painted with | source |
+|---|---|---|
+| `count` | "01 / 02" (zero-padded) | script state |
+| `title` (bar) | entry name — NO slide number | trigger `.title` |
+| `name` (bar) | contributors ", " | trigger `.author` leaves |
+| `edition` | Edition | trigger `.edition` leaf (visible Designer leaf) |
+| `format` | Material/Format | trigger `[data-entry=format]` hidden leaf |
+| `photo-credit` | per-image credit | `.thumb-credit` via getImages |
+| `link` | href only (text = Seth's glyph) | trigger `[data-entry=weblink]` hidden leaf; `target=_blank rel=noopener` painted |
+
+**Rules.** (1) Classes are pure styling — rename/restyle freely, the attribute is the
+wiring. (2) **An empty value hides its whole WRAPPER** (`parentElement`) — no orphan
+labels; hideaways have no edition/format and that must read as absence. (3) Passive
+slots (`count/title/name/edition/format/photo-credit/link`) fall through the control
+delegation — `link` especially MUST, or the blanket preventDefault swallows the
+navigation. (4) `[data-entry]` leaves are code-hidden (`display:none!important`
+injected) — do NOT style them with `.hide`: that class exists only as combos and the
+MCP style resolver once expanded it to `container-landing.is-active.hide` (caught
+live, 2026-07-27). (5) The `.fs-count` injection is retired; the count is Seth's
+element. (6) Leaves exist on **Home + /sandbox only** — entry templates have no
+edition/weblink/format leaves, so those wrappers hide in entry-page lightboxes until
+leaves are added there.
+
+**v88 addendum — the cursor is the navigation.** The script-built `.fs-nav` edge zones
+are retired; Seth's `[data-detail=prev/next]` buttons are the one arrow pair. On a
+hover pointer, multi-image, unzoomed: the image's outer 30% thirds show the ←/→
+cursors and click prev/next (capture phase); the **middle third keeps the click-step
+zoom mouse model**. Zoomed or single-image = pure zoom behavior, touch = swipe,
+unchanged. `lz-cur-prev/next` are code plumbing classes, never Designer states. The
+cursor artwork (✕/←/→) is code-SVG at module scope — Designer cannot author image
+cursors; making the art Seth-editable means swapping to Webflow-hosted asset URLs
+(decision open). `.fs-chev` CSS now serves ONLY the entry pages' `[data-entry-nav]`
+arrows. Leaves now also exist on both entry templates (edition h4 + weblink/format on
+Giveaways, weblink on Hideaways) and the sandbox page has Home-parity (edition h4).
+
+**v89 addendum — the accessible finish (2026-07-28).** The overlay is a real dialog:
+`role/aria-modal/aria-label` are Designer attributes on the component root,
+`aria-live=polite` on the count slot; the script moves focus in on open (tabindex -1),
+holds Tab inside (wrapping), and returns focus to the opener on close (preventScroll —
+the flight owns the scroll; never strands focus in the hidden dialog). Arrow keys flash
+**`.is-active-key`** (SETH-NAMED) on the matching button for 180ms — style the combo on
+`.button`. **Cursor artwork is Seth's**: three hidden `[data-cursor=close/prev/next]`
+Images in the overlay carry the art as ordinary assets (seeded with exact copies of the
+old code SVGs, in the Asset panel as `lightbox-cursor-*`) — swap them in the asset
+picker; the script reads the src at init, inline SVGs are only the fallback. Zoom
+cursors (native `zoom-in`/`grab`/`grabbing`) live in injected CSS; promotable to
+`[data-cursor]` assets on request. **Alt text flows**: thumbs bind Image Sets → Alt text
+(all six lists), the overlay image inherits it per slide. **Touch zoom is native**:
+`touch-action: pan-y pinch-zoom`, tap-step zoom gated off on `hover:none`, the swipe
+stands down while `visualViewport.scale > 1`. **Stale-image flash fixed**: each slide
+seeds from the thumb's decoded srcset variant, upgrades to the full asset on load.
