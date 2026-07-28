@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lungitz · state-model studies</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Vollkorn:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0e0f13; --panel:#0e0f13; --ink:#7c87a0; --ink-2:#8a91a4; --mute:#5b6273;
+    --rust:#9a5a4a; --line:#23262e; --dash:#353a47; --slab:#2b313c;
+    --settle:cubic-bezier(0.16,1,0.3,1);
+    --grotesk:"Helvetica Neue",Helvetica,"Arial Narrow",sans-serif;
+    --serif:"Vollkorn",Georgia,serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--grotesk);
+    -webkit-font-smoothing:antialiased;display:flex;flex-direction:column;overflow:hidden;}
+
+  .controls{display:flex;align-items:center;gap:16px;padding:10px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap;}
+  .controls .lab{font-size:11px;letter-spacing:.12em;color:var(--mute);text-transform:uppercase;}
+  .seg{display:flex;gap:6px;}
+  .seg button{all:unset;cursor:pointer;font-size:12px;letter-spacing:.04em;color:var(--mute);
+    padding:6px 12px;border:1px solid var(--line);border-radius:3px;}
+  .seg button.on{color:var(--rust);border-color:var(--rust);}
+  .controls .hint{font-family:var(--serif);font-size:12.5px;color:var(--mute);font-style:italic;margin-left:auto;}
+
+  .masthead{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--line);}
+  .masthead span{font-size:15px;font-weight:500;letter-spacing:.16em;color:var(--ink);}
+  .masthead .center{color:var(--mute);}
+
+  .index{flex:1;display:flex;min-height:0;}
+  .col{flex:1;position:relative;overflow:hidden;display:flex;flex-direction:column;}
+  .col + .col{border-left:1px solid var(--line);}
+  .col .scroll{overflow:auto;padding:6px 0;}
+
+  .entry{display:grid;grid-template-rows:auto 0fr;border-bottom:1px dashed var(--dash);
+    transition:grid-template-rows 440ms var(--settle);}
+  .entry.open{grid-template-rows:auto 1fr;}
+  .entry-header{all:unset;cursor:pointer;display:flex;align-items:baseline;justify-content:space-between;gap:14px;padding:16px 18px;}
+  .entry-header .t{font-size:18px;font-weight:500;color:var(--ink);line-height:1.15;transition:color 380ms ease;}
+  .entry-header .m{font-size:11px;color:var(--mute);letter-spacing:.05em;white-space:nowrap;}
+  .entry.open .entry-header .t{color:var(--rust);}
+  .entry-body{overflow:hidden;min-height:0;}
+  .entry-content{padding:0 18px 18px;}
+  .entry-content .by{font-family:var(--serif);font-size:12.5px;color:var(--mute);margin:0 0 8px;}
+  .entry-content .desc{font-family:var(--serif);font-size:13.5px;line-height:1.55;color:var(--ink-2);margin:0 0 14px;}
+  .thumbs{display:flex;gap:8px;flex-wrap:wrap;}
+  .thumb{all:unset;cursor:pointer;width:84px;height:56px;background:var(--slab);border-radius:2px;
+    display:flex;align-items:flex-end;padding:5px;color:#4d5564;font-size:10px;letter-spacing:.1em;
+    transition:outline-color 200ms ease;outline:1px solid transparent;outline-offset:2px;}
+  .thumb:hover{outline-color:var(--rust);}
+
+  /* immersive — shared */
+  .im{background:var(--panel);display:flex;flex-direction:column;
+    clip-path:inset(0 0 100% 0);opacity:0;pointer-events:none;
+    transition:clip-path 480ms var(--settle),opacity 360ms ease;}
+  .im.open{clip-path:inset(0 0 0 0);opacity:1;pointer-events:auto;}
+  .im-col{position:absolute;inset:0;z-index:5;}
+  .im-full{position:fixed;inset:0;z-index:50;}
+
+  .im-head{display:flex;align-items:baseline;gap:12px;padding:14px 18px 10px;border-bottom:1px dashed var(--dash);}
+  .im-head .n{font-size:11px;color:var(--mute);letter-spacing:.05em;white-space:nowrap;}
+  .im-head .t{font-size:16px;font-weight:500;color:var(--ink);}
+  .im-tools{display:flex;gap:10px;align-items:center;margin-left:auto;}
+  .im-tools button{all:unset;cursor:pointer;font-size:10.5px;letter-spacing:.05em;color:var(--ink);
+    border:1px solid var(--line);border-radius:3px;padding:4px 8px;}
+  .im-tools button:hover{color:var(--rust);border-color:var(--rust);}
+
+  .im-stage{flex:1;position:relative;display:flex;align-items:center;justify-content:center;margin:14px 18px 0;min-height:0;}
+  .im-img{position:absolute;inset:0;background:var(--slab);border-radius:2px;display:flex;align-items:center;justify-content:center;
+    color:#4d5564;font-size:11px;letter-spacing:.18em;}
+  .im-nav{position:absolute;top:0;bottom:0;width:64px;display:flex;align-items:center;justify-content:center;cursor:pointer;
+    color:var(--ink);font-size:22px;z-index:2;opacity:.55;transition:opacity 200ms ease;}
+  .im-nav:hover{opacity:1;}
+  .im-nav.prev{left:0;} .im-nav.next{right:0;}
+  .im-foot{overflow:hidden;display:grid;grid-template-rows:1fr;
+    transition:grid-template-rows 420ms var(--settle),opacity 300ms ease;}
+  .im-foot.closed{grid-template-rows:0fr;opacity:0;}
+  .im-foot .inner{overflow:hidden;padding:12px 18px 16px;font-family:var(--serif);}
+  .im-foot .c1{margin:0 0 4px;font-size:13.5px;line-height:1.5;color:var(--ink-2);}
+  .im-foot .c2{margin:0;font-size:12px;color:var(--mute);font-style:italic;}
+  .im-count{font-size:10.5px;color:var(--mute);letter-spacing:.1em;margin-left:6px;}
+</style>
+</head>
+<body>
+  <div class="controls">
+    <span class="lab">Immersive model</span>
+    <div class="seg" id="seg">
+      <button data-m="col" class="on">Column-fill · 3 states</button>
+      <button data-m="full">Fullscreen · 3 states</button>
+      <button data-m="both">Column → Fullscreen · 4 states</button>
+    </div>
+    <span class="hint" id="hint">Open an entry, click a thumbnail. Watch the opposite column.</span>
+  </div>
+
+  <div class="masthead">
+    <span>GIVEAWAYS</span><span class="center">LUNGITZ</span><span>HIDEAWAYS</span>
+  </div>
+
+  <div class="index">
+    <div class="col" data-col="left"><div class="scroll" id="colLeft"></div>
+      <div class="im im-col" id="imColLeft"></div>
+    </div>
+    <div class="col" data-col="right"><div class="scroll" id="colRight"></div>
+      <div class="im im-col" id="imColRight"></div>
+    </div>
+  </div>
+
+  <div class="im im-full" id="imFull"></div>
+
+<script>
+  var ENTRIES={
+    nord:{num:'1',title:'Nordfassade (North Façade)',cat:'Intervention',col:'left',
+      by:'Antoine Turillon · Seth Weiner',
+      desc:'An architectural intervention covering all the windows of the Lungitz train station except for a single view to where the prison yard of the Gusen III concentration camp had been.',
+      images:[
+        {cap:'North façade, its windows sealed but for a single aperture held open toward the former Gusen III prison yard.',credit:'Photograph — Antoine Turillon, 2023'},
+        {cap:'The retained aperture, seen from inside the sealed concourse.',credit:'Photograph — Antoine Turillon, 2023'},
+        {cap:'Detail of the sealing, matte on matte.',credit:'Photograph — Seth Weiner, 2023'}
+      ]},
+    wtm:{num:'2',title:'Walking Tour Map (FdR 2023)',cat:'Printed Matter',col:'left',
+      by:'Judith Pirklbauer · Wolfgang Schmutz · Antoine Turillon',
+      desc:'A folded map distributed at the festival, tracing a route between the station and the quarry.',
+      images:[{cap:'Recto of the folded map.',credit:'Risograph — 2023'}]},
+    bahnhof:{num:'pre 1900',title:'Bahnhof Lungitz',cat:'Historical Document',col:'right',
+      by:'Archiv Walzer',
+      desc:'The earliest located photograph of the station building, before the sidings were extended.',
+      images:[
+        {cap:'Station building, undated, before 1900.',credit:'Archiv Walzer'},
+        {cap:'Verso, with a pencilled inventory number.',credit:'Archiv Walzer'}
+      ]},
+    ziegel:{num:'ca. 1970',title:'Ziegelwerk',cat:'Image',col:'right',
+      by:'lungitz.com',
+      desc:'The brickworks that absorbed part of the site in the decades after the war.',
+      images:[{cap:'Brickworks, photographed around 1970.',credit:'lungitz.com'}]}
+  };
+
+  var order={left:['nord','wtm'],right:['bahnhof','ziegel']};
+  var model='col';
+  var capOn=true;
+
+  function entryRow(id){
+    var e=ENTRIES[id];
+    var thumbs=e.images.map(function(_,i){return '<button class="thumb" data-entry="'+id+'" data-idx="'+i+'">'+(i+1)+'</button>';}).join('');
+    return '<div class="entry" data-entry="'+id+'">'
+      +'<div class="entry-header"><span class="t">'+e.title+'</span><span class="m">'+e.num+'&nbsp;/&nbsp;'+e.cat+'</span></div>'
+      +'<div class="entry-body"><div class="entry-content">'
+      +'<p class="by">'+e.by+'</p><p class="desc">'+e.desc+'</p>'
+      +'<div class="thumbs">'+thumbs+'</div></div></div></div>';
+  }
+  document.getElementById('colLeft').innerHTML=order.left.map(entryRow).join('');
+  document.getElementById('colRight').innerHTML=order.right.map(entryRow).join('');
+
+  document.querySelectorAll('.entry-header').forEach(function(h){
+    h.addEventListener('click',function(){ h.parentElement.classList.toggle('open'); });
+  });
+
+  function imHTML(id,idx,opts){
+    var e=ENTRIES[id], n=e.images.length, img=e.images[idx];
+    var multi=n>1;
+    var expand=(opts.expand)?'<button data-expand>⤢ Fullscreen</button>':'';
+    var count=multi?'<span class="im-count">'+(idx+1)+' / '+n+'</span>':'';
+    var nav=multi?'<div class="im-nav prev" data-step="-1">‹</div><div class="im-nav next" data-step="1">›</div>':'';
+    return '<div class="im-head"><span class="n">'+e.num+'&nbsp;/&nbsp;'+e.cat+'</span><span class="t">'+e.title+'</span>'+count
+      +'<span class="im-tools">'+expand+'<button data-cap>Captions '+(capOn?'on':'off')+'</button><button data-close>Close ✕</button></span></div>'
+      +'<div class="im-stage">'+nav+'<div class="im-img">IMAGE '+(idx+1)+'</div></div>'
+      +'<div class="im-foot'+(capOn?'':' closed')+'"><div class="inner"><p class="c1">'+img.cap+'</p><p class="c2">'+img.credit+'</p></div></div>';
+  }
+
+  var state={el:null,id:null,idx:0,kind:null}; // kind: 'col' | 'full'
+
+  function colTarget(id){ return document.getElementById(ENTRIES[id].col==='left'?'imColLeft':'imColRight'); }
+
+  function paint(){
+    if(!state.el) return;
+    var opts={expand: (model==='both' && state.kind==='col')};
+    state.el.innerHTML=imHTML(state.id,state.idx,opts);
+  }
+
+  function openIm(kind,id,idx){
+    closeAll(true);
+    state={el:(kind==='col'?colTarget(id):document.getElementById('imFull')),id:id,idx:idx,kind:kind};
+    paint();
+    requestAnimationFrame(function(){requestAnimationFrame(function(){state.el.classList.add('open');});});
+  }
+  function closeAll(silent){
+    ['imColLeft','imColRight','imFull'].forEach(function(x){document.getElementById(x).classList.remove('open');});
+    if(silent){['imColLeft','imColRight','imFull'].forEach(function(x){document.getElementById(x).innerHTML='';});}
+  }
+
+  // thumbnail → open per model
+  document.querySelector('.index').addEventListener('click',function(e){
+    var t=e.target.closest('.thumb'); if(!t) return;
+    var id=t.dataset.entry, idx=+t.dataset.idx;
+    if(model==='full'){ openIm('full',id,idx); } else { openIm('col',id,idx); }
+  });
+
+  // delegated controls on all immersive containers
+  ['imColLeft','imColRight','imFull'].forEach(function(x){
+    document.getElementById(x).addEventListener('click',function(e){
+      if(e.target.closest('[data-close]')){
+        // 4-state: closing fullscreen returns to the column waypoint
+        if(state.kind==='full' && model==='both'){ var id=state.id, idx=state.idx; this.classList.remove('open'); var self=this; setTimeout(function(){self.innerHTML='';},300); openIm('col',id,idx); return; }
+        this.classList.remove('open'); var c=this; setTimeout(function(){c.innerHTML='';},300); state={el:null}; return;
+      }
+      if(e.target.closest('[data-expand]')){ openIm('full',state.id,state.idx); return; }
+      if(e.target.closest('[data-cap]')){ capOn=!capOn; var f=this.querySelector('.im-foot'); f.classList.toggle('closed',!capOn); this.querySelector('[data-cap]').textContent='Captions '+(capOn?'on':'off'); return; }
+      var nav=e.target.closest('[data-step]');
+      if(nav){ var nimg=ENTRIES[state.id].images.length; state.idx=(state.idx+ +nav.dataset.step+nimg)%nimg; paint(); return; }
+    });
+  });
+
+  document.getElementById('seg').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b) return;
+    [].forEach.call(this.querySelectorAll('button'),function(x){x.classList.remove('on');});
+    b.classList.add('on'); model=b.dataset.m; closeAll(true); state={el:null};
+    var hints={col:'Column-fill: the image fills only its own panel. The opposite column stays. Split never breaks.',
+      full:'Fullscreen: the image takes the whole viewport. The split is covered until you close.',
+      both:'Column-fill first, then ⤢ Fullscreen to escalate into a slideshow. Close steps back down.'};
+    document.getElementById('hint').textContent=hints[model];
+  });
+
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape'){ if(state.el){ state.el.querySelector('[data-close]')&&state.el.querySelector('[data-close]').click(); } } });
+</script>
+</body>
+</html>

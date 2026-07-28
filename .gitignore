@@ -1,21 +1,9 @@
-# Session and archive folders (local reference only — git history is the version archive)
-archive/
-Lungitz_Claude-Webflow_Session_*/
-Lungitz-Chat-Handoff_*/
-Claude Docs/
+# Heavy local-only archive material — Dropbox is its backup, not git.
+# (Text and code in archive/ ARE tracked: handoffs, sandbox builds, studies.)
+archive/sessions/
+archive/site-snapshots/
+archive/reference/
 
-# Webflow exports and scrapes
-Lungitz.com/
-Lungitz.com_FEB/
-lungitz.webflow.io_*/
-lungitz-import/
-
-# Session prompts and zips
-SESSION-PROMPT_*.md
+# Zips and OS noise
 *.zip
-
-# Prototypes and studies
-*-studies*.html
-
-# OS
 .DS_Store
