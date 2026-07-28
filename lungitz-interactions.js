@@ -35,6 +35,9 @@ if (/\/sandbox\/?$/.test(location.pathname)) { return; }
 //   · browser BACK closes fullscreen (history state — the Antoine fix: Esc is never the only
 //     way out; the hint chip advertises "✕ / back" in browser-fullscreen)
 //   · participants links rewrite to /?entry=<coll>/<slug> — index arrival highlight
+// v91 (2026-07-28) — the keyboard hint chip is hidden site-wide (Seth: "hide
+//   the browse tooltip"). One display:none rule; the chip's machinery and all
+//   keyboard navigation stay intact — un-hiding is deleting that line.
 // v90 (2026-07-28) — zoomed-in panning unlocked on touch. Seth on v89: "pinch
 //   and swipe feels good... but panning is locked due to the swipe." v89's
 //   guard silenced the script but the injected touch-action (pan-y pinch-zoom)
@@ -3387,7 +3390,11 @@ var lzSyncPad = null;
     hint.setAttribute('aria-hidden', 'true');
     var hs = document.createElement('style');
     hs.textContent =
-        '.kb-hint{position:fixed;right:1.5rem;bottom:1.5rem;z-index:1200;font-family:inherit;'
+        // v91 — the chip is RETIRED from view (Seth: "hide the browse
+        // tooltip"). Keyboard navigation itself is untouched; the chip's
+        // machinery stays so un-hiding is deleting this one line.
+        '.kb-hint{display:none!important;}'
+      + '.kb-hint{position:fixed;right:1.5rem;bottom:1.5rem;z-index:1200;font-family:inherit;'
       + 'font-size:12px;letter-spacing:.02em;line-height:1;color:color-mix(in srgb,var(--_lungitz---color-accent-a-500),#fff 30%);'
       + 'background:color-mix(in srgb,var(--_lungitz---color-ink-900),#000 8%);'
       + 'padding:.4rem .6rem;border-radius:6px;pointer-events:none;white-space:nowrap;'
