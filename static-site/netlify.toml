@@ -1,0 +1,3 @@
+# Deployed from the CLI after `node export.mjs` (see export.mjs header).
+[build]
+  publish = "dist"

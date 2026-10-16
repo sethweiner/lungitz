@@ -35,6 +35,23 @@ if (/\/sandbox\/?$/.test(location.pathname)) { return; }
 //   · browser BACK closes fullscreen (history state — the Antoine fix: Esc is never the only
 //     way out; the hint chip advertises "✕ / back" in browser-fullscreen)
 //   · participants links rewrite to /?entry=<coll>/<slug> — index arrival highlight
+// v93 (2026-10-16) — the soft seed wears Seth's state. Seth on v92: "the images
+//   pixelate as they load for the lightbox, maybe add a blur to cover it up".
+//   When the overlay has to open on the thumb's seed (no hover head start —
+//   touch, or a fast click), .immersive-image takes .is-loading (SETH-NAMED);
+//   it comes off once the full file has decoded into the overlay. The blur
+//   itself is a Designer combo (.immersive-image.is-loading → filter: blur) with
+//   a filter transition on the base class — both states on canvas, no code
+//   styling. Unstyled, the class changes nothing.
+// v92 (2026-10-16) — the lightbox opens sharp from right-sized thumbs. The
+//   Netlify export now gives thumbs a real `sizes` (calc per strip) instead of
+//   Webflow's 100vw fallback (home: ~99 MB → ~9 MB on a 2× laptop). Since v89
+//   the overlay seeds from the thumb's decoded variant — sharp only because the
+//   thumbs used to be 1080–3200px. So the FULL file now starts loading on intent:
+//   pointer resting on a thumb (120ms, hover devices) or any press, and on open
+//   the neighbours (±1) warm too. paintDetail paints the full file directly when
+//   it is already decoded; otherwise the v89 seed→upgrade path runs unchanged.
+//   Skipped under Save-Data. Preload only — nothing visible is added.
 // v91 (2026-07-28) — the keyboard hint chip is hidden site-wide (Seth: "hide
 //   the browse tooltip"). One display:none rule; the chip's machinery and all
 //   keyboard navigation stay intact — un-hiding is deleting that line.
@@ -660,6 +677,49 @@ var detail      = null,
 var OVERLAY = document.querySelector('.immersive-overlay');
 var FS_IMG  = '.immersive-image';   // v66: the overlay's image is the only fullscreen image
 
+// ── v92: full-image preload (lightbox opens sharp from small thumbs) ──
+// url → Image. decode() after load so the bitmap is ready when the overlay
+// paints it. A started preload is never restarted; failures just fall back to
+// the v89 seed→upgrade path.
+var LZ_PRE = {};
+function lzPreload(url) {
+    if (!url || LZ_PRE[url]) { return; }
+    try { if (navigator.connection && navigator.connection.saveData) { return; } } catch (esd) {}
+    var im = new Image();
+    im.decoding = 'async';
+    im.onload = function () { if (im.decode) { im.decode().catch(function () {}); } };
+    im.src = url;
+    LZ_PRE[url] = im;
+}
+function lzPreloaded(url) {
+    var im = url && LZ_PRE[url];
+    return !!(im && im.complete && im.naturalWidth);
+}
+(function thumbIntent() {
+    function full(t) {
+        var img = t && t.querySelector('.image-thumbnail');
+        return img ? (img.src || img.getAttribute('src')) : '';
+    }
+    var timer = null;
+    // hover intent: the pointer RESTS on a thumb — sweeping across a strip
+    // starts nothing (each full file can be several MB)
+    document.addEventListener('pointerover', function (e) {
+        if (e.pointerType !== 'mouse') { return; }
+        var t = e.target.closest && e.target.closest('.wrapper-thumbnail');
+        if (!t) { return; }
+        clearTimeout(timer);
+        timer = setTimeout(function () { lzPreload(full(t)); }, 120);
+    }, { passive: true });
+    document.addEventListener('pointerout', function (e) {
+        if (e.target.closest && e.target.closest('.wrapper-thumbnail')) { clearTimeout(timer); }
+    }, { passive: true });
+    // press: mouse, touch and pen — the click that opens the overlay follows
+    document.addEventListener('pointerdown', function (e) {
+        var t = e.target.closest && e.target.closest('.wrapper-thumbnail');
+        if (t) { lzPreload(full(t)); }
+    }, { passive: true, capture: true });
+}());
+
 // v72 — SETTLE THE SERVER-SHIPPED OVERLAY STATE. Webflow publishes whatever
 // state classes are toggled on the canvas (contract §3's own preview-the-state
 // workflow), and a 2026-07-26 publish shipped the component root with
@@ -1071,16 +1131,36 @@ function paintDetail(view) {
         // already-decoded thumb variant FIRST (same picture, cached — the
         // thumbs are on the page), then upgrade to the full asset when it
         // lands. The upgrade checks the slide is still current (fast arrows).
-        if (el.src !== img.src && el.src !== img.srcNow) {
+        if (lzPreloaded(img.src)) {
+            // v92: the full file is already loaded (hover/press intent) —
+            // paint it directly, no soft seed frame
+            if (el.src !== img.src) { el.src = img.src; }
+        } else if (el.src !== img.src && el.src !== img.srcNow) {
             el.src = img.srcNow || img.src;
         }
-        if (img.srcNow && img.srcNow !== img.src && el.src !== img.src) {
+        // v92: warm the neighbours so the arrows land sharp too
+        if (n > 1) {
+            lzPreload(detail.images[(detail.idx + 1) % n].src);
+            lzPreload(detail.images[(detail.idx - 1 + n) % n].src);
+        }
+        // v93: Seth's .is-loading marks the soft seed (styled on canvas — the
+        // blur and its un-blur transition are his). On while the seed shows,
+        // off only once the full file has DECODED into the overlay, so the
+        // un-blur reveals the sharp picture, never the seed.
+        var soft = !!(img.srcNow && img.srcNow !== img.src && el.src !== img.src);
+        el.classList.toggle('is-loading', soft);
+        if (soft) {
             (function (want, forImg) {
                 var up = new Image();
                 up.onload = function () {
-                    if (detail && detail.images[detail.idx] === forImg) {
-                        el.src = want;
-                    }
+                    if (!(detail && detail.images[detail.idx] === forImg)) { return; }
+                    el.src = want;
+                    var done = function () {
+                        if (detail && detail.images[detail.idx] === forImg) {
+                            el.classList.remove('is-loading');
+                        }
+                    };
+                    if (el.decode) { el.decode().then(done, done); } else { done(); }
                 };
                 up.src = want;
             }(img.src, img));

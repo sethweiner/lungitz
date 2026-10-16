@@ -1,5 +1,11 @@
 # Lungitz — Findability go-live bundle
 
+> **2026-10-16: the site moved to Netlify (lungitz.com), not a Webflow custom domain.**
+> Steps 1–4 below are now handled by the static export: the robots.txt lives in
+> `static-site/public/robots.txt` and `export.mjs` writes `sitemap.xml`. The Webflow
+> SEO toggles no longer matter for the public site. **Still open:** the JSON-LD embeds
+> (step 5, in the Designer, with YOURDOMAIN = lungitz.com) and Search Console (step 7).
+
 The **core of C (findability) is done**: every entry is reachable at a persistent URL
 (`/giveaways/<slug>`, `/hideaways/<slug>`), per-entry **SEO is live + verified** (Title→Name,
 Meta→Subtitle, OG mirrored), and the **wayfinding** is complete (home-return highlight, soft

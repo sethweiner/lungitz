@@ -1,0 +1,10 @@
+# Webflow asset URLs are content-addressed (new upload = new id; CSS/JS carry a hash),
+# so they never change in place — cache them for a year.
+/cdn/*
+  Cache-Control: public, max-age=31536000, immutable
+/vendor/*
+  Cache-Control: public, max-age=31536000, immutable
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+# /js/lungitz-interactions.js and the HTML keep Netlify's default (revalidate every
+# visit via ETag), so a re-export is live immediately — no ?v= pin needed here.
