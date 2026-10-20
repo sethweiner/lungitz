@@ -433,3 +433,34 @@ entry pages behave as before.
 
 Still code-owned (§2): the lightbox cursors (`[data-cursor]` assets are swappable in the
 Asset panel; zoom cursors are injected).
+
+---
+
+## 17. Webflow round 2026-10-20: new classes, fields and settings (all Designer/CMS-owned)
+
+- `.visually-hidden` (global): off-screen but read by search engines and screen
+  readers (absolute, 1×1px, clip-path inset(50%)). Carries the page **H1** on Home ("Lungitz —
+  Giveaways & Hideaways"), Participants, Impressum and Resources: first child of
+  `.content-all`. Home's entry `.title` headings are **H2** now (same look; the script
+  targets `.title`, not the tag). Entry pages keep the title as their H1.
+- `.participant-row` (flex, centred, 0.4rem gap) wraps each Participants list item's two
+  name links + the website arrow. `.participant-website` (1rem, line-height 1) = the ↗ link,
+  bound to Contributors → URL, aria-label "Website (opens in a new tab)". Its visibility is
+  a Designer condition (Seth): **URL is set AND Featured work (Giveaway) is set**. The second
+  rule keeps a nameless arrow off rows like Festival der Regionen (has a URL, no featured giveaway).
+- Giveaways/Hideaways **Meta description** (PlainText, slug `meta-description`): seeded
+  from each Description; the templates' SEO + OG description bind to it.
+- Home Hideaways list sorted by `year-sort` ascending. Author-list Empty States hidden on
+  Home + both templates (documentation entries may have no author).
+- Cursor classes per §16. `.title` is set to `inherit`, but the published CSS still merges
+  a second `cursor: pointer` into `.title` that the API doesn't show: check it in the Style panel.
+- JSON-LD: page-settings JSON-LD can't hold CMS tokens (silently dropped), and an API-set
+  embed publishes raw tokens. It needs an HTML Embed with fields placed via **+ Add Field**
+  (code in WEBFLOW-PASTE.md §3).
+- Impressum partner logos: `.logo` (width 100%, height auto) + per-file combos
+  `.logo.zukunftsfonds` (aspect-ratio 2400 / 655) and `.logo.fdr` (2364 / 511). The ratio
+  reserves each logo's height before the file arrives; without it the row was 0px tall
+  until load and the text below dropped ~60px (measured CLS 0.025 → 0, sizes unchanged:
+  220×60 / 220×48 at 1440, 128×35 / 128×28 at 375). Webflow refuses `width`/`height`
+  custom attributes, hence CSS. **Swap a logo file → update its combo's ratio** to the new
+  file's width / height. The old empty `Image` class is now unused.

@@ -86,7 +86,18 @@
   html { background-color: #111; }
   body { background-color: var(--_lungitz---color-ink-900, #111); }
 
-  /* T-08 — SHIPPED DEFAULT (Seth: "vt=1 is the best so far", 2026-07-26).
+  /* T-08 — PAGE TRANSITIONS ARE OFF BY DEFAULT (Seth, 2026-10-20: "feel really
+     buggy and flash or take forever sometimes… just strip the animations").
+     A cross-document view transition holds the OLD page on screen until the new
+     one is ready to render, then crossfades — on a slow fetch that reads as a
+     frozen click, and when Chrome gives up (timeout / ineligible nav) the skip
+     is a visible jump. With navigation:none the browser does a plain navigation:
+     Chrome's paint holding keeps the old page until the new one first paints,
+     and the dark canvas (T-09) covers any gap. Everything below is now OPT-IN
+     per session: ?vt=1 crossfade, ?vt=2 persistent masthead, ?vt=3 scale;
+     ?vt=0 clears back to none. Turning a crossfade back on as the default is
+     this one line → auto, plus the `!vt` in the gate script below.
+     Former default (2026-07-26, "vt=1 is the best so far"), kept for reference:
      Cross-page navigation reads as the entry-expand gesture family: the UA
      crossfade re-eased to CLOSE_EASE cubic-bezier(.4,0,.2,1) at 500ms — the
      same curve and clock as the accordion expand and the fullscreen
@@ -98,7 +109,7 @@
      HELD CANDIDATES stay testable: ?vt=2 (persistent masthead), ?vt=3 (whisper
      of scale) — promoting either later is a one-line unguard. ?vt=0 = NO
      transitions, for comparison. ?vt=1 = the shipped default, explicitly. */
-  @view-transition { navigation: auto; }
+  @view-transition { navigation: none; }
   ::view-transition-old(root),
   ::view-transition-new(root) {
     animation-duration: 500ms;
@@ -122,7 +133,8 @@
   :root[data-lzvt="3"]::view-transition-new(root) {
     animation: lz-vt-in 500ms cubic-bezier(0.4, 0, 0.2, 1) both;
   }
-  /* ARRIVAL-FADE FALLBACK — DEFAULT for browsers WITHOUT cross-document view
+  /* ARRIVAL-FADE FALLBACK — opt-in with the ?vt= flags too (off by default since
+     2026-10-20), for browsers WITHOUT cross-document view
      transitions (Firefox today). The intro half only: the incoming page fades
      in on the shared token; no outro, no click interception, no delay —
      content is present and interactive from the first frame, only its opacity
@@ -168,10 +180,10 @@
   // — the overlay arrives closed, decided before the body parses (v72) —
   document.documentElement.className += ' lz-ov-rest';
 
-  // — T-08 page transitions (SHIPPED as default; flags remain for comparison) —
-  // ?vt=0 = no transitions this session; ?vt=2/3 = held candidates; ?vt=1 = the
-  // shipped default, explicitly. The flag is session-sticky (sessionStorage).
-  // The fallback detector runs for EVERY session: browsers whose CSS parser
+  // — T-08 page transitions (OFF by default since 2026-10-20; flags opt in) —
+  // No flag / ?vt=0 = plain navigations, no animation. ?vt=1 crossfade, ?vt=2/3 =
+  // the held candidates. The flag is session-sticky (sessionStorage).
+  // With a flag set, the fallback detector runs: browsers whose CSS parser
   // drops the @view-transition at-rule (no cross-document support — Firefox
   // today; a CSS.supports probe would false-positive on same-doc support) get
   // the arrival-fade instead, on real link navigations only.
@@ -180,7 +192,7 @@
     if (vtm) { sessionStorage.setItem('lz-vt', vtm[1]); }
     var vt = sessionStorage.getItem('lz-vt') || '';
     if (vt) { document.documentElement.setAttribute('data-lzvt', vt); }
-    if (vt === '0') {
+    if (!vt || vt === '0') {
       // comparison mode: turn cross-doc transitions off entirely — this style
       // comes after the stylesheet above, so its @view-transition wins.
       var voff = document.createElement('style');
@@ -207,7 +219,7 @@
           try { sessionStorage.setItem('lz-vt-last', location.pathname + ' fallback-fade @' + new Date().toTimeString().slice(0, 8)); } catch (erf) {}
         }
       }
-      if (vt) { console.info('[lungitz] page-transition flag vt=' + vt + ' armed for this session (' + (xdoc ? 'native view transitions' : 'arrival-fade fallback') + ') — default is the shipped vt=1 crossfade'); }
+      if (vt) { console.info('[lungitz] page-transition flag vt=' + vt + ' armed for this session (' + (xdoc ? 'native view transitions' : 'arrival-fade fallback') + ') — default is no transition'); }
     }
   } catch (e) {}
 

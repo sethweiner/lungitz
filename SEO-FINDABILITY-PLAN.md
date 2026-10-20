@@ -159,6 +159,20 @@ trust**. For a memorial project those are natural:
       holding the name (that's how 19 names vanished before). Bonus for findability: those
       are the same sites we'd ask to link back (Phase 5).
 
+## Progress (2026-10-20, Webflow connector round)
+
+Done and verified on staging: custom code head/footer = repo; page titles + descriptions
+(Home + 3 menu pages); Meta description field (46 entries seeded) bound on both templates;
+one H1 per page; Hideaways chronological; author empty states hidden; Jürgen off
+Participants + Bahnhof authors; artist URLs; cursors (`.title` caveat, MASTHEAD-CONTRACT §17);
+↗ arrows built (Seth's condition needs its second rule); hidden participant lists removed
+from Impressum + Resources.
+Arrow: system-ui 700 1.3rem (Arial has no ↗ glyph → hairline fallback); Festival der Regionen's contributor URL cleared (was https://fdr.at/) so no nameless arrow; 9 arrows live on staging.
+Still to do, by Seth: (optional safeguard) the arrow condition's 2nd rule · privacy text + media owner, Resources
+content, JSON-LD embeds (all in **WEBFLOW-PASTE.md**) · OG images · Site Settings → SEO
+(global canonical) · `.is-standalone` combo on the templates (with v94).
+Then Claude: publish.sh (lungitz.com), offline.sh, re-audit, Search Console + Bing.
+
 ## Decisions (Seth, 2026-10-20)
 
 - **Artist links:** a small conditional ↗ next to each name in the **Participants list
