@@ -8,7 +8,7 @@ Where a page exists in German and English, both are given (de / en).
 
 ## Decision (Seth, 2026-10-20): the Resources page uses the ★ core set for now
 
-That's **10 links** (my earlier "about 12" was a miscount):
+**12 links:**
 1. Festival der Regionen 2023 project page (de / en)
 2. MARCH essay
 3. Bewusstseinsregion: Lungitz
@@ -19,10 +19,11 @@ That's **10 links** (my earlier "about 12" was a miscount):
 8. KZ-Gedenkstätte Gusen (de / en)
 9. USHMM Holocaust Encyclopedia: Gusen
 10. Mauthausen Memorial: "Dinge erzählen / Things Tell Stories" (de / en)
+11. Liberation, Objects! No. 13: the Gusen III model (de)
+12. BMI: Gedenk- und Informationsort Lungitz (de)
 
-Suggested to make 12 (Seth to confirm): **Liberation, Objects! No. 13** (the Gusen III
-model) and **BMI: Gedenk- und Informationsort Lungitz** (the 2021 grave). The rest of
-this file stays as optional depth for later.
+(11 and 12 added by Seth, 2026-10-20.) The rest of this file stays as optional depth
+for later.
 
 ## The project
 
@@ -46,13 +47,13 @@ this file stays as optional depth for later.
 - ★ **Mauthausen Memorial: the subcamps** (interactive map; select Gusen III). There is
   no per-camp URL. de https://www.mauthausen-memorial.org/de/Wissen/Die-Aussenlager ·
   en https://www.mauthausen-memorial.org/en/History/The-Subcamps
-- **Liberation, Objects! No. 13: model of the Gusen III subcamp, bakery in Lungitz**
+- ★ **Liberation, Objects! No. 13: model of the Gusen III subcamp, bakery in Lungitz**
   (the 1995 model lent by the Heimatverein Katsdorf; history of the brickworks and
   bakery). de https://liberationobjects.mauthausen-memorial.org/liberation-objects/heimathaus
 - **Mauthausen Memorial: memorials at former subcamp sites.** de
   https://www.mauthausen-memorial.org/de/Besuchen/Gedenkstaetten-bei-Aussenlagern · en
   https://www.mauthausen-memorial.org/en/Visit/Memorials-at-the-Sites-of-Former-Subcamps
-- **Bundesministerium für Inneres: Gedenk- und Informationsort Lungitz** (2021, the find
+- ★ **Bundesministerium für Inneres: Gedenk- und Informationsort Lungitz** (2021, the find
   and the grave). de https://www.bmi.gv.at/magazin/2021_07_08/gedenk_und_informationsort.html
 - **nextroom: Opfergrabstätte Lungitz** (Bernhard Denkinger, 2020–21). de
   https://www.nextroom.at/building.php?id=40198
