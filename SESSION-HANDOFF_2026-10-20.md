@@ -78,7 +78,10 @@ the publish again (below). Nothing is half-done; everything is committed and pus
 - **Export cleanup** (`LZ_CLEANUP=1`: no jQuery/Webflow JS, minified script, pruned CSS)
   — verified identical on a preview since 2026-10-16; add to `publish.sh` once approved.
 - Optional: a Netlify redirect `/hideaways/walking-tour-map` → `/giveaways/walking-tour-map-2023`.
-- Ziegelwerk stays a draft (decided) — its last published version stays public.
+- Late edits (Seth, evening): **"Memorial and Information Site" deleted** from Hideaways
+  (image rights) — gone from lungitz.com, sitemap and offline copy; its files may still sit
+  in Webflow's Assets panel and in old Netlify deploy permalinks (Seth: leave them).
+  Ziegelwerk's pending edits published (no longer a draft). Site re-exported + offline rebuilt.
 
 ## Claude's next steps (after the comb-through + publish)
 
