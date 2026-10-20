@@ -168,10 +168,9 @@ Participants + Bahnhof authors; artist URLs; cursors (`.title` caveat, MASTHEAD-
 ↗ arrows built (Seth's condition needs its second rule); hidden participant lists removed
 from Impressum + Resources.
 Arrow: system-ui 700 1.3rem (Arial has no ↗ glyph → hairline fallback); Festival der Regionen's contributor URL cleared (was https://fdr.at/) so no nameless arrow; 9 arrows live on staging.
-Still to do, by Seth: (optional safeguard) the arrow condition's 2nd rule · privacy text + media owner, Resources
-content, JSON-LD embeds (all in **WEBFLOW-PASTE.md**) · OG images · Site Settings → SEO
-(global canonical) · `.is-standalone` combo on the templates (with v94).
-Then Claude: publish.sh (lungitz.com), offline.sh, re-audit, Search Console + Bing.
+Later the same day (all live on lungitz.com): privacy text + media owner, Resources (12 core
+links), JSON-LD embeds (45/45 valid, url path doubled → Seth), OG images, global canonical,
+text fixes, v94 promoted. **Open items now live in `SESSION-HANDOFF_2026-10-20.md`.**
 
 ## Decisions (Seth, 2026-10-20)
 
