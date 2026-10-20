@@ -138,6 +138,66 @@ trust**. For a memorial project those are natural:
       is best done by an independent historian or editor.
 - [ ] Press: any article about the project should link to lungitz.com.
 
+## Also on the list (added 2026-10-20)
+
+- [ ] **Hideaways back in chronological order.** Live order (2026-10-20) runs pre 1900 →
+      2026, then three later additions sit at the end out of sequence: *Aerial Photographs
+      Lungitz 1944–45*, *Archaeological Excavations Lungitz* (2018), *Demolition of Lungitz
+      Train Station* (2024). New items land at the end, so the list is sorted by manual
+      order or creation date, not by date. The year field is display text ("pre 1900",
+      "ca. 1970", "1944-1945"), which can't sort. Fix for good: a **Number** field for
+      sorting (name it your way, e.g. "Sort year": pre 1900 → 1899, 1944–45 → 1944,
+      ca. 1970 → 1970), filled for every Hideaway, and the Hideaways collection list sorted
+      by it ascending. The display year stays as written. Then any future item falls into
+      place by itself.
+- [ ] **Artists' own websites.** The Participants page has 25 name links, all internal (to
+      the index); none goes to an artist's site. Needs a **Link** field on the
+      contributors collection (your name for it), the URLs (from you, or I research and you
+      confirm), and a decision on where the link lives, since the name already links
+      to the work: a separate small link beside the name, or on the entry's credits. Bind
+      the link and set conditional visibility **on the link only**, never on the element
+      holding the name (that's how 19 names vanished before). Bonus for findability: those
+      are the same sites we'd ask to link back (Phase 5).
+
+## Decisions (Seth, 2026-10-20)
+
+- **Artist links:** a small conditional ↗ next to each name in the **Participants list
+  only**, opening the artist's site in a new tab; visibility condition on the ↗ link
+  itself. Not in the entry credits; Hideaways sources/archives not linked.
+- **URLs:** Claude researches the 11 missing (7 already in the CMS, from the old hidden
+  `.content-participants.hide` list); Seth confirms before they go in.
+- **Field names** (Seth: "you decide"): `Meta description` (PlainText; Giveaways +
+  Hideaways), `Sort year` (Number; Hideaways). Artist link: the existing website field if
+  the connector confirms it, else `Website` (Link).
+- **H1s** (Seth: "whatever you think is best"): one H1 per page, never in the shared
+  masthead component (entry pages would get two). Entry pages: the title (as now). Home:
+  entry `.title` → H2 (looks the same) + a real Designer H1 "Lungitz — Giveaways &
+  Hideaways" with a `visually-hidden` class (off-screen, read by search engines and screen
+  readers). Participants / Resources / Impressum: the same hidden H1 with the page name.
+- v94 promote: later. Offline copy: works in Safari (Seth tested); `static-site/offline/`
+  stays in Dropbox sync as a backup.
+
+## Who does what
+
+Precondition: the Webflow connector is still signed into the *Palais des Beaux Arts*
+workspace (checked 2026-10-20) and can't see Lungitz. Re-authorise it for the Lungitz
+workspace first; until then everything below is yours by hand.
+
+| Task | Who |
+|---|---|
+| Paste head/footer custom code | Claude (connector), or you |
+| Page titles + descriptions: static pages, template SEO bindings | Claude |
+| Create fields (meta description, sort year, artist website) | Claude, with **your field names** |
+| Fill field values (descriptions, alt text, sort years, URLs) | Claude drafts, you approve the wording |
+| Heading levels (Home `.title` → H2, H1 on menu pages) | Claude (Designer open), after you choose Home's H1 |
+| JSON-LD embeds on the templates | Claude builds; you may need to click the CMS fields in via + Add Field |
+| Hideaways collection-list sort | Claude (connector's beta collection-list settings), or you in the Designer |
+| Artist-link element + binding + visibility | Claude, or you; placement is your design call |
+| Open Graph image binding on templates / pages | **You** (not in the API) |
+| Site Settings → SEO: global canonical, subdomain indexing | **You** (dashboard only) |
+| Webflow publish → `publish.sh` → `offline.sh` → re-audit | Claude |
+| Search Console: DNS TXT at Spaceship, sitemap, Bing import | Claude (your Chrome, you're signed in to Google) |
+
 ## Notes
 
 - **Webflow vs lungitz.com**: per-page titles, descriptions, OG tags, headings, alt text
