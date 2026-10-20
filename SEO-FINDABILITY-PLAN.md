@@ -220,6 +220,95 @@ Everywhere else he's credited correctly, in the image credits ("Photo © Jürgen
       Empty State and hide it (display: none on its class), on Home and on both entry
       templates. Then the two documentation entries simply show no author line.
 
+## Impressum & Resources review (staging, 2026-10-20)
+
+### Impressum: fix before it's final (the current text is live on lungitz.com)
+
+1. **Template placeholders are published.** The Privacy Notice still shows six bracketed
+   drafting instructions ("[Confirm the applicable hosting arrangements…]", "[If a contact
+   form is used…]", "[Identify the third-party services…]", "[Document the cookies…]",
+   "[Identify the relevant providers…]") and "contact: **[Email address]**" in §7.
+2. **It names the wrong host.** §2 says "hosted using Webflow"; lungitz.com is served by
+   **Netlify** (since 2026-10-16). Webflow only hosts the staging copy.
+3. **Missing spaces after full stops** all through the privacy text: "data.The",
+   "enquiry.The", "content.When", "loaded.[", "functions.The", "obtained.[",
+   "services.[", "processing.Where", "withdrawal.To", "address].You". Likely line breaks
+   in the rich text with the space lost. Retype the space at each.
+4. **Media owner is "Lungitz.com".** A domain isn't a person or organisation. Austrian
+   rules for a site's legal notice (Offenlegung, §25 MedienG) expect the media owner's
+   **name** and place: Seth and/or Antoine, or an association if one exists.
+   *(Not legal advice; check with whoever advises the project.)*
+5. Polish: the links to "Festival der Regionen" (here and on Resources) and the Webflow
+   privacy URL include a leading space inside the underline, so move the space outside
+   the link. Paragraphs start with invisible zero-width characters (Webflow line-break
+   residue); harmless, clean up if you're in there anyway.
+
+**Proposed replacement for Privacy Notice §2–§7** (facts checked on lungitz.com
+2026-10-20: no cookies set by any page; no analytics; no third-party embeds, fonts or
+scripts, since everything is served from lungitz.com; no contact form; browser storage
+only the `lz-…` session keys below):
+
+> **2. Hosting and server logs.** lungitz.com is hosted by Netlify, Inc. (San Francisco,
+> USA). When you visit, Netlify's servers process technical data needed to deliver the
+> site and keep it secure: IP address, date and time, the page requested, and browser
+> and device information. Netlify acts as our processor; see netlify.com/privacy. Because
+> Netlify is a US company, data may be processed outside the EEA, under the safeguards
+> Netlify provides (its data processing agreement / EU–US Data Privacy Framework).
+>
+> **3. Contact.** If you email info@lungitz.com, we use your message and address only
+> to answer you, and delete them when they're no longer needed. There is no contact
+> form.
+>
+> **4. External content.** All images, fonts and scripts are served from lungitz.com
+> itself; nothing is loaded from third parties. Links to other websites (participants,
+> partners) are ordinary links: when you follow one, that site's own privacy practices
+> apply.
+>
+> **5. Cookies and browser storage.** lungitz.com sets no cookies and uses no
+> analytics or tracking. To remember display state while you browse (whether the
+> introduction was already shown, the page-transition setting, the order of entries for
+> the previous/next arrows), it stores a few small values in your browser's session
+> storage. They never leave your browser, are not sent to any server, and are deleted
+> when you close the tab.
+>
+> **6. Recipients.** Apart from the hosting provider (§2), no personal data is passed to
+> anyone.
+>
+> **7. Your rights.** … To exercise your rights, contact **info@lungitz.com**. …
+> *(keep the existing text, with the email filled in)*
+
+Before pasting, confirm the Netlify safeguard wording against Netlify's current DPA
+(Claude can check), and keep §5 true: re-check it whenever analytics, an embed or a
+form is added.
+
+### Resources: still a placeholder
+
+The page is an older copy of the Impressum text. "DISCLAIMER ABOUT CONTENT" repeats the
+Support paragraph, and under "LINKS" sit the Purpose / Copyright / External Links
+paragraphs from the legal notice. There are no resources, and the duplicated legal text
+would compete with the Impressum in search. Proposal: replace it with an actual
+resource list, e.g.
+
+- **The project:** Festival der Regionen 2023 project page
+  (fdr.at/en/project/giveaways-hideaways/); Seth's essay in March
+  (march.international/giveaways-hideaways/).
+- **History of Gusen III / Lungitz:** KZ-Gedenkstätte Mauthausen / Gusen memorial;
+  Bewusstseinsregion Mauthausen–Gusen–St. Georgen (bewusstseinsregion.at/lungitz/, text
+  by Judith Pirklbauer); Heimatverein Katsdorf.
+- **Archives and sources credited in Hideaways:** Archiv Walzer, Luftbilddatenbank
+  Dr. Carls, nextroom.at, and the papers listed in the entries.
+
+Seth decides the sections and wording; Claude can assemble the list with verified URLs
+from the Hideaways credits. Also give it a fuller page title ("Resources — Lungitz",
+already in Phase 2).
+
+### Both pages
+
+- [ ] Delete the **hidden old participants list** (`.content-participants.hide`) on
+      Impressum and Resources. It's invisible but still in the HTML (duplicate names and
+      links for search engines), and its website links now live in the CMS field the new
+      ↗ uses. Leftover from duplicating the page.
+
 ## Who does what
 
 Precondition: the Webflow connector is still signed into the *Palais des Beaux Arts*
