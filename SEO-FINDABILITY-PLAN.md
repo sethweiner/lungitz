@@ -248,12 +248,16 @@ Everywhere else he's credited correctly, in the image credits ("Photo © Jürgen
 scripts, since everything is served from lungitz.com; no contact form; browser storage
 only the `lz-…` session keys below):
 
-> **2. Hosting and server logs.** lungitz.com is hosted by Netlify, Inc. (San Francisco,
-> USA). When you visit, Netlify's servers process technical data needed to deliver the
-> site and keep it secure: IP address, date and time, the page requested, and browser
-> and device information. Netlify acts as our processor; see netlify.com/privacy. Because
-> Netlify is a US company, data may be processed outside the EEA, under the safeguards
-> Netlify provides (its data processing agreement / EU–US Data Privacy Framework).
+> **2. Hosting and server logs.** lungitz.com is hosted by Netlify, Inc., San Francisco,
+> USA. When you visit, Netlify's servers process the technical data needed to deliver
+> the site and keep it secure: your IP address, date and time, the page requested, and
+> browser and device information. Netlify processes this data on our behalf, as a
+> processor, under its Data Processing Agreement (netlify.com/pdf/netlify-dpa.pdf).
+> Because Netlify is a US company, the data may be processed in the United States.
+> Netlify is certified under the EU–U.S. Data Privacy Framework, which the European
+> Commission recognises as providing an adequate level of protection. The EU Standard
+> Contractual Clauses in its agreement apply as a fallback. Netlify's own privacy policy:
+> netlify.com/privacy.
 >
 > **3. Contact.** If you email info@lungitz.com, we use your message and address only
 > to answer you, and delete them when they're no longer needed. There is no contact
@@ -277,9 +281,25 @@ only the `lz-…` session keys below):
 > **7. Your rights.** … To exercise your rights, contact **info@lungitz.com**. …
 > *(keep the existing text, with the email filled in)*
 
-Before pasting, confirm the Netlify safeguard wording against Netlify's current DPA
-(Claude can check), and keep §5 true: re-check it whenever analytics, an embed or a
-form is added.
+**§2 verified 2026-10-20 against Netlify's own documents:**
+- **DPA** (last updated 9 June 2026) "forms part of the Enterprise Master Subscription
+  Agreement and the Self-Serve Subscription Agreement", so it covers this account
+  automatically; nothing to sign. Netlify is the processor; the site owner is the
+  controller. Its data subjects explicitly include "Customers' own website visitors, where
+  the website is hosted by Netlify", and its data categories include IP address.
+- **Transfers:** the DPA's primary basis is the EU–U.S. DPF (+ UK Extension). If that ever
+  fails, the EU SCCs (Decision 2021/914, Module Two, controller→processor) apply.
+- **DPF list** (dataprivacyframework.gov, checked live): Netlify, Inc., San Francisco, CA:
+  EU–U.S. DPF **Active**, Swiss–U.S. DPF **Active**, UK Extension **Active** (non-HR data).
+- **Not stated anywhere:** a retention period for visitor logs. Neither the DPA nor the
+  privacy policy gives one ("consistent with the original purpose"), so the draft
+  doesn't claim one. Ask privacy@netlify.com if the text should name a period.
+- Netlify gives two different San Francisco street addresses (privacy policy: 101 2nd
+  Street, CA 94105; DPA: 512 2nd Street, Suite 200, CA 94107), so the draft names the
+  city only.
+- Sub-processor list: netlify.com/legal/subprocessors/.
+
+Keep §5 true: re-check it whenever analytics, an embed or a form is added.
 
 ### Resources: still a placeholder
 
@@ -298,8 +318,9 @@ resource list, e.g.
 - **Archives and sources credited in Hideaways:** Archiv Walzer, Luftbilddatenbank
   Dr. Carls, nextroom.at, and the papers listed in the entries.
 
-Seth decides the sections and wording; Claude can assemble the list with verified URLs
-from the Hideaways credits. Also give it a fuller page title ("Resources — Lungitz",
+**Researched list: `RESOURCES-LINKS.md`** (2026-10-20, 53 links, all verified loading;
+suggested core marked ★; notes on conflicting dates and figures, sensitive content and
+links likely to move). Seth decides the sections and wording. Also give it a fuller page title ("Resources — Lungitz",
 already in Phase 2).
 
 ### Both pages
