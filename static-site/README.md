@@ -177,8 +177,8 @@ a parent folder); SRI/`crossorigin` attributes are dropped (Chrome blocks those 
 `file://`); Webflow JS and jQuery are left out; the script stays unminified; the site
 custom code comes from `webflow-custom-code/`.
 
-**Needs v94+** (the route helpers). Until v94 is promoted, `offline.sh` ships
-`sandbox/v94.js`; the export warns if the script it ships is older.
+**Needs v94+** (the route helpers; promoted 2026-10-20). The export warns if the
+script it ships is older.
 
 Verified 2026-10-20 from disk in headless Chrome 155 and Firefox 158: cold greet +
 dismiss, participant name → index with that entry open, LUNGITZ menu, `?menu=1`,

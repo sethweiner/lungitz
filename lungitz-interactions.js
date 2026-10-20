@@ -6,16 +6,13 @@
 // zoom/pan, arrangement). Loaded by the Home page — bail on /sandbox so it doesn't
 // double-bind with the loader's sandbox/vN.js. The injected CSS scaffold below is
 // being migrated to Designer combos; motion + grid-rows transitions stay here.
-// ★ v84 PROMOTED TO PRODUCTION 2026-07-27 — DEFECT FIX, promoted on the
-// coordinator's call: v80-82's landing-pad stamp persisted with wrong data
-// (entries with empty image fields render Webflow's 180x180 placeholder; a close
-// stamped a square and the entry grew 464->845px permanently, reshaping the
-// column for every lightbox use). The stamp and borrowed width are flight props
-// now — applied for the 500ms flight, restored on landing. Rides along: the
-// <=767 caption-drawer transition kill is scoped to the ACCORDION drawers, so
-// the lightbox bar and drawer fade as one (the chrome-coming-apart fix).
-// Layout parity vs v82 verified byte-identical at 470/1000/1600, both columns.
-// Carries v71-v83.
+// ★ v94 PROMOTED TO PRODUCTION 2026-10-20 — the route helpers (route()/routeUrl(),
+// identity on http; the offline file:// copy needs them), baked entry order for
+// offline prev/next, and the .header-accordion.is-standalone guard (entries on
+// their own page don't collapse; inert until the Designer combo exists). Flow
+// parity vs production v93 verified identical (participants arrival, entry
+// prev/next, LUNGITZ, realm words, ?menu=1, cold greet/dismiss, lightbox + Esc).
+// Carries v71-v93.
 // Loaded per-page via <script src="https://sethweiner.github.io/lungitz/lungitz-interactions.js">
 // (Home + the menu pages; paste the same tag into any new page's custom code).
 // Bail on /sandbox (its loader runs sandbox/vN.js) and guard against double loads
@@ -35,6 +32,19 @@ if (/\/sandbox\/?$/.test(location.pathname)) { return; }
 //   · browser BACK closes fullscreen (history state — the Antoine fix: Esc is never the only
 //     way out; the hint chip advertises "✕ / back" in browser-fullscreen)
 //   · participants links rewrite to /?entry=<coll>/<slug> — index arrival highlight
+// v94 (2026-10-20) — the site also runs from a folder on disk (file://). Seth wants
+//   a durable, double-clickable offline copy (static-site export, LZ_OFFLINE=1).
+//   Every place that assumed "the site starts at /" now goes through route() /
+//   routeUrl() (§routes below): entry-page detection, the realm/LUNGITZ href
+//   checks, ?entry= and ?menu=1 returns, prev/next hrefs, the participants
+//   rewrite. On http (lungitz.com, webflow.io) both are identities — same paths,
+//   same strings. Offline the export bakes the entry order into the folder
+//   (window.__lzEntryOrder) because fetch('/') can't read a file. The site head
+//   carries the same route reading (lockstep, webflow-custom-code/site-head.html).
+//   ALSO v94 — entries on their own page no longer collapse when the title is
+//   clicked (Seth: the page went blank). Keyed to a Designer class, not to the URL:
+//   .header-accordion.is-standalone on the Giveaways + Hideaways templates (Seth: "you
+//   name the combo"; it also carries the arrow cursor there). No class → old behaviour.
 // v93 (2026-10-16) — the soft seed wears Seth's state. Seth on v92: "the images
 //   pixelate as they load for the lightbox, maybe add a blur to cover it up".
 //   When the overlay has to open on the thumb's seed (no hover head start —
@@ -660,6 +670,47 @@ window.addEventListener('error', function (e) {
 
 var INITIAL_SEARCH = location.search,
     INITIAL_HASH   = location.hash;
+
+// ── Routes (v94) — the site as paths: '/', '/participants', '/giveaways/<slug>' ──
+// On http those ARE the URLs. The offline copy is opened from disk: each page is a
+// file (index.html, participants.html, giveaways/<slug>.html) and the export writes
+// <meta name="lz-root" content="../"> — the way back to the folder's top. route()
+// reads any href/URL back into { path, search, hash } (null = outside the site);
+// routeUrl() turns a site path ('/?entry=giveaways/x') into what href/location take.
+// The site head carries the same reading — change the two together.
+var OFFLINE = location.protocol === 'file:';
+var LZ_ROOT = (function () {
+    var m = document.querySelector('meta[name="lz-root"]');
+    try { return new URL(m ? m.getAttribute('content') : '/', location.href).href; }
+    catch (e) { return location.origin + '/'; }
+}());
+function route(href) {
+    var u;
+    try { u = new URL(href, location.href); } catch (e) { return null; }
+    var base = u.href.split(/[?#]/)[0];
+    if (base.indexOf(LZ_ROOT) !== 0) { return null; }
+    var p = '/' + base.slice(LZ_ROOT.length);
+    if (OFFLINE) { p = p.replace(/(^|\/)index\.html$/, '$1').replace(/\.html$/, ''); }
+    return { path: p, search: u.search, hash: u.hash };
+}
+function routeUrl(sitePath) {
+    if (!OFFLINE) { return sitePath; }
+    var m = /^\/([^?#]*)(.*)$/.exec(sitePath);
+    if (!m) { return sitePath; }
+    var p = m[1].replace(/\/$/, '');
+    return LZ_ROOT + (p ? p + '.html' : 'index.html') + m[2];
+}
+function currentPath() {
+    var r = route(location.href);
+    return r ? r.path : location.pathname;
+}
+// An href as a site path + query + hash, for the literal checks ('/', '/?menu=1',
+// '#info-…'). '#' and '' stay as written; links that leave the site are untouched.
+function routeHref(href) {
+    if (!href || href === '#') { return href; }
+    var r = route(href);
+    return r ? r.path + r.search + r.hash : href;
+}
 
 var detail      = null,
     fs          = null,
@@ -1702,6 +1753,11 @@ function resetZoom() {
 // ── State 1 <-> 2 : Accordion ──
 
 function closeAccordion(el) {
+    // v94: an entry whose header wears .is-standalone (Designer combo on the entry
+    // templates' .header-accordion) stays open — on its own page there is nothing to
+    // collapse into. The class is the switch: remove it in the Designer and the entry
+    // collapses again. Covers every close path (header click, ⏎, Esc).
+    if (el.querySelector(HEADER + '.is-standalone')) { return; }
     if (detail && detail.trigger === el) { detail = null; }   // v66: engagement, no view
     el.querySelectorAll(W_THUMB).forEach(function (t) {
         var th = t.querySelector('.thumb-hover');
@@ -2099,7 +2155,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
     // programmatic smooth scroll fights transitions and reads as jumpy).
     function goToInfo(side) {
         var el = document.getElementById('info-' + side);
-        if (!el) { location.href = '/#info-' + side; return; }
+        if (!el) { location.href = routeUrl('/#info-' + side); return; }
         if (fs) { closeFullscreen(); }
         // Same anchor as an entry (v37 — Seth: the realm words should land where
         // entries land). The info blocks sit in the same .wrapper-content column,
@@ -2163,7 +2219,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         var w = e.target.closest('.nav-giveaways, .nav-hideaways, .nav-lungitz');
         if (!w) { return; }
         var a = w.closest('a[href]') || w.querySelector('a[href]'),
-            href = (a && a.getAttribute('href')) || '';
+            href = routeHref((a && a.getAttribute('href')) || '');   // v94: offline hrefs read as site paths
         var m = /#info-(giveaways|hideaways)\b/.exec(href);
         if (m) {
             var target = document.getElementById('info-' + m[1]);
@@ -2178,7 +2234,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
             if (w.closest('.nav-lungitz') || w.classList.contains('nav-lungitz')) {
                 e.preventDefault();
                 if (typeof modalToggle === 'function') { modalToggle(); }
-                else { location.href = '/?menu=1'; }
+                else { location.href = routeUrl('/?menu=1'); }
                 return;
             }
             if (!href || href === '#') {               // unlinked realm word fallback
@@ -2208,7 +2264,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         e.stopPropagation();
         if (fs) { closeFullscreen(); return; }
         if (history.length > 1) { history.back(); }
-        else { location.href = '/'; }
+        else { location.href = routeUrl('/'); }
     });
 }());
 
@@ -2220,7 +2276,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
 // same tokens, no new CSS. Param-gated — a normal Home visit (no ?entry=) is untouched.
 // Entry-to-entry prev/next: TODO.
 (function wayfinding() {
-    var entry = /^\/(giveaways|hideaways)\/([^\/]+)\/?$/.exec(location.pathname);
+    var entry = /^\/(giveaways|hideaways)\/([^\/]+)\/?$/.exec(currentPath());
 
     if (entry) {                              // ── on a standalone entry page ──
         // v32: LUNGITZ wiring lives in §masthead now (LUNGITZ → home, where the
@@ -2252,8 +2308,8 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         function link(slugs) {
             var i = slugs.indexOf(slug), n = slugs.length;
             if (i === -1 || n < 2) { return; }
-            if (prev) { prev.setAttribute('href', '/' + coll + '/' + slugs[(i - 1 + n) % n]); }
-            if (next) { next.setAttribute('href', '/' + coll + '/' + slugs[(i + 1) % n]); }
+            if (prev) { prev.setAttribute('href', routeUrl('/' + coll + '/' + slugs[(i - 1 + n) % n])); }
+            if (next) { next.setAttribute('href', routeUrl('/' + coll + '/' + slugs[(i + 1) % n])); }
         }
         // Cache the order per collection for the session — VALIDATED (only trusted if it
         // contains this entry) so a bad list can't poison it — so prev/next clicks don't
@@ -2261,6 +2317,9 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         var key = 'lz-order-' + coll, cached;
         try { cached = JSON.parse(sessionStorage.getItem(key) || 'null'); } catch (e) {}
         if (cached && cached.indexOf(slug) !== -1) { link(cached); return; }
+        // v94: the offline copy bakes the order in (fetch can't read a file:// page)
+        var baked = window.__lzEntryOrder && window.__lzEntryOrder[coll];
+        if (baked && baked.indexOf(slug) !== -1) { link(baked); return; }
         var column = coll === 'hideaways' ? '.wrapper-content.is-right' : '.wrapper-content.is-left';
         var run = function () {
             fetch('/').then(function (r) { return r.text(); }).then(function (html) {
@@ -3034,7 +3093,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
                 + location.search.replace(/([?&])menu=1&?/, '$1').replace(/[?&]$/, '')
                 + location.hash);
         } catch (e) {}
-    } else if (/^\/(giveaways|hideaways)\//.test(location.pathname)) {
+    } else if (/^\/(giveaways|hideaways)\//.test(currentPath())) {
         // v71 (T-04): ENTRY PAGES NEVER GREET. The CMS templates carry visible
         // columns, so onRealIndex() is true and this module runs — and a cold
         // session used to fall through to show(), greeting the reader over the
@@ -3074,7 +3133,7 @@ document.querySelectorAll(HEADER + ' a, ' + W_THUMB + ' a').forEach(function (a)
         if (!shown()) { return; }
         var a = e.target.closest('a[href]');
         if (a && modal.contains(a)) {
-            var href = a.getAttribute('href') || '';
+            var href = routeHref(a.getAttribute('href') || '');   // v94
             var m = /#info-(giveaways|hideaways)\b/.exec(href);
             if (m) {
                 e.preventDefault();
@@ -3338,9 +3397,10 @@ var lzSyncPad = null;
 (function participantsToIndex() {
     var wrap = document.querySelector('.content-participants');
     if (!wrap) { return; }
-    wrap.querySelectorAll('a[href^="/giveaways/"], a[href^="/hideaways/"]').forEach(function (a) {
-        var m = /^\/(giveaways|hideaways)\/([^\/?#]+)/.exec(a.getAttribute('href'));
-        if (m) { a.setAttribute('href', '/?entry=' + m[1] + '/' + m[2]); }
+    wrap.querySelectorAll('a[href]').forEach(function (a) {   // v94: any href that routes to an entry
+        var r = route(a.getAttribute('href')),
+            m = r && /^\/(giveaways|hideaways)\/([^\/?#]+)/.exec(r.path);
+        if (m) { a.setAttribute('href', routeUrl('/?entry=' + m[1] + '/' + m[2])); }
     });
     // Names whose Designer link is still unbound render href="#" — which, on a list this
     // long, scrolls the reader back to the top: the click reads as a broken jump rather
