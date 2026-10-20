@@ -1,5 +1,13 @@
 # Offline Lungitz — research (2026-10-20)
 
+> **Outcome (same day): Option B was built**, at full resolution (Seth: durable, high-res,
+> size doesn't matter). `static-site/offline.sh` → `static-site/offline/`. Verified from
+> disk in Chrome and Firefox; see `README.md` §5. What the research below predicted vs
+> found: fonts — inlined as planned; sessionStorage — works across pages in Chrome
+> AND Firefox (the greet doesn't replay); new finding — Webflow's SRI/`crossorigin`
+> attributes made Chrome block the stylesheet on `file://`, so the offline build drops
+> them. Safari still to test.
+
 Goal: a copy of the site that runs with **no internet and as few external
 dependencies as possible**: for an exhibition kiosk, a USB stick, an archive deposit,
 or a hand-off to the commissioner.

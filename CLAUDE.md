@@ -74,8 +74,12 @@ published webflow.io site, hosted on Netlify (project `lungitz`, id `4962457f-�
 also at lungitz.netlify.app). DNS stays at Spaceship (apex A → 75.2.60.5, www CNAME →
 lungitz.netlify.app).
 
-- Step-by-step how-to: `static-site/README.md`. Offline-copy options:
-  `static-site/OFFLINE-RESEARCH.md`.
+- Step-by-step how-to: `static-site/README.md`. **Offline copy** (double-click,
+  file://): `static-site/offline.sh` → `static-site/offline/`. It relies on the v94
+  route helpers — `route()`/`routeUrl()` in the script, `lzPath()`/`lzUrl()` in the
+  site head (lockstep, like the landing gate). **Never compare against a literal `'/'`
+  path or build a `'/…'` URL in new code — go through the route helpers**, or the
+  offline copy breaks. Research + options: `static-site/OFFLINE-RESEARCH.md`.
 - **Publish = Webflow publish, then `static-site/publish.sh`** (re-exports + deploys).
   Nothing reaches lungitz.com until the export runs.
 - `static-site/export.mjs` crawls lungitz.webflow.io, self-hosts every asset (Webflow

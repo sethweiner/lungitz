@@ -31,7 +31,11 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 // Preview builds (never production): LZ_OUT=<dir> writes elsewhere, LZ_THUMB_SIZES=0
 // turns OFF the thumbnail sizes rewrite, LZ_SCRIPT=<file> ships that file (e.g. a
 // sandbox build) as /js/lungitz-interactions.js. Deploy previews as a Netlify draft.
-const DIST = process.env.LZ_OUT ? path.resolve(process.env.LZ_OUT) : path.join(HERE, 'dist');
+// LZ_OFFLINE=1 builds the double-click copy instead (see "offline" below) into
+// static-site/offline/, reusing dist/ as its image cache.
+const OFFLINE = !!process.env.LZ_OFFLINE;
+const CACHE = path.join(HERE, 'dist');
+const DIST = process.env.LZ_OUT ? path.resolve(process.env.LZ_OUT) : path.join(HERE, OFFLINE ? 'offline' : 'dist');
 const PUBLIC = path.join(HERE, 'public'); // robots.txt, _headers… copied verbatim
 
 const SEED_PAGES = ['/', '/participants', '/impressum', '/resources'];
@@ -271,23 +275,101 @@ function pruneCss(css, used) {
   return { css: out, dropped };
 }
 
-function finishHtml(html) {
-  if (CLEANUP) { html = stripWebflowRuntime(html); }
+// ---------- LZ_OFFLINE: the double-click copy (2026-10-20) ----------
+// A folder that opens from disk (file://) in any browser, with nothing to install
+// and nothing fetched from anywhere: every original image and size variant, fonts
+// embedded in fonts.css (Firefox won't load a font file from a parent folder of
+// the page), no Webflow JS/jQuery, the readable (unminified) script. Pages are
+// files (index.html, giveaways/<slug>.html), so every root-absolute URL becomes
+// relative to the page, and <meta name="lz-root"> tells the script and the head
+// (route() / lzPath(), v94) where the folder's top is. The site custom code comes
+// from webflow-custom-code/ so the copy carries the route-aware head even before
+// it is pasted into Webflow.
+const ASSET_DIRS = /(["'\s,(]|&quot;)\/(cdn|fonts|js|vendor)\//g;
+
+function relPrefix(file) { return '../'.repeat(file.split('/').length - 1); }
+
+function pageHref(value, prefix) {
+  const m = /^\/([^?#]*)(.*)$/.exec(value);
+  const p = m[1].replace(/\/$/, '');
+  return prefix + (p ? p + '.html' : 'index.html') + m[2];
+}
+
+// LZ_REPO_CODE=1: a normal (http) build that ships webflow-custom-code/ instead of what
+// Webflow has published — to preview custom-code changes before pasting them.
+const REPO_CODE = !!process.env.LZ_REPO_CODE;
+let repoCode = [];   // [start marker, end marker, repo file contents], loaded in main()
+
+function useRepoCode(html) {
+  for (const [start, end, code] of repoCode) {
+    const i = html.indexOf(start), j = html.indexOf(end, i);
+    if (i === -1 || j === -1) { throw new Error('offline: custom code block not found: ' + start); }
+    html = html.slice(0, i) + code + html.slice(j);
+  }
+  return html;
+}
+
+function offlineHtml(html, file) {
+  const prefix = relPrefix(file);
+  html = html.replace(/<script type="speculationrules">[\s\S]*?<\/script>/g, '');
+  // SRI + crossorigin make Chrome treat a file:// stylesheet as a CORS request from
+  // origin "null" and block it; on disk there is no third party to guard against.
+  html = html.replace(/<(link|script)\b[^>]*>/g, (tag) => tag.replace(/ integrity="[^"]*"/, '').replace(/ crossorigin="[^"]*"/, ''));
+  html = html.replace(/(lungitz-interactions\.js)\?v=\d+/g, '$1');
+  html = html.replace('<meta charset="utf-8"/>', '$&<meta name="lz-root" content="' + (prefix || './') + '"/>' +
+    '<script src="' + prefix + 'js/entry-order.js"></script>');
+  html = html.replace(ASSET_DIRS, '$1' + prefix + '$2/');
+  html = html.replace(/href="(\/[^"]*)"/g, (m, v) => 'href="' + pageHref(v, prefix) + '"');
+  return html;
+}
+
+// fonts.css with every font file inlined as a data: URI
+async function inlineFonts() {
+  const p = path.join(DIST, 'fonts/fonts.css');
+  let css = await fs.readFile(p, 'utf8');
+  for (const m of [...css.matchAll(/url\(\/(fonts\/[^)]+)\)/g)]) {
+    const data = await fs.readFile(path.join(DIST, decodeURIComponent(m[1])));
+    css = css.replace(m[0], 'url(data:font/woff2;base64,' + data.toString('base64') + ')');
+  }
+  await fs.writeFile(p, css);
+}
+
+const OFFLINE_README = (date, pages) => `LUNGITZ — offline copy
+Built ${date} from lungitz.webflow.io (the same source as https://lungitz.com).
+
+Open index.html in a web browser (double-click it). Nothing needs to be installed
+and nothing is loaded from the internet; links to participants' and partners'
+websites still point online.
+
+${pages} pages. Every image is included at its original resolution.
+Keep this folder together: the pages, cdn/ (images), fonts/ and js/ belong to each other.
+`;
+
+function finishHtml(html, file) {
+  if ((OFFLINE || REPO_CODE) && html !== FALLBACK_404) { html = useRepoCode(html); }
+  if (CLEANUP || OFFLINE) { html = stripWebflowRuntime(html); }
   // Default since v93 shipped (2026-10-16) — v93's preload keeps the lightbox sharp.
   // LZ_THUMB_SIZES=0 turns it off.
   if (process.env.LZ_THUMB_SIZES !== '0') { html = fixThumbSizes(html); }
-  if (!html.includes('speculationrules')) { html = html.replace('<meta charset="utf-8"/>', '$&' + SPECULATION); }
+  if (!OFFLINE && !html.includes('speculationrules')) { html = html.replace('<meta charset="utf-8"/>', '$&' + SPECULATION); }
   html = stripFontLoader(html);
   html = html.replace(/<link href="https:\/\/cdn\.prod\.website-files\.com" rel="preconnect" crossorigin="anonymous"\/>/, '');
   html = rewrite(html);
   html = html.replaceAll('lungitz.webflow.io', 'lungitz.com');
   // Social/OG images must stay absolute.
   html = html.replace(/(<meta[^>]+content=")\/cdn\//g, '$1' + DOMAIN + '/cdn/');
+  if (OFFLINE) { html = offlineHtml(html, file); }
   return html;
 }
 
 async function main() {
   await fs.mkdir(DIST, { recursive: true });
+  if (OFFLINE || REPO_CODE) {
+    repoCode = [
+      ['<!-- Lungitz landing gate', '</head>', await fs.readFile(path.join(CUSTOM_CODE, 'site-head.html'), 'utf8')],
+      ['<!-- Production interaction script', '</body>', await fs.readFile(path.join(CUSTOM_CODE, 'site-footer.html'), 'utf8')],
+    ];
+  }
   const pages = new Map();                    // path → html
   const todo = [...SEED_PAGES];
   const seen = new Set(todo);
@@ -313,16 +395,24 @@ async function main() {
   }
   // Webflow serves its 404 page with status 404. Until the site has its own (a 404
   // utility page in the Designer), it's Webflow's generic one — swap in a plain fallback.
-  const r404 = await get(ORIGIN + '/404');
-  const html404 = await r404.text();
-  pages.set('/404', /webflow-https-errors/.test(html404) ? FALLBACK_404 : html404);
+  if (!OFFLINE) {
+    const r404 = await get(ORIGIN + '/404');
+    const html404 = await r404.text();
+    pages.set('/404', /webflow-https-errors/.test(html404) ? FALLBACK_404 : html404);
+  } else {
+    // entry order for prev/next (the script can't fetch('/') from disk)
+    const order = { giveaways: [], hideaways: [] };
+    for (const e of homeEntrySlugs(pages.get('/'))) { const [, c, s] = e.split('/'); order[c].push(s); }
+    await write('js/entry-order.js', '// Entry order in the index, for prev/next (built by export.mjs).\nwindow.__lzEntryOrder = ' + JSON.stringify(order, null, 1) + ';\n');
+    referenced.add('js/entry-order.js');
+  }
 
   await checkCustomCode(pages.get('/'));
   if (fontFamilies) { await buildFonts(fontFamilies); }
 
   for (const [p, html] of pages) {
     const f = pageFile(p);
-    await write(f, finishHtml(html));
+    await write(f, finishHtml(html, f));
     referenced.add(f);
   }
 
@@ -336,6 +426,10 @@ async function main() {
       const isText = /\.(css|js)$/i.test(rel);
       const dest = path.join(DIST, rel);
       if (!isText && await exists(dest)) { cached++; return; }
+      if (!isText && DIST !== CACHE && await exists(path.join(CACHE, rel))) {
+        await fs.mkdir(path.dirname(dest), { recursive: true });
+        await fs.copyFile(path.join(CACHE, rel), dest); cached++; return;
+      }
       const res = await get(url);
       if (!res.ok) { console.warn('  asset', res.status, url); return; }
       if (isText) {
@@ -345,7 +439,10 @@ async function main() {
           text = text.replace(/url\((["']?)(?!data:|https?:|\/)([^"')]+)\1\)/g,
             (m, q, u) => 'url(' + q + new URL(u, url).href + q + ')');
         }
-        await write(rel, rewrite(text));
+        text = rewrite(text);
+        // offline: a stylesheet's /cdn/… and /fonts/… resolve from its own folder
+        if (OFFLINE && /\.css$/i.test(rel)) { text = text.replace(ASSET_DIRS, '$1' + relPrefix(rel) + '$2/'); }
+        await write(rel, text);
       } else {
         await write(rel, Buffer.from(await res.arrayBuffer()));
       }
@@ -387,6 +484,21 @@ async function main() {
       await fs.writeFile(p, html);
     }
     console.log(`  pruned CSS: ${dropped} unused w- selectors dropped → /${newRel}`);
+  }
+
+  if (OFFLINE) {
+    if (fontFamilies) { await inlineFonts(); }
+    const shipped = await fs.readFile(path.join(DIST, 'js/lungitz-interactions.js'), 'utf8');
+    if (!shipped.includes('function routeUrl')) {
+      console.warn('  ⚠ the interactions script predates v94 (no route helpers): links between pages will break from disk.' +
+        ' Promote v94, or build with LZ_SCRIPT=../sandbox/v94.js');
+    }
+    await write('README.txt', OFFLINE_README(new Date().toISOString().slice(0, 10), pages.size));
+    referenced.add('README.txt');
+    const pruned = await prune(DIST, '');
+    console.log(`\n${pages.size} pages · ${downloaded} assets downloaded · ${cached} cached/copied · ${pruned} stale files pruned`);
+    console.log('offline copy → ' + DIST + '  (open index.html)');
+    return;
   }
 
   // sitemap.xml — every exported page except 404

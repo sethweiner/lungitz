@@ -140,6 +140,31 @@
 (function () {
   var hash = location.hash;               // capture BEFORE we take it away
 
+  // — routes (v94): the site as paths ('/', '/giveaways/<slug>') —
+  // On http these ARE location.pathname. The offline copy (opened from disk) is
+  // files — index.html, giveaways/<slug>.html — and the export writes
+  // <meta name="lz-root"> with the way back to the folder's top. Same reading as the
+  // script's route() (lockstep). Identity on lungitz.com and webflow.io.
+  var lzOff = location.protocol === 'file:';
+  var lzRoot = (function () {
+    var m = document.querySelector('meta[name="lz-root"]');
+    try { return new URL(m ? m.getAttribute('content') : '/', location.href).href; }
+    catch (e) { return location.origin + '/'; }
+  }());
+  function lzPath(href) {
+    var u;
+    try { u = new URL(href, location.href); } catch (e) { return ''; }
+    var base = u.href.split(/[?#]/)[0];
+    if (base.indexOf(lzRoot) !== 0) { return ''; }
+    var p = '/' + base.slice(lzRoot.length);
+    return lzOff ? p.replace(/(^|\/)index\.html$/, '$1').replace(/\.html$/, '') : p;
+  }
+  function lzUrl(sitePath) {
+    if (!lzOff) { return sitePath; }
+    var m = /^\/([^?#]*)(.*)$/.exec(sitePath), q = m[1].replace(/\/$/, '');
+    return lzRoot + (q ? q + '.html' : 'index.html') + m[2];
+  }
+
   // — the overlay arrives closed, decided before the body parses (v72) —
   document.documentElement.className += ' lz-ov-rest';
 
@@ -203,7 +228,7 @@
 
   // — landing state, decided before the body parses —
   try {
-    var p = location.pathname;
+    var p = lzPath(location.href);
     if (/^\/(giveaways|hideaways)\//.test(p)) {
       // Entry pages: arrival goes straight to the CMS content — always rest
       // (?menu=1 still opens; the script's landingModal has the same branch, v71).
@@ -232,11 +257,11 @@
     try {
       var t = e.target;
       if (!t || !t.closest) { return; }
-      var a = t.closest('a[href^="/giveaways/"], a[href^="/hideaways/"]');
+      var a = t.closest('a[href]');
       if (!a || !a.closest('.content-participants')) { return; }
       if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) { return; }
-      var m = /^\/(giveaways|hideaways)\/([^\/?#]+)/.exec(a.getAttribute('href') || '');
-      if (m) { e.preventDefault(); location.href = '/?entry=' + m[1] + '/' + m[2]; }
+      var m = /^\/(giveaways|hideaways)\/([^\/?#]+)/.exec(lzPath(a.getAttribute('href') || '#'));
+      if (m) { e.preventDefault(); location.href = lzUrl('/?entry=' + m[1] + '/' + m[2]); }
     } catch (err) {}
   }, true);
 }());

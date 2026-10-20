@@ -154,7 +154,45 @@ custom code**: after any duplicate, check the new page's footer block.
 
 ---
 
-## 5 · Hosting & domain
+## 5 · Offline copy (double-click, no server)
+
+A folder that opens straight from disk in any browser: every page, every image at
+its original resolution plus all size variants, fonts embedded, nothing loaded from
+the internet (only links to participants' and partners' sites point online).
+
+```bash
+static-site/offline.sh
+```
+
+Output: `static-site/offline/` (~230 MB, git-ignored), with a `README.txt` for whoever
+receives it. Open `index.html`. Copy the whole folder: pages, `cdn/`, `fonts/` and
+`js/` belong together. Rebuild it after content edits, like `publish.sh`.
+
+How it differs from the lungitz.com build (`LZ_OFFLINE=1` in `export.mjs`):
+pages are files (`participants.html`, `giveaways/<slug>.html`) and every URL is
+relative to the page; `<meta name="lz-root">` tells the script and the site head where
+the folder's top is; `js/entry-order.js` carries the prev/next order (a page can't
+`fetch` another file from disk); fonts are `data:` URIs (Firefox blocks font files from
+a parent folder); SRI/`crossorigin` attributes are dropped (Chrome blocks those on
+`file://`); Webflow JS and jQuery are left out; the script stays unminified; the site
+custom code comes from `webflow-custom-code/`.
+
+**Needs v94+** (the route helpers). Until v94 is promoted, `offline.sh` ships
+`sandbox/v94.js`; the export warns if the script it ships is older.
+
+Verified 2026-10-20 from disk in headless Chrome 155 and Firefox 158: cold greet +
+dismiss, participant name → index with that entry open, LUNGITZ menu, `?menu=1`,
+realm words → `#info-…`, entry prev/next, lightbox opens the 2400 px original, Esc
+closes; same results as lungitz.com, no console errors; every one of 2,674 local
+references exists (except Webflow's empty-image placeholder, which Webflow refuses to
+serve — on lungitz.com too). Safari not yet tested.
+
+`LZ_REPO_CODE=1` (normal build) ships `webflow-custom-code/` instead of what Webflow
+published: a way to preview custom-code changes before pasting them.
+
+---
+
+## 6 · Hosting & domain
 
 - Netlify project **`lungitz`** (`static-site/.netlify/state.json` links this folder to
   it). Also reachable at `lungitz.netlify.app`.
@@ -167,7 +205,7 @@ custom code**: after any duplicate, check the new page's footer block.
 - `dist/` is git-ignored and Dropbox-ignored; it's the asset cache. Deleting it is
   safe — the next export re-downloads everything (~200 MB).
 
-## 6 · Troubleshooting
+## 7 · Troubleshooting
 
 | Symptom | Likely cause |
 |---|---|

@@ -1,5 +1,7 @@
 # Lungitz — Findability go-live bundle
 
+> **2026-10-20: open items now tracked in `SEO-FINDABILITY-PLAN.md`.**
+>
 > **2026-10-16: the site moved to Netlify (lungitz.com), not a Webflow custom domain.**
 > Steps 1–4 below are now handled by the static export: the robots.txt lives in
 > `static-site/public/robots.txt` and `export.mjs` writes `sitemap.xml`. The Webflow

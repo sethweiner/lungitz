@@ -11,3 +11,4 @@ archive/reference/
 # static export (rebuilt by static-site/export.mjs; cache lives in dist/)
 static-site/dist/
 static-site/.netlify/
+static-site/offline/
