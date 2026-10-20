@@ -47,6 +47,8 @@ behavior layer. Violating this is the #1 recurring failure — do not repeat it.
   `sandbox/v34.js`. Deploy = git push → GitHub Pages (~45s). Sandbox testing:
   `/sandbox?v=N`. Site publish via MCP to the webflow.io staging subdomain; the
   public site is the Netlify export (see "Hosting" below).
+- **Site custom code source = `webflow-custom-code/`** (since 2026-10-20): edit
+  there, paste into Site Settings, publish. The export warns on drift.
 - **Custom code lives in three places.** SITE **head** = the `html.lz-rest`
   landing gate (v35) — the only code that runs before first paint; it mirrors
   `landingModal`'s show/rest rule and **must be changed in lockstep with it**.

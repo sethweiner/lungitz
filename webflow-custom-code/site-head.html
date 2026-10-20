@@ -1,0 +1,249 @@
+<!-- Lungitz landing gate — runs BEFORE first paint, so the wrong state is never shown.
+     Webflow ships .container-landing already .is-active in every page's HTML. On Home
+     the interaction script (which loads async, after paint) often has to put it back to
+     the word row — and the reader saw the whole menu appear and then change. Deciding
+     here, synchronously, means there is nothing to correct later.
+     Mirrors landingModal's rule exactly: ?menu=1 opens; a deep link / #anchor / an
+     already-greeted session rests; otherwise the landing greets. ENTRY PAGES
+     (/giveaways/*, /hideaways/*) always rest — arrival goes straight to the CMS
+     content (T-04, v71; the script carries the same branch — change in lockstep).
+     Menu pages (participants etc.) keep .is-active permanently and the gate skips
+     them. -->
+<meta name="color-scheme" content="dark">
+<style>
+  html.lz-rest .container-landing .landing-content,
+  html.lz-rest .container-landing .nav-content.bottom,
+  html.lz-rest .container-landing .frame-close { display: none; }
+
+  /* The frame height lives on .nav.wide.landing in the Designer (so the canvas renders
+     the modal correctly). A RESTING word row must not inherit it, or it becomes a
+     full-frame invisible block sitting over the index and eating clicks. The script
+     carries the same reset for after LUNGITZ dismisses; this copy stops the masthead
+     painting full-height for a frame on load. Keep the two in step. */
+  html.lz-rest .container-landing .nav.wide.landing { height: auto; }
+
+  /* THE OVERLAY NEVER ARRIVES OPEN (v72). Webflow publishes whatever state classes
+     are toggled on the canvas (contract §3's preview workflow) — a publish shipped
+     .immersive-overlay.is-viewing and every page arrived covered by the open overlay.
+     The gate hides the overlay outright; the script settles its state at init and
+     removes lz-ov-rest (lockstep — change either only with the other). No arrival
+     flow opens fullscreen, so this is always correct pre-paint. */
+  html.lz-ov-rest .immersive-overlay { display: none; }
+
+  /* Fallback only. The script publishes the MEASURED masthead height onto both
+     scrollers (html and .wrapper-content) and refreshes it on resize/orientation/fonts;
+     #info arrivals are intercepted outright below. This is what any anchor we do not
+     intercept gets before the script loads. */
+  html, .wrapper-content { scroll-padding-top: 64px; }
+
+  /* TEMPORARY — move me into the Designer and delete this block.
+     At <=767px the columns STACK and the page scrolls; the column scrolls nothing
+     (measured: scrollHeight === clientHeight). But .wrapper-content.is-left/.is-right
+     still carry overflow:auto there, leaving a composited scroll layer with nothing to
+     scroll. The desktop columns are real scrollers, so >=991px must stay untouched.
+     Overridden here rather than on the class because is-left/is-right are SHARED
+     modifier names (also on .h5-nav) and rewriting a shared-modifier combo over MCP is
+     the recorded collapse hazard — by hand in the Designer it is safe. */
+  @media screen and (max-width: 767px) {
+    .wrapper-content.is-left,
+    .wrapper-content.is-right { overflow: visible; }
+  }
+
+  /* Sitewide scrollbars, here rather than only in the async script so they are styled
+     on the FIRST paint. The script keeps an identical copy so /sandbox and any page
+     without this head block still match. Code-owned because Webflow cannot author
+     ::-webkit-scrollbar, and scrollbar-color does not inherit. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #000 color-mix(in srgb, var(--_lungitz---color-ink-900), #000 20%);
+  }
+  *::-webkit-scrollbar { width: 8px; height: 8px; }
+  *::-webkit-scrollbar-track {
+    background: color-mix(in srgb, var(--_lungitz---color-ink-900), #000 20%);
+  }
+  *::-webkit-scrollbar-thumb {
+    background: #000;
+    border-radius: 4px;
+  }
+
+  /* T-09 — THE DARK CANVAS IS PERMANENT CODE-OWNED (updated 2026-07-26 after the
+     flash survived the Designer migration). Three layers, three owners:
+     · body background — SETH'S, in the Designer (Body (All Pages) → ink token,
+       shipped in webflow.css; his migration stands). The body rule below is only
+       pre-stylesheet insurance.
+     · html background — CODE-OWNED FOREVER: the Designer cannot style the html
+       tag, and a white html behind a dark body flashes identically.
+     · color-scheme — CODE-OWNED FOREVER (the meta above + the :root rule): with
+       no declared scheme the BROWSER'S OWN canvas between documents is white in
+       a light-mode browser, and no page CSS can paint that moment — there is no
+       page yet. This was the surviving flash: whenever a navigation is not
+       bridged by a view transition (VT skip/timeout on a slow ~2s staging HTML
+       fetch, or any ineligible nav), Chrome shows ITS canvas. color-scheme:dark
+       makes that canvas dark. The Designer can express none of this.
+     DO NOT DELETE THIS BLOCK — the earlier "migrate then delete" note was only
+     half right, and only the body half migrated. */
+  :root { color-scheme: dark; }
+  html { background-color: #111; }
+  body { background-color: var(--_lungitz---color-ink-900, #111); }
+
+  /* T-08 — SHIPPED DEFAULT (Seth: "vt=1 is the best so far", 2026-07-26).
+     Cross-page navigation reads as the entry-expand gesture family: the UA
+     crossfade re-eased to CLOSE_EASE cubic-bezier(.4,0,.2,1) at 500ms — the
+     same curve and clock as the accordion expand and the fullscreen
+     picture-flight. The opt-in and these rules must live HERE, parse-time, on
+     every page: the incoming document animates the transition, and the async
+     script is too late (that was why the old 300ms version fired only
+     sometimes — its softNav copy is retired). Unsupported browsers ignore the
+     at-rule and the pseudos: they get the arrival-fade fallback below.
+     HELD CANDIDATES stay testable: ?vt=2 (persistent masthead), ?vt=3 (whisper
+     of scale) — promoting either later is a one-line unguard. ?vt=0 = NO
+     transitions, for comparison. ?vt=1 = the shipped default, explicitly. */
+  @view-transition { navigation: auto; }
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 500ms;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  /* vt=2 (held): the masthead WORD ROW persists. Named element = the top
+     .nav-content, NOT .nav.wide: on menu pages the modal is permanently open
+     and .nav.wide is the full frame (measured 781px tall) while on Home/entry
+     rest it is a ~45px bar — pairing those geometries was the vt=2 flash. The
+     top row is the invariant: measured 1251x32 at y21 on Home (rest AND
+     greet), entry pages, and menu pages alike — exactly one per page. */
+  :root[data-lzvt="2"] .container-landing .nav-content:not(.bottom) { view-transition-name: lz-masthead; }
+  :root[data-lzvt="2"]::view-transition-group(lz-masthead) {
+    animation-duration: 500ms;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  /* vt=3 (held): the incoming page arrives with a whisper of the expand's growth. */
+  @keyframes lz-vt-in {
+    from { opacity: 0; transform: scale(0.985); }
+  }
+  :root[data-lzvt="3"]::view-transition-new(root) {
+    animation: lz-vt-in 500ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
+  /* ARRIVAL-FADE FALLBACK — DEFAULT for browsers WITHOUT cross-document view
+     transitions (Firefox today). The intro half only: the incoming page fades
+     in on the shared token; no outro, no click interception, no delay —
+     content is present and interactive from the first frame, only its opacity
+     eases. The canvas behind it is ink (T-09), so the fade rises from dark.
+     Applied only on real link navigations (see the gate script), never on
+     reloads or back/forward, and never where native transitions run. */
+  @keyframes lz-arrive {
+    from { opacity: 0; }
+  }
+  :root[data-lzvtfb] body {
+    animation: lz-arrive 500ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
+</style>
+<script>
+(function () {
+  var hash = location.hash;               // capture BEFORE we take it away
+
+  // — the overlay arrives closed, decided before the body parses (v72) —
+  document.documentElement.className += ' lz-ov-rest';
+
+  // — T-08 page transitions (SHIPPED as default; flags remain for comparison) —
+  // ?vt=0 = no transitions this session; ?vt=2/3 = held candidates; ?vt=1 = the
+  // shipped default, explicitly. The flag is session-sticky (sessionStorage).
+  // The fallback detector runs for EVERY session: browsers whose CSS parser
+  // drops the @view-transition at-rule (no cross-document support — Firefox
+  // today; a CSS.supports probe would false-positive on same-doc support) get
+  // the arrival-fade instead, on real link navigations only.
+  try {
+    var vtm = /[?&]vt=(\d)/.exec(location.search);
+    if (vtm) { sessionStorage.setItem('lz-vt', vtm[1]); }
+    var vt = sessionStorage.getItem('lz-vt') || '';
+    if (vt) { document.documentElement.setAttribute('data-lzvt', vt); }
+    if (vt === '0') {
+      // comparison mode: turn cross-doc transitions off entirely — this style
+      // comes after the stylesheet above, so its @view-transition wins.
+      var voff = document.createElement('style');
+      voff.textContent = '@view-transition{navigation:none}';
+      (document.head || document.documentElement).appendChild(voff);
+    } else {
+      var vprobe = document.createElement('style');
+      vprobe.textContent = '@view-transition{navigation:auto}';
+      (document.head || document.documentElement).appendChild(vprobe);
+      var xdoc = false;
+      try { xdoc = !!(vprobe.sheet && vprobe.sheet.cssRules.length); } catch (exd) {}
+      if (xdoc) {
+        window.addEventListener('pagereveal', function (e) {
+          if (e.viewTransition) {
+            try { sessionStorage.setItem('lz-vt-last', location.pathname + ' native @' + new Date().toTimeString().slice(0, 8)); } catch (erc) {}
+            if (vt) { console.info('[lungitz] view transition running (vt=' + vt + ') into ' + location.pathname); }
+          }
+        });
+      } else {
+        var ntype = '';
+        try { ntype = (performance.getEntriesByType('navigation')[0] || {}).type || ''; } catch (ent) {}
+        if (ntype === 'navigate') {
+          document.documentElement.setAttribute('data-lzvtfb', '1');
+          try { sessionStorage.setItem('lz-vt-last', location.pathname + ' fallback-fade @' + new Date().toTimeString().slice(0, 8)); } catch (erf) {}
+        }
+      }
+      if (vt) { console.info('[lungitz] page-transition flag vt=' + vt + ' armed for this session (' + (xdoc ? 'native view transitions' : 'arrival-fade fallback') + ') — default is the shipped vt=1 crossfade'); }
+    }
+  } catch (e) {}
+
+  // — the #info arrival belongs to the script, not the browser (v52) —
+  // Left alone the browser jumps to the anchor at parse time; the fonts and the lazy
+  // CMS images then reflow everything above the target and it slides out from under
+  // the position that was just set — ~100px low by the time the page settles, and no
+  // amount of correcting afterwards landed it reliably. So the browser never sees a
+  // hash: stash it, strip it before <body> parses, and let the script place the page
+  // once the layout has actually stopped moving. It puts the hash back afterwards, so
+  // the URL still reads /#info-… and stays shareable. With JS off this block never
+  // runs, the hash survives, and the native jump behaves as it always did.
+  if (/^#info-(giveaways|hideaways)$/.test(hash)) {
+    window.__lzInfoTarget = hash.slice(1);
+    try { history.scrollRestoration = 'manual'; } catch (e) {}
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+  }
+
+  // — landing state, decided before the body parses —
+  try {
+    var p = location.pathname;
+    if (/^\/(giveaways|hideaways)\//.test(p)) {
+      // Entry pages: arrival goes straight to the CMS content — always rest
+      // (?menu=1 still opens; the script's landingModal has the same branch, v71).
+      if (!/[?&]menu=1\b/.test(location.search)) {
+        document.documentElement.className += ' lz-rest';
+      }
+    } else if (p === '/' || p === '') {
+      var s = location.search;
+      if (!/[?&]menu=1\b/.test(s)) {
+        var seen = false;
+        try { seen = !!sessionStorage.getItem('lz-landing-seen'); } catch (e) {}
+        if (seen || hash || /[?&]entry=/.test(s) || /[?&]veil=0\b/.test(s)) {
+          document.documentElement.className += ' lz-rest';
+        }
+      }
+    }
+  } catch (e) {}
+
+  // — participants routing, registered before the first possible click —
+  // The Designer link on a contributor's name is the real /giveaways/<slug> page and
+  // stays the truth with no JS. The script SMOOTHS it to /?entry=... so the reader
+  // lands in the index with the entry open — but the script loads async, so there was
+  // a window where the page was clickable and the raw link still won. Same name, two
+  // destinations, seemingly at random. Delegating from here removes the race.
+  document.addEventListener('click', function (e) {
+    try {
+      var t = e.target;
+      if (!t || !t.closest) { return; }
+      var a = t.closest('a[href^="/giveaways/"], a[href^="/hideaways/"]');
+      if (!a || !a.closest('.content-participants')) { return; }
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) { return; }
+      var m = /^\/(giveaways|hideaways)\/([^\/?#]+)/.exec(a.getAttribute('href') || '');
+      if (m) { e.preventDefault(); location.href = '/?entry=' + m[1] + '/' + m[2]; }
+    } catch (err) {}
+  }, true);
+}());
+</script>
+<!-- Hover prefetch: Chrome/Edge fetch a same-origin page's HTML once the pointer rests
+     on its link (~200ms), so the click starts from cache. Prefetch only — no prerender,
+     which would run the arrival logic (the gate above, landingModal) in a hidden page.
+     /cdn/* is lungitz.com's self-hosted images. Moved here from the export (2026-10-20):
+     static-site/export.mjs only injects its own copy when a page carries none. -->
+<script type="speculationrules">{"prefetch":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/cdn/*"}}]},"eagerness":"moderate"}]}</script>

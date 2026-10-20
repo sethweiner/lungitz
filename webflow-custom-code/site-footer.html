@@ -1,0 +1,13 @@
+<!-- Production interaction script. The ?v= pin is the CACHE KEY: bump it on every
+     promote (see CLAUDE.md "When editing the script") or visitors keep the old build.
+     It was ?v='+Date.now() during iteration, which re-downloaded ~106KB on every
+     navigation and widened every load-timing race (T-10). On lungitz.com the export
+     rewrites this URL to /js/ (a local copy revalidated every visit), so the pin
+     matters for lungitz.webflow.io only. -->
+<script>
+  (function () {
+    var s = document.createElement('script');
+    s.src = 'https://sethweiner.github.io/lungitz/lungitz-interactions.js?v=93';
+    document.body.appendChild(s);
+  })();
+</script>

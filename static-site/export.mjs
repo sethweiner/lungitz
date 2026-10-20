@@ -182,6 +182,33 @@ function fixThumbSizes(html) {
 // Webflow site head, which is where it belongs — the export is only the stopgap).
 const SPECULATION = '<script type="speculationrules">{"prefetch":[{"where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":"/cdn/*"}}]},"eagerness":"moderate"}]}</script>';
 
+// ---------- custom-code drift check ----------
+// webflow-custom-code/ (repo root) holds what Site Settings → Custom Code should
+// contain. Warn — never fail — when the published blocks differ, so a stale pin or a
+// hand edit that never landed in the repo shows up at publish time. Compared with
+// whitespace collapsed; each block runs from its opening comment to </head> / </body>.
+const CUSTOM_CODE = path.join(HERE, '..', 'webflow-custom-code');
+
+async function checkCustomCode(html) {
+  const norm = (s) => s.replace(/\s+/g, ' ').trim();
+  const slice = (start, end) => {
+    const i = html.indexOf(start), j = html.indexOf(end, i);
+    return i === -1 || j === -1 ? '' : html.slice(i, j);
+  };
+  const blocks = [
+    ['site-head.html', slice('<!-- Lungitz landing gate', '</head>')],
+    ['site-footer.html', slice('<!-- Production interaction script', '</body>')],
+  ];
+  for (const [file, published] of blocks) {
+    const want = await fs.readFile(path.join(CUSTOM_CODE, file), 'utf8').catch(() => null);
+    if (want === null) { continue; }
+    if (norm(published) !== norm(want)) {
+      console.warn(`  ⚠ custom code drift: Webflow's published ${file.replace('.html', '')} differs from webflow-custom-code/${file}` +
+        ' — paste the repo file into Site Settings → Custom Code and publish (or update the file if Webflow is right)');
+    }
+  }
+}
+
 // ---------- LZ_CLEANUP (preview until Seth approves, 2026-10-16) ----------
 // Measured first: no Webflow widgets or IX2 on any page (only CSS hooks like
 // w-dyn-item / w-button / w-richtext), so jQuery + Webflow's JS do nothing here
@@ -290,6 +317,7 @@ async function main() {
   const html404 = await r404.text();
   pages.set('/404', /webflow-https-errors/.test(html404) ? FALLBACK_404 : html404);
 
+  await checkCustomCode(pages.get('/'));
   if (fontFamilies) { await buildFonts(fontFamilies); }
 
   for (const [p, html] of pages) {
