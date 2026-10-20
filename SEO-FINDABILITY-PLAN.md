@@ -164,8 +164,8 @@ trust**. For a memorial project those are natural:
 - **Artist links:** a small conditional ↗ next to each name in the **Participants list
   only**, opening the artist's site in a new tab; visibility condition on the ↗ link
   itself. Not in the entry credits; Hideaways sources/archives not linked.
-- **URLs:** Claude researches the 11 missing (7 already in the CMS, from the old hidden
-  `.content-participants.hide` list); Seth confirms before they go in.
+- **URLs:** own websites only, no institutional or social links (Seth). Researched list
+  below. Jürgen Grünwald comes off the Participants list (external photographer).
 - **Field names** (Seth: "you decide"): `Meta description` (PlainText; Giveaways +
   Hideaways), `Sort year` (Number; Hideaways). Artist link: the existing website field if
   the connector confirms it, else `Website` (Link).
@@ -177,34 +177,48 @@ trust**. For a memorial project those are natural:
 - v94 promote: later. Offline copy: works in Safari (Seth tested); `static-site/offline/`
   stays in Dropbox sync as a backup.
 
-## Artist website URLs (researched 2026-10-20, for Seth to confirm)
+## Artist website URLs (researched 2026-10-20 · Seth's rule: own sites only)
 
-Sources: the FdR 2023 project page (fdr.at/en/project/giveaways-hideaways/, which links
-most of these) and Seth's March International essay. Suggested policy: link the
-artist's **own site**; use a stable institutional profile only where there is none;
-leave the arrow off (empty field → hidden) rather than link social media or a fragile
-page.
+**Rule (Seth, 2026-10-20): link the artist's own website only.** No institutional
+profiles, no social media. An empty field means no arrow (conditional visibility on the
+↗ link). Sources: the FdR 2023 project page, which links most of them, and Seth's March
+International essay.
 
-| Artist | Suggested URL | Kind | Sure? | Note |
-|---|---|---|---|---|
-| Anna Weberberger | https://annaweberberger.com/ | own site | high | CV lists Giveaways/Hideaways 2023 |
-| Antoine Turillon | https://antoineturillon.net/ | own site | high | has a Giveaways/Hideaways project page |
-| Seth Weiner | https://sethweiner.org/ | own site | high | |
-| Brishty Alam | https://brishtyalam.com/ | own site | high | already in CMS, live |
-| Johanna Tinzl | https://johannatinzl.net/EN | own site | high | already in CMS; root = German version |
-| Maggessi/Morusiewicz | https://www.maggessi-morusiewicz.com/ | own site (duo) | high | already in CMS, live |
-| Marc-Alexandre Dumoulin | https://www.marcalexandredumoulin.com/ | own site | high | already in CMS, live |
-| Rosabel Rosalind | https://rosabelrosalind.com/ | own site | high | already in CMS; CV lists the show |
-| Stephanie Misa | https://stephaniemisa.com/ | own site | high | already in CMS as www.; site prefers the bare domain |
-| Jürgen Grünwald | https://juergen-gruenwald.at/ | own site | medium | Linz photographer; site never mentions Lungitz, so **confirm it's him** |
-| Edgar Lessig | (hold) https://www.edgarlessig.com/ | own site | — | **currently broken** (certificate error, host placeholder); in CMS. Ask him or leave hidden |
-| Baptiste El Baz | https://www.artothek.info/people/8051/baptiste-el-baz | institutional (Artothek des Bundes) | medium-high | no own site (old blog removed) |
-| Abdul Sharif Oluwafemi Baruwa | https://2023.kyivbiennial.org/en/participants/abdul-sharif-oluwafemi-baruwa | institutional | medium | gallery (EXILE) artist page now redirects; own domain is an empty placeholder |
-| Julia S. Goodman | https://www.akbild.ac.at/de/universitaet/absolvent_innen/mentoring_programm_kunst/stipendiat_innen/2021-2022/julia-goodman | institutional (Akademie) | medium | juliasgoodman.com is parked; Instagram exists. Ask her |
-| Flo Karl Berger | https://www.palaisdesbeauxarts.at/collection-view/flo-karl-berger | institutional (PdBA) | high (identity) | self-referential (Seth's institution); no own site |
-| Wolfgang Schmutz | https://www.linkedin.com/in/wolfgangschmutz/ | social (FdR links it) | medium-high | by the policy above: leave off, or use it since FdR does |
-| Andreas Haider | none | | | no web presence; arrow stays hidden |
-| Judith Pirklbauer | none | | | no web presence. **Spelling:** FdR writes "Pirkelbauer", so check which is right |
+| Participant | Website field | Note |
+|---|---|---|
+| Anna Weberberger | https://annaweberberger.com/ | new · CV lists Giveaways/Hideaways 2023 |
+| Antoine Turillon | https://antoineturillon.net/ | new · has a Giveaways/Hideaways project page |
+| Seth Weiner | https://sethweiner.org/ | new |
+| Brishty Alam | https://brishtyalam.com/ | already in CMS, live |
+| Johanna Tinzl | https://johannatinzl.net/EN | already in CMS, live (root = German version) |
+| Maggessi/Morusiewicz | https://www.maggessi-morusiewicz.com/ | already in CMS, live |
+| Marc-Alexandre Dumoulin | https://www.marcalexandredumoulin.com/ | already in CMS, live |
+| Rosabel Rosalind | https://rosabelrosalind.com/ | already in CMS, live |
+| Stephanie Misa | https://stephaniemisa.com/ | in CMS as `www.`; switch to the bare domain the site itself uses |
+| Edgar Lessig | *(empty for now)* | in CMS as https://www.edgarlessig.com/, **broken** 2026-10-20 (certificate error + host placeholder); clear it, re-check later or ask him |
+| Abdul Sharif Oluwafemi Baruwa · Andreas Haider · Baptiste El Baz · Flo Karl Berger · Judith Pirklbauer · Julia S. Goodman · Wolfgang Schmutz | *(empty)* | no own website (only institutional/social pages, which the rule excludes) |
+
+- Spelling confirmed (Seth): **Pirklbauer** is correct; FdR's "Pirkelbauer" is their typo.
+
+## Jürgen Grünwald is not a participant (Seth, 2026-10-20)
+
+He's an external photographer, so he shouldn't be in the Participants list (and gets no
+website arrow). Why he's there: he's set as the **author** (sole contributor) of two
+Giveaways, *Lungitz Bahnhof \*Exterior* and *Lungitz Bahnhof \*Waiting Room*.
+Everywhere else he's credited correctly, in the image credits ("Photo © Jürgen Grünwald").
+
+- [ ] Check how the Participants list filters (it shows 18 of the 37 contributors) once
+      the connector can see the CMS.
+- [ ] Fix at the source: remove him as author of those two entries and leave **no
+      author**, since they're documentation (Seth). The photo credits stay. Then check the
+      list: 17 names. If the list filters on a contributor flag instead, switch his off
+      too.
+- [ ] **Before removing him:** no entry has ever had zero authors (checked: all 45 have
+      one), so the author list's **Empty State** has never shown. Webflow's default is a
+      grey box reading "No items found." (`.w-dyn-empty`: #ddd, 10px padding), which would
+      appear in those two headers. In the Designer, select the author Collection List →
+      Empty State and hide it (display: none on its class), on Home and on both entry
+      templates. Then the two documentation entries simply show no author line.
 
 ## Who does what
 
