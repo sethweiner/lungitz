@@ -28,6 +28,10 @@
 //   same strings. Offline the export bakes the entry order into the folder
 //   (window.__lzEntryOrder) because fetch('/') can't read a file. The site head
 //   carries the same route reading (lockstep, webflow-custom-code/site-head.html).
+//   ALSO v94 — entries on their own page no longer collapse when the title is
+//   clicked (Seth: the page went blank). Keyed to a Designer class, not to the URL:
+//   .header-accordion.is-standalone on the Giveaways + Hideaways templates (Seth: "you
+//   name the combo"; it also carries the arrow cursor there). No class → old behaviour.
 // v93 (2026-10-16) — the soft seed wears Seth's state. Seth on v92: "the images
 //   pixelate as they load for the lightbox, maybe add a blur to cover it up".
 //   When the overlay has to open on the thumb's seed (no hover head start —
@@ -1736,6 +1740,11 @@ function resetZoom() {
 // ── State 1 <-> 2 : Accordion ──
 
 function closeAccordion(el) {
+    // v94: an entry whose header wears .is-standalone (Designer combo on the entry
+    // templates' .header-accordion) stays open — on its own page there is nothing to
+    // collapse into. The class is the switch: remove it in the Designer and the entry
+    // collapses again. Covers every close path (header click, ⏎, Esc).
+    if (el.querySelector(HEADER + '.is-standalone')) { return; }
     if (detail && detail.trigger === el) { detail = null; }   // v66: engagement, no view
     el.querySelectorAll(W_THUMB).forEach(function (t) {
         var th = t.querySelector('.thumb-hover');

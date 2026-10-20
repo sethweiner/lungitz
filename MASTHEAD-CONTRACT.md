@@ -404,3 +404,32 @@ cursors (native `zoom-in`/`grab`/`grabbing`) live in injected CSS; promotable to
 `touch-action: pan-y pinch-zoom`, tap-step zoom gated off on `hover:none`, the swipe
 stands down while `visualViewport.scale > 1`. **Stale-image flash fixed**: each slide
 seeds from the thumb's decoded srcset variant, upgrades to the full asset on load.
+
+---
+
+## 16. Cursors are Designer-owned · `.is-standalone` (v94, 2026-10-20)
+
+Seth: "anything that can remain editable in the designer should, so it's not locked
+into the code or an easter egg hunt to edit in the future." Rule: **a hand only where a
+click does something**, set on the classes in the Designer, never in the script.
+
+Fix to make in the Designer (cursors measured on lungitz.com 2026-10-20):
+
+| Class | Was | Set to | Why |
+|---|---|---|---|
+| `.nav` | Pointer | **Auto** | on menu pages `.nav.wide.landing` is the whole frame (1342×1021) → hand everywhere, clicks do nothing; also the gaps between the masthead words. Links keep the hand natively |
+| `.trigger-accordion` (+ `-copy`) | Pointer | **Auto** | the whole entry body showed a hand; only the header toggles |
+| `.header-accordion` (+ `-copy`) | Default | **Pointer** | the part that actually opens/closes the entry |
+| `.title` | Pointer | **remove** (inherit) | so the header decides — pointer on Home, arrow on entry pages |
+| `.header-accordion.is-standalone` | — | **Auto** | new combo, below |
+
+**`.is-standalone`** (Claude-named at Seth's request): a combo on `.header-accordion` on
+the **Giveaways and Hideaways template pages**. The script (`closeAccordion`, v94) reads it:
+an entry whose header wears it never collapses (header click, ⏎ and Esc), because on its
+own page there's nothing to collapse into (the page went blank). The class carries both
+the behaviour and its arrow cursor, so it's visible and switchable on canvas. Remove it,
+and the entry collapses again. Not applied by code; until it's added in the Designer,
+entry pages behave as before.
+
+Still code-owned (§2): the lightbox cursors (`[data-cursor]` assets are swappable in the
+Asset panel; zoom cursors are injected).
